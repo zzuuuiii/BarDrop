@@ -1,0 +1,11 @@
+name: Idee vorschlagen
+description: Eine neue Funktion oder Verbesserung.
+labels: [idee]
+body:
+  - type: textarea
+    id: idee
+    attributes:
+      label: Deine Idee
+      description: Was soll BarDrop können, und in welcher Situation hilft dir das?
+    validations:
+      required: true

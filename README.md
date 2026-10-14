@@ -132,6 +132,10 @@ BarDrop wäre ohne diese Projekte nicht so, wie es ist:
 
 Details zu Lizenzen fremden Codes stehen in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). BarDrop ist ein eigenständiges Projekt und steht in keiner Verbindung zu diesen Projekten.
 
+## Mitmachen
+
+Fehler und Ideen gern über [Issues](https://github.com/zzuuuiii/BarDrop/issues/new/choose), Sicherheitslücken bitte vertraulich (siehe [SECURITY.md](SECURITY.md)). Wie Beiträge ablaufen, steht in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Lizenz
 
 © 2026 zzuuuiii. BarDrop ist freie Software unter der [GNU General Public License v3.0](LICENSE). Du darfst es nutzen, verändern und weitergeben, solange Weitergaben ebenfalls unter der GPL-3.0 stehen und den Quellcode mitliefern. BarDrop wird ohne Gewährleistung bereitgestellt.

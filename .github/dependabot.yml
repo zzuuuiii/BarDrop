@@ -1,0 +1,7 @@
+# Hält die Bausteine der GitHub-Actions aktuell (einmal pro Monat ein Pull Request)
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

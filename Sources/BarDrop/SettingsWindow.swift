@@ -225,6 +225,8 @@ struct AboutSettings: View {
         }
     }
 
+    @State private var showInspirations = false
+
     var body: some View {
         Form {
             Section {
@@ -242,45 +244,86 @@ struct AboutSettings: View {
                         }
                     }
                     Spacer()
-                    Button("Einführung zeigen", action: showOnboarding)
+                    updateControl
                 }
                 .padding(.vertical, 4)
-            }
-
-            Section {
                 Toggle("Automatisch nach Updates suchen", isOn: $settings.autoUpdateCheck)
-                LabeledContent("Updates") {
-                    switch updater.state {
-                    case .checking:
-                        ProgressView().controlSize(.small)
-                    case .installing:
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.small)
-                            Text("Wird installiert").foregroundStyle(.secondary)
-                        }
-                    case .available(let v):
-                        Button("Auf \(v) aktualisieren") { updater.install() }
-                    default:
-                        Button("Jetzt suchen") { updater.check(interactive: true) }
-                    }
-                }
             } footer: {
                 SectionNote(updateNote)
             }
 
             Section {
-                LinkRow(title: "Alcove", detail: "Vorbild für Form und Bewegung",
-                        url: "https://tryalcove.com")
-                LinkRow(title: "Klack", detail: "Vorbild für die Einstellungen",
-                        url: "https://tryklack.com")
+                // Eingeklappt: nur die Namen. Ein Klick klappt die Einträge mit Links auf.
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { showInspirations.toggle() }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Inspiriert von")
+                                .foregroundStyle(.primary)
+                            Text("Alcove, Klack, boring.notch und perch")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(showInspirations ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if showInspirations {
+                    LinkRow(title: "Alcove", detail: "Vorbild für Form und Bewegung der Ablage",
+                            url: "https://tryalcove.com")
+                    LinkRow(title: "Klack", detail: "Vorbild für Aufbau und Gestaltung der Einstellungen",
+                            url: "https://tryklack.com")
+                    LinkRow(title: "boring.notch", detail: "Code für Bilder aus dem Web und Vorschaubilder",
+                            url: "https://github.com/TheBoredTeam/boring.notch")
+                    LinkRow(title: "perch", detail: "Code für Herausziehen und iCloud-Dateien",
+                            url: "https://github.com/hausfold/perch")
+                }
                 LinkRow(title: "Quellcode", detail: "github.com/zzuuuiii/BarDrop",
                         url: "https://github.com/zzuuuiii/BarDrop")
             } header: {
-                SettingsHeader("Inspiriert von")
+                SettingsHeader("Dank und Quellen")
+            }
+
+            Section {
+                LabeledContent {
+                    Button("Einführung zeigen", action: showOnboarding)
+                } label: {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Einführung")
+                        Text("Die drei Schritte vom ersten Start noch einmal")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    /// Knopf oben rechts: suchen, Fortschritt oder installieren
+    @ViewBuilder
+    private var updateControl: some View {
+        switch updater.state {
+        case .checking:
+            ProgressView().controlSize(.small)
+        case .installing:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Wird installiert").foregroundStyle(.secondary)
+            }
+        case .available(let v):
+            Button("Auf \(v) aktualisieren") { updater.install() }
+                .buttonStyle(.borderedProminent)
+        default:
+            Button("Nach Updates suchen") { updater.check(interactive: true) }
+        }
     }
 }
 

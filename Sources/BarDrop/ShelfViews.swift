@@ -47,14 +47,13 @@ struct ShelfRootView: View {
             Color.clear
 
             ZStack(alignment: edgeAlignment) {
-                // Weicher Schatten aus zwei Ebenen: ein breiter, leichter und ein enger,
-                // dunklerer. Er läuft innerhalb des Fensterrands ganz aus, damit keine
-                // harte Kante entsteht (Platz dafür: ShelfMetrics.panelMargin).
-                let shadow = ui.level == .expanded ? 1.0 : 0.0
+                // Weicher Schatten, der innerhalb des Fensterrands ganz ausläuft
+                // (Platz dafür: ShelfMetrics.panelMargin). Nur eine Ebene: Jeder Schatten
+                // wird in jedem Bild der Animation neu berechnet.
                 shape
                     .fill(Color.black)
-                    .shadow(color: .black.opacity(0.32 * shadow), radius: 18, x: 0, y: 8)
-                    .shadow(color: .black.opacity(0.22 * shadow), radius: 4, x: 0, y: 2)
+                    .shadow(color: .black.opacity(ui.level == .expanded ? 0.45 : 0),
+                            radius: 18, x: 0, y: 8)
 
                 // Feiner heller Rahmen: auf dunklem Hintergrund sichtbar, auf hellem
                 // verschwindet er fast. Ohne Linie am Bildschirmrand selbst.

@@ -1,5 +1,14 @@
 # Änderungen
 
+## 1.14.0
+* Aktionen lassen sich wieder per Ziehen anordnen
+* Kein Symbol in der Menüleiste mehr; der Bildschirmrand öffnet die Ablage immer
+* Beim Verstellen von Breite und Länge zeigt sich die offene Ablage am Rand
+* Werkseinstellungen: alle Einstellungen mit Rückfrage zurücksetzen
+* Einstellungen neu geordnet: Start, Öffnen, Rückmeldung; Rahmen und Animation unter „Ablage → Aussehen“
+* „Über BarDrop“: Updates oben, Vorbilder einklappbar und vollständig, Einführung ganz unten
+* Flüssigere Animation beim Öffnen: Symbole der Objekte zwischengespeichert, Schatten in einer Ebene
+
 ## 1.13.2
 * Einstellungen: kein heller Streifen mehr am unteren Fensterrand
 

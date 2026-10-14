@@ -30,6 +30,7 @@ final class EdgeController: NSObject {
     /// Welche Stufe die Vorschau beim Ändern der Einstellungen zeigt
     private var previewLevel: ShelfUIModel.Level = .hint
     private var lastPeekSignature = ""
+    private var lastSizeSignature = ""
     /// Adaptive Höhe: Zeigerhöhe, an der die Ablage erscheinen soll.
     private var adaptiveY: CGFloat?
     private var lastLayoutSignature = ""
@@ -70,6 +71,7 @@ final class EdgeController: NSObject {
         screen = screenUnderMouse() ?? allowedScreens().first
         lastLayoutSignature = settings.layoutSignature
         lastPeekSignature = settings.peekSignature
+        lastSizeSignature = settings.sizeSignature
         layoutPanel()
         panel.orderFrontRegardless()
 
@@ -285,7 +287,8 @@ final class EdgeController: NSObject {
 
         if new == .expanded {
             store.pruneMissingFiles()
-            takeFocus()
+            // Vorschau beim Verstellen in den Einstellungen: den Fokus dort lassen
+            if previewUntil == nil { takeFocus() }
         }
         if new < .expanded && old == .expanded {
             // Während eines eigenen Drags darf das Fenster nicht vom Bildschirm,
@@ -376,8 +379,16 @@ final class EdgeController: NSObject {
                 screen = screenUnderMouse() ?? allowedScreens().first
             }
             layoutPanel()
-            previewUntil = now.addingTimeInterval(1.2)
-            previewLevel = .hint
+            // Breite oder Länge geändert: die offene Ablage zeigen, damit man die neue
+            // Größe sieht. Sonst (Rand, Höhe, Lage) den Griff an der neuen Stelle.
+            if settings.sizeSignature != lastSizeSignature {
+                lastSizeSignature = settings.sizeSignature
+                previewUntil = now.addingTimeInterval(1.5)
+                previewLevel = .expanded
+            } else {
+                previewUntil = now.addingTimeInterval(1.2)
+                previewLevel = .hint
+            }
         }
         // Form des ersten Streifens geändert: genau diesen kurz zeigen
         if layoutDirty, settings.peekSignature != lastPeekSignature {
@@ -455,7 +466,7 @@ final class EdgeController: NSObject {
             width: m.width, height: m.height, fillet: m.fillet
         )
         let config = EdgeLogic.Config(dragReveal: settings.dragReveal,
-                                      revealOnHover: settings.revealOnHover,
+                                      revealOnHover: true,
                                       openMode: settings.openMode,
                                       openDelay: settings.openDelay)
         logic.level = ui.level

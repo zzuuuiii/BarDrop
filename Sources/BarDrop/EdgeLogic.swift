@@ -100,7 +100,8 @@ enum EdgeLogic {
             // Zeiger auf einem anderen Bildschirm: dort wird die Ablage nicht gebraucht
             result.target = ((state.manualHovered && !s.overExpanded) || s.onOtherScreen) ? .hidden : .expanded
         } else if state.level == .expanded {
-            if s.overExpanded {
+            // Vorschau der offenen Ablage (Größe wird verstellt): offen halten
+            if s.overExpanded || (s.preview == .expanded && s.onScreen) {
                 state.outsideSince = nil
             } else {
                 let since = state.outsideSince ?? s.now

@@ -8,8 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var store: ShelfStore!
     private var ui: ShelfUIModel!
     private var controller: EdgeController!
-    private var statusItem: NSStatusItem?
-    private var menuBarObserver: AnyCancellable?
     private var hotKeyObserver: AnyCancellable?
     private var settingsWindow: NSWindow?
     private var hotKey: HotKey?
@@ -27,13 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Herausziehen fehlgeschlagen: Objekt zurück in die Ablage
         DragExporter.shared.onFailed = { [weak self] url in self?.store.restore(url) }
 
-        // Symbol in der Menüleiste nur auf Wunsch. Ohne Symbol erreicht man alles über
+        // Kein Symbol in der Menüleiste: Einstellungen und Beenden erreicht man über
         // einen Rechtsklick in die Ablage oder durch erneutes Öffnen von BarDrop.
-        menuBarObserver = settings.$showMenuBarIcon
-            .removeDuplicates()
-            .sink { [weak self] show in
-                if show { self?.setupStatusItem() } else { self?.removeStatusItem() }
-            }
 
         // Kurzbefehl, neu registriert, sobald er in den Einstellungen geändert wird
         hotKeyObserver = settings.$hotKeyCode.combineLatest(settings.$hotKeyModifiers)
@@ -88,44 +81,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             Log.edge.info("Andere BarDrop-Instanz wird beendet")
             app.terminate()
         }
-    }
-
-    // MARK: Menüleiste
-
-    private func removeStatusItem() {
-        if let statusItem { NSStatusBar.system.removeStatusItem(statusItem) }
-        statusItem = nil
-    }
-
-    private func setupStatusItem() {
-        guard statusItem == nil else { return }
-        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        self.statusItem = statusItem
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "tray.and.arrow.down", accessibilityDescription: "BarDrop")
-            button.image?.isTemplate = true
-        }
-        let menu = NSMenu()
-        menu.addItem(ClosureMenuItem("Ablage öffnen", symbol: "sidebar.right") { [weak self] in
-            self?.controller.toggle()
-        })
-        menu.addItem(ClosureMenuItem("Aus Zwischenablage einfügen", symbol: "doc.on.clipboard") { [weak self] in
-            self?.store.pasteFromClipboard()
-            self?.controller.toggle()
-        })
-        menu.addItem(ClosureMenuItem("Alle Objekte entfernen", symbol: "xmark.circle") { [weak self] in
-            guard let self else { return }
-            let count = self.store.entries.reduce(0) { $0 + $1.files.count }
-            if ShelfActions.confirmRemovingAll(count) { self.store.removeAll() }
-        })
-        menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem("Einstellungen", symbol: "gearshape", key: ",") { [weak self] in
-            self?.showSettings()
-        })
-        menu.addItem(ClosureMenuItem("BarDrop beenden", symbol: "power", key: "q") {
-            NSApp.terminate(nil)
-        })
-        statusItem.menu = menu
     }
 
     // MARK: Einstellungen

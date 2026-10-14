@@ -217,7 +217,6 @@ final class AppSettings: ObservableObject {
         static let peekThickness = "peekThickness"
         static let peekLength = "peekLength"
         static let peekRoundness = "peekRoundness"
-        static let revealOnHover = "revealOnHover"
         static let removeAfterDragOut = "removeAfterDragOut"
         static let stackMultiple = "stackMultiple"
         static let stackThreshold = "stackThreshold"
@@ -232,7 +231,6 @@ final class AppSettings: ObservableObject {
         static let hapticsEnabled = "hapticsEnabled"
         static let quickActions = "quickActions"
         static let sortOrder = "sortOrder"
-        static let showMenuBarIcon = "showMenuBarIcon"
         static let showOutline = "showOutline"
         static let openDelay = "openDelay"
         static let clickToOpenEarly = "clickToOpenEarly"
@@ -272,7 +270,6 @@ final class AppSettings: ObservableObject {
     @Published var peekLength: Double { didSet { defaults.set(peekLength, forKey: Key.peekLength) } }
     /// 0 = eckig, 1 = ganz rund
     @Published var peekRoundness: Double { didSet { defaults.set(peekRoundness, forKey: Key.peekRoundness) } }
-    @Published var revealOnHover: Bool { didSet { defaults.set(revealOnHover, forKey: Key.revealOnHover) } }
     @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Key.hapticsEnabled) } }
     @Published var animationStyle: AnimationStyle { didSet { defaults.set(animationStyle.rawValue, forKey: Key.animationStyle) } }
     /// Automatisch ganz öffnen oder erst nach einem Klick auf die mittlere Stufe.
@@ -343,8 +340,6 @@ final class AppSettings: ObservableObject {
         openMode == .click
             || (clickToOpenEarly && openDelay >= Self.clickToOpenMinDelay - 0.01)
     }
-    /// Symbol in der Menüleiste anzeigen.
-    @Published var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Reihenfolge der Objekte in der Ablage.
     @Published var sortOrder: SortOrder { didSet { defaults.set(sortOrder.rawValue, forKey: Key.sortOrder) } }
 
@@ -376,7 +371,6 @@ final class AppSettings: ObservableObject {
             Key.peekThickness: PeekDefaults.thickness,
             Key.peekLength: PeekDefaults.length,
             Key.peekRoundness: PeekDefaults.roundness,
-            Key.revealOnHover: true,
             Key.hapticsEnabled: true,
             Key.removeAfterDragOut: true,
             Key.stackMultiple: true,
@@ -389,7 +383,6 @@ final class AppSettings: ObservableObject {
             Key.copyAllFiles: false,
             Key.dragOutCopyOnly: false,
             Key.sortOrder: SortOrder.newestFirst.rawValue,
-            Key.showMenuBarIcon: false,
             Key.showOutline: true,
             Key.openDelay: OpenDelay.instant,
             Key.clickToOpenEarly: true,
@@ -425,7 +418,6 @@ final class AppSettings: ObservableObject {
         peekThickness = defaults.double(forKey: Key.peekThickness)
         peekLength = defaults.double(forKey: Key.peekLength)
         peekRoundness = defaults.double(forKey: Key.peekRoundness)
-        revealOnHover = defaults.bool(forKey: Key.revealOnHover)
         hapticsEnabled = defaults.bool(forKey: Key.hapticsEnabled)
         removeAfterDragOut = defaults.bool(forKey: Key.removeAfterDragOut)
         stackMultiple = defaults.bool(forKey: Key.stackMultiple)
@@ -436,7 +428,6 @@ final class AppSettings: ObservableObject {
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
         dragOutCopyOnly = defaults.bool(forKey: Key.dragOutCopyOnly)
-        showMenuBarIcon = defaults.bool(forKey: Key.showMenuBarIcon)
         showOutline = defaults.bool(forKey: Key.showOutline)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
         clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
@@ -449,6 +440,11 @@ final class AppSettings: ObservableObject {
         // Werte aus älteren Versionen (Woche, 30 Tage) gibt es nicht mehr
         let stored = defaults.double(forKey: Key.autoRemoveAfter)
         autoRemoveAfter = AutoRemoveOption(rawValue: stored)?.rawValue ?? AutoRemoveOption.never.rawValue
+
+        // Nicht mehr einstellbar: Der Rand öffnet die Ablage immer, ein Symbol in der
+        // Menüleiste gibt es nicht mehr. Alte Werte aufräumen.
+        defaults.removeObject(forKey: "revealOnHover")
+        defaults.removeObject(forKey: "showMenuBarIcon")
 
         if let data = defaults.data(forKey: Key.quickActions),
            let decoded = try? JSONDecoder().decode([QuickAction].self, from: data) {
@@ -473,8 +469,37 @@ final class AppSettings: ObservableObject {
         peekRoundness = PeekDefaults.roundness
     }
 
+    /// Alle Einstellungen auf den Auslieferungszustand. Inhalt der Ablage,
+    /// Einführung und interne Umstellungen bleiben unberührt.
+    func resetAll() {
+        resetShelfLayout()
+        dragReveal = .immediately
+        hapticsEnabled = true
+        animationStyle = .standard
+        openMode = .automatic
+        openDelay = OpenDelay.instant
+        clickToOpenEarly = true
+        showOutline = true
+        removeAfterDragOut = true
+        stackMultiple = true
+        stackThreshold = 2
+        keepAfterAction = false
+        autoRemoveAfter = AutoRemoveOption.h2.rawValue
+        convertWebImages = true
+        copyAllFiles = false
+        dragOutCopyOnly = false
+        sortOrder = .newestFirst
+        quickActions = QuickAction.defaults
+        autoUpdateCheck = true
+        skippedUpdateVersion = nil
+        resetHotKey()
+    }
+
     /// Form des ersten Streifens
     var peekSignature: String { "\(peekThickness)|\(peekLength)|\(peekRoundness)" }
+
+    /// Größe der offenen Ablage
+    var sizeSignature: String { "\(shelfWidth)|\(shelfHeight)" }
 
     /// Alles, was Lage oder Größe der Ablage beeinflusst.
     var layoutSignature: String {

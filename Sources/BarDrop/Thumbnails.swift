@@ -29,8 +29,20 @@ enum Thumbnails {
         cache.object(forKey: key(url, size: size) as NSString)
     }
 
+    private static let icons: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.countLimit = 400
+        return cache
+    }()
+
+    /// Finder-Symbol, zwischengespeichert: Es wird beim Zeichnen jeder Kachel gebraucht,
+    /// auch in jedem Bild der Öffnen-Animation, und kostet sonst jedes Mal einen Dateizugriff.
     static func icon(_ url: URL) -> NSImage {
-        NSWorkspace.shared.icon(forFile: url.path)
+        let key = url.standardizedFileURL.path as NSString
+        if let icon = icons.object(forKey: key) { return icon }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icons.setObject(icon, forKey: key)
+        return icon
     }
 
     static func load(_ url: URL, size: CGFloat, completion: @escaping (NSImage?) -> Void) {
@@ -75,9 +87,9 @@ struct ThumbnailView: View {
     let url: URL
     let size: CGFloat
     @State private var image: NSImage?
-
     /// Echte Vorschau (Bild, PDF, Video …) statt Symbol: bekommt runde Ecken wie im Finder.
-    private var isPreview: Bool { image != nil && Thumbnails.cached(url, size: size) != nil }
+    /// Wird beim Laden gemerkt statt beim Zeichnen geprüft (das kostet Dateizugriffe).
+    @State private var isPreview = false
 
     var body: some View {
         Image(nsImage: image ?? Thumbnails.icon(url))
@@ -90,6 +102,7 @@ struct ThumbnailView: View {
             // Neu laden, wenn sich die Datei ändert (z. B. nach dem Verschieben)
             .task(id: url) {
                 image = Thumbnails.cached(url, size: size)
+                isPreview = image != nil
                 guard image == nil else { return }
                 // Frisch abgelegte Dateien werden eventuell noch geschrieben oder geladen:
                 // ein paar Mal nachsehen, bis Quick Look ein echtes Vorschaubild liefert.
@@ -97,7 +110,10 @@ struct ThumbnailView: View {
                     if delay > 0 { try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000)) }
                     if Task.isCancelled { return }
                     if let loaded = await Thumbnails.load(url, size: size) { image = loaded }
-                    if Thumbnails.cached(url, size: size) != nil { return }
+                    if Thumbnails.cached(url, size: size) != nil {
+                        isPreview = true
+                        return
+                    }
                 }
             }
     }

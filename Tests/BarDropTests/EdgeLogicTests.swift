@@ -215,4 +215,27 @@ final class EdgeLogicTests: XCTestCase {
         XCTAssertFalse(EdgeLogic.isCalm(fullyHidden: false, mouseDown: false, manualOpen: false,
                                         previewActive: false, locked: false, onScreen: true, dx: 500))
     }
+
+    // MARK: Vorschau beim Verstellen der Größe
+
+    func testExpandedPreviewOpensAndStaysOpenWhilePointerIsAway() {
+        var away = sample(dx: 600, at: 1)
+        away.preview = .expanded
+        var s = state(.hidden)
+        XCTAssertEqual(EdgeLogic.decide(&s, away, .init()).target, .expanded)
+
+        var open = state(.expanded)
+        var later = sample(dx: 600, at: 5, level: .expanded)
+        later.preview = .expanded
+        XCTAssertEqual(EdgeLogic.decide(&open, later, .init()).target, .expanded,
+                       "Solange die Vorschau läuft, bleibt die Ablage offen")
+
+        // Vorschau vorbei: nach kurzer Zeit schließen
+        var after = sample(dx: 600, at: 6, level: .expanded)
+        after.preview = nil
+        _ = EdgeLogic.decide(&open, after, .init())
+        var end = sample(dx: 600, at: 6.5, level: .expanded)
+        end.preview = nil
+        XCTAssertEqual(EdgeLogic.decide(&open, end, .init()).target, .hidden)
+    }
 }

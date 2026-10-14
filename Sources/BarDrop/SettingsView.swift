@@ -24,9 +24,8 @@ struct GeneralSettings: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                InfoToggle("Symbol in der Menüleiste",
-                           info: "Ohne Symbol: Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden. BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.",
-                           isOn: $settings.showMenuBarIcon)
+            } header: {
+                SettingsHeader("Start", info: "BarDrop hat kein Symbol in der Menüleiste. Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden, BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.")
             } footer: {
                 if let loginError {
                     SectionNote(loginError, color: .red)
@@ -34,44 +33,56 @@ struct GeneralSettings: View {
             }
 
             Section {
-                Picker("Beim Ziehen von Objekten", selection: $settings.dragReveal) {
-                    ForEach(DragReveal.allCases) { Text($0.title).tag($0) }
-                }
-                Toggle("Zeiger am Bildschirmrand öffnet die Ablage", isOn: $settings.revealOnHover)
                 Picker("Ablage ganz öffnen", selection: $settings.openMode) {
                     ForEach(OpenMode.allCases) { Text($0.title).tag($0) }
                 }
-                .disabled(!settings.revealOnHover)
                 Picker("Verzögerung", selection: $settings.openDelay) {
                     ForEach(OpenDelay.choices, id: \.self) { Text(OpenDelay.title($0)).tag($0) }
                 }
-                .disabled(!settings.revealOnHover || settings.openMode != .automatic)
+                .disabled(settings.openMode != .automatic)
                 if settings.openMode == .automatic
                     && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
                     InfoToggle("Klick auf den Streifen öffnet sofort",
                                info: "Bei einer Verzögerung ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der eingestellten Zeit.",
                                isOn: $settings.clickToOpenEarly)
-                        .disabled(!settings.revealOnHover)
+                }
+                Picker("Beim Ziehen von Objekten", selection: $settings.dragReveal) {
+                    ForEach(DragReveal.allCases) { Text($0.title).tag($0) }
                 }
             } header: {
-                SettingsHeader("Einblenden", info: "Am Rand wölbt sich zuerst ein flacher Streifen heraus. Bleibt der Zeiger dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.")
+                SettingsHeader("Öffnen", info: "Fährt der Zeiger an den Rand, wölbt sich zuerst ein flacher Streifen heraus. Bleibt er dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.")
             }
 
             Section {
-                Picker("Animation", selection: $settings.animationStyle) {
-                    ForEach(AnimationStyle.allCases) { Text($0.title).tag($0) }
-                }
-                .disabled(AnimationStyle.reduceMotion)
                 Toggle("Haptisches Feedback", isOn: $settings.hapticsEnabled)
             } header: {
-                SettingsHeader("Bewegung und Rückmeldung",
-                               info: AnimationStyle.reduceMotion
-                     ? "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über. Haptik: ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen."
-                     : "Haptik: ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen.")
+                SettingsHeader("Rückmeldung", info: "Ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen.")
+            }
+
+            Section {
+                LabeledContent("Alle Einstellungen") {
+                    Button("Zurücksetzen", role: .destructive) { confirmReset() }
+                }
+            } header: {
+                SettingsHeader("Werkseinstellungen", info: "Setzt alle Einstellungen in allen Bereichen auf den Auslieferungszustand, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Objekte in der Ablage bleiben erhalten.")
             }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+    }
+
+    private func confirmReset() {
+        let alert = NSAlert()
+        alert.messageText = "Alle Einstellungen zurücksetzen?"
+        alert.informativeText = "Alle Einstellungen, auch Kurzbefehl und Aktionsleiste, werden auf den Auslieferungszustand gesetzt. Objekte in der Ablage bleiben erhalten. Das lässt sich nicht widerrufen."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Zurücksetzen")
+        alert.addButton(withTitle: "Abbrechen")
+        alert.buttons.first?.hasDestructiveAction = true
+        alert.icon = NSApp.applicationIconImage
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        settings.resetAll()
+        if launchAtLogin { launchAtLogin = false }   // meldet BarDrop über onChange ab
     }
 }
 
@@ -247,14 +258,6 @@ struct ShelfSettings: View {
             }
 
             Section {
-                InfoToggle("Heller Rahmen",
-                           info: "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz.",
-                           isOn: $settings.showOutline)
-            } header: {
-                SettingsHeader("Aussehen")
-            }
-
-            Section {
                 Picker("Bildschirmrand", selection: $settings.edge) {
                     ForEach(ScreenEdge.allCases) { Text($0.title).tag($0) }
                 }
@@ -281,7 +284,7 @@ struct ShelfSettings: View {
                 StepSlider(title: "Länge", value: $settings.shelfHeight, range: 280...680, step: 10,
                            low: "Kurz", high: "Lang", format: StepSlider.points)
             } header: {
-                SettingsHeader("Größe", info: "Beim Verändern zeigt sich die Ablage kurz am Rand.")
+                SettingsHeader("Größe", info: "Beim Verändern zeigt sich die offene Ablage am Rand, so siehst du die neue Größe sofort.")
             }
 
             Section {
@@ -293,12 +296,27 @@ struct ShelfSettings: View {
                            low: "Kurz", high: "Weich", format: StepSlider.percent)
             } header: {
                 SettingsHeader("Streifen und Griff",
-                               info: "Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft.") {
+                               info: "Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft. Beim Verändern zeigt sich der Streifen am Rand.") {
                     HeaderIconButton(symbol: "arrow.counterclockwise",
                                      help: "Lage, Größe und Streifen auf den Standard setzen") {
                         settings.resetShelfLayout()
                     }
                 }
+            }
+
+            Section {
+                InfoToggle("Heller Rahmen",
+                           info: "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz.",
+                           isOn: $settings.showOutline)
+                Picker("Animation", selection: $settings.animationStyle) {
+                    ForEach(AnimationStyle.allCases) { Text($0.title).tag($0) }
+                }
+                .disabled(AnimationStyle.reduceMotion)
+            } header: {
+                SettingsHeader("Aussehen",
+                               info: AnimationStyle.reduceMotion
+                                   ? "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über."
+                                   : "„Animation“ bestimmt, wie lebhaft Streifen und Ablage auf- und zuklappen.")
             }
         }
         .formStyle(.grouped)
@@ -471,6 +489,8 @@ struct ItemSettings: View {
 struct ActionSettings: View {
     @ObservedObject var settings: AppSettings
     @State private var selection: QuickAction.ID?
+    /// Aktion, die gerade zum Anordnen gezogen wird
+    @State private var dragging: QuickAction.ID?
 
     var body: some View {
         Form {
@@ -501,15 +521,23 @@ struct ActionSettings: View {
                     .padding(.vertical, -4)
                     .contentShape(Rectangle())
                     .onTapGesture { selection = selection == action.id ? nil : action.id }
+                    // Anordnen per Ziehen: „onMove“ wirkt nur in Listen, nicht in einem
+                    // Formular. Deshalb ziehen und ablegen auf eine andere Zeile.
+                    .onDrag {
+                        dragging = action.id
+                        return NSItemProvider(object: action.id.uuidString as NSString)
+                    }
+                    .onDrop(of: [.text], delegate: ReorderDropDelegate(target: action.id,
+                                                                       items: $settings.quickActions,
+                                                                       dragging: $dragging))
                     .contextMenu {
                         Button("Nach oben") { move(action, by: -1) }
+                            .disabled(settings.quickActions.first?.id == action.id)
                         Button("Nach unten") { move(action, by: 1) }
+                            .disabled(settings.quickActions.last?.id == action.id)
                         Divider()
                         Button("Entfernen") { remove(action) }
                     }
-                }
-                .onMove { from, to in
-                    settings.quickActions.move(fromOffsets: from, toOffset: to)
                 }
 
                 if settings.quickActions.isEmpty {
@@ -562,9 +590,15 @@ struct ActionSettings: View {
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
+        // Abgelegt neben den Zeilen: Ziehen beenden, damit nichts hängen bleibt
+        .onDrop(of: [.text], isTargeted: nil) { _ in
+            dragging = nil
+            return false
+        }
     }
 
     private func remove(_ action: QuickAction) {
+        if dragging == action.id { dragging = nil }
         settings.quickActions.removeAll { $0.id == action.id }
         if selection == action.id { selection = nil }
     }
@@ -606,5 +640,32 @@ struct ActionSettings: View {
         if panel.runModal() == .OK, let url = panel.url {
             add(QuickAction(kind: .app, path: url.path))
         }
+    }
+}
+
+/// Ordnet die Aktionen um, sobald eine gezogene Zeile über eine andere kommt.
+private struct ReorderDropDelegate: DropDelegate {
+    let target: QuickAction.ID
+    @Binding var items: [QuickAction]
+    @Binding var dragging: QuickAction.ID?
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging, dragging != target,
+              let from = items.firstIndex(where: { $0.id == dragging }),
+              let to = items.firstIndex(where: { $0.id == target }) else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            items.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        }
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func validateDrop(info: DropInfo) -> Bool { dragging != nil }
+
+    func performDrop(info: DropInfo) -> Bool {
+        dragging = nil
+        return true
     }
 }

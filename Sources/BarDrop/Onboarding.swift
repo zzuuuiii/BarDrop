@@ -32,10 +32,8 @@ final class OnboardingModel: ObservableObject {
         self.sampleURL = sampleURL
     }
 
-    /// Schritte zum Mitmachen. „Zurückholen“ entfällt, wenn der Rand die Ablage nicht öffnet.
-    var practiceSteps: [Step] {
-        settings.revealOnHover ? [.drop, .retrieve, .shortcut] : [.drop, .shortcut]
-    }
+    /// Schritte zum Mitmachen.
+    var practiceSteps: [Step] { [.drop, .retrieve, .shortcut] }
 
     private var order: [Step] { [.welcome] + practiceSteps + [.done] }
 

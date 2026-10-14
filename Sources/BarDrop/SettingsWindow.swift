@@ -233,8 +233,11 @@ struct AboutSettings: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("BarDrop")
                             .font(.system(size: 15, weight: .semibold))
-                        Text("Version \(version)")
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 5) {
+                            Text("Version \(version)")
+                                .foregroundStyle(.secondary)
+                            ReleaseNotesButton()
+                        }
                     }
                     Spacer()
                     Button("Einführung zeigen", action: showOnboarding)

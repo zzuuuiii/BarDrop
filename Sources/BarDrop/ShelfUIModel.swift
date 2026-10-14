@@ -110,6 +110,7 @@ struct ShelfMetrics {
     }
 
     static let maxFillet: CGFloat = 22
-    /// Platz für den Schatten im Fenster
-    static let panelMargin: CGFloat = 36
+    /// Platz für den Schatten im Fenster: groß genug, dass er ganz ausläuft
+    /// und nicht am Fensterrand abgeschnitten wird
+    static let panelMargin: CGFloat = 60
 }

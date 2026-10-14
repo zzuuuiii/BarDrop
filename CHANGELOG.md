@@ -1,5 +1,9 @@
 # Änderungen
 
+## 1.13.1
+* Schatten der offenen Ablage läuft weich aus, statt am Fensterrand abgeschnitten zu werden
+* „Über BarDrop“: Info-Symbol neben der Version zeigt die Änderungen der letzten Versionen direkt von GitHub
+
 ## 1.13.0
 * Einstellungen noch näher an Klack: ein einheitlicher, durchscheinender Hintergrund, kurze Überschriften, Erklärungen hinter einem Info-Symbol, Regler mit Wertanzeige
 * „Heller Rahmen“ als eigener Schalter unter „Ablage → Aussehen“

@@ -238,4 +238,15 @@ final class EdgeLogicTests: XCTestCase {
         end.preview = nil
         XCTAssertEqual(EdgeLogic.decide(&open, end, .init()).target, .hidden)
     }
+
+    // MARK: Größerer Trefferbereich
+
+    func testLargerHitAreaRespondsJustNextToTheEdge() {
+        var normal = state(.hidden)
+        XCTAssertEqual(EdgeLogic.decide(&normal, sample(dx: 9), .init()).target, .hidden,
+                       "Ohne größeren Bereich zählt 9 pt neben dem Rand nicht")
+        var generous = state(.hidden)
+        XCTAssertEqual(EdgeLogic.decide(&generous, sample(dx: 9), .init(generousHitArea: true)).target, .peek,
+                       "Mit größerem Bereich erscheint der Streifen auch knapp daneben")
+    }
 }

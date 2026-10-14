@@ -169,7 +169,7 @@ final class ContentImporter {
     func copyIntoStorage(_ url: URL, foreign: Bool = true) -> URL? {
         let fm = FileManager()
         let dir = newDirectory()
-        let name = url.lastPathComponent.isEmpty ? "Objekt" : url.lastPathComponent
+        let name = url.lastPathComponent.isEmpty ? L("Item", "Objekt") : url.lastPathComponent
         let target = dir.appendingPathComponent(name)
         // Erst unter einem Zwischennamen schreiben, dann umbenennen: nie eine halbe Datei in der Ablage
         let partial = dir.appendingPathComponent(".\(UUID().uuidString).partial")
@@ -220,7 +220,7 @@ final class ContentImporter {
     private func finishStaged(_ staged: URL, name: String) -> URL? {
         let fm = FileManager()
         let dir = staged.deletingLastPathComponent()
-        let target = dir.appendingPathComponent(Self.sanitize(name.isEmpty ? "Objekt" : name))
+        let target = dir.appendingPathComponent(Self.sanitize(name.isEmpty ? L("Item", "Objekt") : name))
         defer { try? fm.removeItem(at: staged) }
         guard FileSanitizer.cleanCopy(from: staged, to: target) else {
             Log.importing.error("Sauber schreiben fehlgeschlagen")
@@ -295,7 +295,7 @@ final class ContentImporter {
 
     func writeImage(_ data: Data, ext: String, name: String?) -> URL? {
         let dir = newDirectory()
-        let base = Self.sanitize(name ?? "Bild \(Self.timestamp)")
+        let base = Self.sanitize(name ?? L("Image \(Self.timestamp)", "Bild \(Self.timestamp)"))
         let raw = dir.appendingPathComponent("\(base).\(ext)")
         guard (try? data.write(to: raw)) != nil else { return nil }
         let url = ImageNormalizer.normalize(raw, convert: convertImages)
@@ -336,7 +336,7 @@ final class ContentImporter {
 
             let ext = UTType(mimeType: mime)?.preferredFilenameExtension ?? "img"
             var base = source.deletingPathExtension().lastPathComponent.removingPercentEncoding ?? ""
-            if base.isEmpty || base == "/" { base = "Bild \(Self.timestamp)" }
+            if base.isEmpty || base == "/" { base = L("Image \(Self.timestamp)", "Bild \(Self.timestamp)") }
             let dir = self.newDirectory()
             let raw = dir.appendingPathComponent("\(Self.sanitize(base)).\(ext)")
             do {
@@ -423,12 +423,12 @@ final class ContentImporter {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         // Kein versteckter Name („.…“) und nicht zu lang
         let visible = cleaned.hasPrefix(".") ? String(cleaned.drop { $0 == "." }) : cleaned
-        return visible.isEmpty ? "Objekt" : String(visible.prefix(80))
+        return visible.isEmpty ? L("Item", "Objekt") : String(visible.prefix(80))
     }
 
     static var timestamp: String {
         let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd 'um' HH.mm.ss"
+        f.dateFormat = L("yyyy-MM-dd 'at' HH.mm.ss", "yyyy-MM-dd 'um' HH.mm.ss")
         return f.string(from: Date())
     }
 }

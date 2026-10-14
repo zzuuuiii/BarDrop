@@ -57,6 +57,11 @@ enum EdgeLogic {
         var openMode: OpenMode = .automatic
         /// So lange muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht
         var openDelay: TimeInterval = 0.3
+        /// Etwas größerer Bereich um Streifen und Griff, in dem der Zeiger noch zählt
+        var generousHitArea = false
+
+        /// Zusätzlicher Spielraum quer zum Rand und entlang des Rands
+        var hitSlack: (x: CGFloat, y: CGFloat) { generousHitArea ? (8, 24) : (0, 0) }
     }
 
     struct Result: Equatable {
@@ -109,9 +114,10 @@ enum EdgeLogic {
                 if s.now.timeIntervalSince(since) > leaveDelay { result.target = .hidden }
             }
         } else {
+            let slack = c.hitSlack
             let touchesEdge = c.revealOnHover && s.onScreen
-                && s.dx <= max(3, s.width + 4)
-                && s.dy < max(50, s.height / 2 + s.fillet + 6)
+                && s.dx <= max(3, s.width + 4) + slack.x
+                && s.dy < max(50, s.height / 2 + s.fillet + 6) + slack.y
             let elapsed = s.now.timeIntervalSince(state.levelSince)
             if touchesEdge {
                 switch state.level {
@@ -128,7 +134,7 @@ enum EdgeLogic {
                 }
             } else if let preview = s.preview, s.onScreen {
                 result.target = preview
-            } else if state.level != .hidden && !(s.onScreen && s.dx < 26 && s.dy < 110) {
+            } else if state.level != .hidden && !(s.onScreen && s.dx < 26 + slack.x && s.dy < 110 + slack.y) {
                 result.target = .hidden
             } else if state.level != .hidden && elapsed > 1.5 {
                 result.target = .hidden

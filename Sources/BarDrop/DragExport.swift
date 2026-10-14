@@ -154,7 +154,7 @@ final class DragExporter: NSObject, NSFilePromiseProviderDelegate {
     // MARK: NSFilePromiseProviderDelegate
 
     func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
-        (filePromiseProvider.userInfo as? ExportItem)?.fileName ?? "Objekt"
+        (filePromiseProvider.userInfo as? ExportItem)?.fileName ?? L("Item", "Objekt")
     }
 
     func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue {

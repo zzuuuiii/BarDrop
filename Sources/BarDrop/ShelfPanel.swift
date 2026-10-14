@@ -26,6 +26,15 @@ final class ShelfPanel: NSPanel {
     }
 
     override var canBecomeKey: Bool { true }
+
+    /// Klick auf den Griff (auch knapp daneben, wenn der größere Trefferbereich an ist):
+    /// Ablage ganz öffnen. Das Fenster nimmt Klicks in dieser Stufe nur an, wenn es soll.
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown, let ui = actions?.ui, ui.level == .hint {
+            ui.expandRequested = true
+        }
+        super.sendEvent(event)
+    }
     override var canBecomeMain: Bool { false }
 
     override func becomeKey() {

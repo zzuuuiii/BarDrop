@@ -17,11 +17,11 @@ struct QuickAction: Codable, Identifiable, Hashable {
     var title: String {
         switch kind {
         case .airdrop: return "AirDrop"
-        case .share: return "Teilen"
+        case .share: return L("Share", "Teilen")
         case .mail: return "Mail"
-        case .messages: return "Nachrichten"
+        case .messages: return L("Messages", "Nachrichten")
         case .folder, .app:
-            guard let path else { return kind == .folder ? "Ordner" : "App" }
+            guard let path else { return kind == .folder ? L("Folder", "Ordner") : "App" }
             let name = FileManager.default.displayName(atPath: path)
             return kind == .app ? (name as NSString).deletingPathExtension : name
         }
@@ -30,12 +30,12 @@ struct QuickAction: Codable, Identifiable, Hashable {
     /// Hinweis, was beim Ablegen passiert.
     var help: String {
         switch kind {
-        case .airdrop: return "Per AirDrop senden"
-        case .share: return "Teilen mit einer beliebigen App"
-        case .mail: return "Als E-Mail-Anhang senden"
-        case .messages: return "Per Nachrichten senden"
-        case .folder: return "In „\(title)“ verschieben"
-        case .app: return "Mit \(title) öffnen"
+        case .airdrop: return L("Send with AirDrop", "Per AirDrop senden")
+        case .share: return L("Share with any app", "Mit einer beliebigen App teilen")
+        case .mail: return L("Send as email attachment", "Als E-Mail-Anhang senden")
+        case .messages: return L("Send with Messages", "Per Nachrichten senden")
+        case .folder: return L("Move to “\(title)”", "In „\(title)“ verschieben")
+        case .app: return L("Open with \(title)", "Mit \(title) öffnen")
         }
     }
 
@@ -81,5 +81,8 @@ struct QuickAction: Codable, Identifiable, Hashable {
         ]
     }
 
-    static let maxCount = 6
+    /// Höchstzahl in der Leiste: eine Reihe mit sechs, zwei Reihen mit je fünf
+    static func limit(twoRows: Bool) -> Int { twoRows ? 2 * perRow : 6 }
+    /// Aktionen pro Reihe bei zwei Reihen
+    static let perRow = 5
 }

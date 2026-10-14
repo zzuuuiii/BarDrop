@@ -1,8 +1,9 @@
-**Was ändert sich?**
+**What changes?**
 
 
-**Getestet mit** (macOS-Version, Mac-Modell):
+**Tested on** (macOS version, Mac model):
 
 
-- [ ] `swift test` läuft durch
-- [ ] Neue Funktion hat einen Test oder ist von Hand geprüft
+- [ ] `swift test` passes
+- [ ] New feature has a test or was checked by hand
+- [ ] New or changed texts exist in English and German

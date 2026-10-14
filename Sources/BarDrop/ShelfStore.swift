@@ -60,7 +60,7 @@ struct ShelfEntry: Codable, Hashable, Identifiable {
 
     var title: String {
         if files.count == 1 { return ShelfEntry.displayName(for: files[0].url) }
-        return "\(files.count) Objekte"
+        return L("\(files.count) items", "\(files.count) Objekte")
     }
 
     static func displayName(for url: URL) -> String {
@@ -405,7 +405,7 @@ final class ShelfStore: ObservableObject {
         undoManager.registerUndo(withTarget: removal) { [weak self] removal in
             self?.undo(removal)
         }
-        undoManager.setActionName(removed.count == 1 ? "Entfernen" : "\(removed.count) Objekte entfernen")
+        undoManager.setActionName(removed.count == 1 ? L("Remove", "Entfernen") : L("Remove \(removed.count) Items", "\(removed.count) Objekte entfernen"))
         while removals.count > Self.undoDepth {
             expire(removals.removeFirst())
         }

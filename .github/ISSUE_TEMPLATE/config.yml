@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Sicherheitslücke melden
+  - name: Report a security issue
     url: https://github.com/zzuuuiii/BarDrop/security/advisories/new
-    about: Bitte vertraulich melden, nicht als öffentliches Issue.
+    about: Please report it privately, not as a public issue.

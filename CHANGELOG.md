@@ -1,171 +1,180 @@
-# Änderungen
+# Changelog
+
+## 1.16.0
+* English by default, German selectable in Settings → General; all texts reviewed and clarified in both languages
+* Repository in English, German README available
+* Reordering actions: the row follows the pointer and snaps into each slot with a light tap on the trackpad
+* Optional larger hit area around the strip and handle
+* Files flung quickly at the screen edge are caught reliably, even when released just next to the shelf
+* Action bar in two rows of up to five actions each (optional)
+* What’s new shows the release notes in the selected language
 
 ## 1.15.1
-* Einstellungen dunkler und leicht durchscheinend, Farben von Klack übernommen
-* Regler mit Rasterpunkten, rasten in Schritten ein und geben dabei einen leichten Impuls auf dem Trackpad
-* Auswahlmenüs öffnen sich immer am Wert statt am Mauszeiger; ⌃⌄ im Kreis, Werte der Regler in einer Kapsel
-* ⌘, öffnet die Einstellungen und ⌘Q beendet BarDrop auch aus der offenen Ablage
+* Darker, slightly translucent settings with colors taken from Klack
+* Sliders with tick marks; they snap in steps and give a light tap on the trackpad
+* Pop-up menus always open at their value instead of at the pointer; ⌃⌄ in a circle, slider values in a capsule
+* ⌘, opens Settings and ⌘Q quits BarDrop from the open shelf too
 
 ## 1.15.0
-* Einstellungen eins zu eins im Stil von Klack: eigene Karten, Zeilen, längliche Schalter, schlichte Auswahlmenüs, Regler, Tasten und Seitenleiste, unabhängig von der macOS-Version
+* Settings rebuilt one to one in the style of Klack: custom cards, rows, pill switches, plain pop-up menus, sliders, keys and sidebar, independent of the macOS version
 
 ## 1.14.0
-* Aktionen lassen sich wieder per Ziehen anordnen
-* Kein Symbol in der Menüleiste mehr; der Bildschirmrand öffnet die Ablage immer
-* Beim Verstellen von Breite und Länge zeigt sich die offene Ablage am Rand
-* Werkseinstellungen: alle Einstellungen mit Rückfrage zurücksetzen
-* Einstellungen neu geordnet: Start, Öffnen, Rückmeldung; Rahmen und Animation unter „Ablage → Aussehen“
-* „Über BarDrop“: Updates oben, Vorbilder einklappbar und vollständig, Einführung ganz unten
-* Flüssigere Animation beim Öffnen: Symbole der Objekte zwischengespeichert, Schatten in einer Ebene
+* Actions can be reordered by dragging again
+* No menu bar icon anymore; the screen edge always opens the shelf
+* Adjusting width and height shows the open shelf at the edge
+* Reset: put all settings back to their defaults after a confirmation
+* Settings reorganized: Startup, Opening, Feedback; outline and animation under Shelf → Appearance
+* About BarDrop: updates at the top, credits collapsible and complete, introduction at the bottom
+* Smoother opening animation: item icons are cached, the shadow uses a single layer
 
 ## 1.13.2
-* Einstellungen: kein heller Streifen mehr am unteren Fensterrand
+* Settings: no light strip at the bottom of the window anymore
 
 ## 1.13.1
-* Schatten der offenen Ablage läuft weich aus, statt am Fensterrand abgeschnitten zu werden
-* „Über BarDrop“: Info-Symbol neben der Version zeigt die Änderungen der letzten Versionen direkt von GitHub
+* The shadow of the open shelf fades out softly instead of being cut off at the window edge
+* About BarDrop: an info button next to the version shows the changes of recent versions straight from GitHub
 
 ## 1.13.0
-* Einstellungen noch näher an Klack: ein einheitlicher, durchscheinender Hintergrund, kurze Überschriften, Erklärungen hinter einem Info-Symbol, Regler mit Wertanzeige
-* „Heller Rahmen“ als eigener Schalter unter „Ablage → Aussehen“
-* Ab 1 Sekunde Verzögerung öffnet ein Klick auf den Streifen die Ablage sofort (abschaltbar)
+* Settings closer to Klack: one translucent background, short headings, explanations behind an info button, sliders show their value
+* Light outline as its own switch under Shelf → Appearance
+* With a delay of one second or more, clicking the strip opens the shelf right away (can be turned off)
 
 ## 1.12.1
-* Abgelegte Objekte erscheinen sofort, nicht erst beim Schließen der Ablage
-* Lizenz GPL-3.0, Hinweise zu fremdem Code, README neu, Vorschau zeigt das aktuelle Aussehen
+* Dropped items appear right away, not only when the shelf closes
+* GPL-3.0 license, third-party notices, new README, preview shows the current look
 
 ## 1.12.0
-* Feiner heller Rahmen um Streifen und Ablage, sichtbar auf dunklem Hintergrund (abschaltbar)
-* Verzögerung bis zum Öffnen einstellbar: sofort oder nach 1 bis 5 Sekunden
-* Einführung ruhiger: gleicher Aufbau auf jeder Seite, „Schritt 1 von 3“, großer Knopf unten
-* Nicht mehr benötigten Code entfernt (Pfeil im Griff, Ablegen auf Kacheln)
+* Thin light outline around the strip and shelf, visible on dark backgrounds (can be turned off)
+* Adjustable delay before opening: instantly or after 1 to 5 seconds
+* Calmer introduction: same layout on every page, “Step 1 of 3”, large button at the bottom
+* Removed code that was no longer needed (arrow in the handle, dropping onto tiles)
 
 ## 1.11.0
-* Neue Einstellungen mit Seitenleiste und farbigen Symbolen, angelehnt an Klack
-* Kurzbefehl frei wählbar: Sondertasten antippen, Taste aufnehmen
-* Bereich „Über BarDrop“ mit Updates, Einführung und Vorbildern
-* Äußere Ecken des dünnen Streifens so rund wie beim dicken; Übergänge am Bildschirmrand wieder wie zuvor
+* New settings with a sidebar and colored icons, inspired by Klack
+* Freely choosable shortcut: click modifier keys, record a key
+* About BarDrop with updates, introduction and credits
+* Outer corners of the thin strip as round as on the thick one; transitions at the screen edge as before
 
 ## 1.10.0
-* Updates direkt in der App: sucht auf GitHub, prüft die Prüfsumme, ersetzt BarDrop und startet neu
-* Installationsfenster der DMG mit Hintergrund und Pfeil zum Ordner „Programme“
-* Einführung im Stil von macOS (helles und dunkles Erscheinungsbild, Systemknöpfe), Beispielbild schnellt nicht mehr zurück
-* Vorschaubilder mit runden Ecken wie im Finder
-* Dünner Streifen mit genauso weichen Rundungen wie der dicke
+* Updates inside the app: checks GitHub, verifies the checksum, replaces BarDrop and restarts
+* DMG installer window with background and an arrow to the Applications folder
+* Introduction in macOS style (light and dark appearance, system buttons); the sample image no longer snaps back
+* Thumbnails with rounded corners like in the Finder
+* Thin strip with corners as soft as the thick one
 
 ## 1.9.3
-* Einführung: Beim Ziehen des Beispielbilds öffnet sich die Ablage jetzt zuverlässig
-* Auswahl in der offenen Ablage immer in Akzentfarbe statt grau, Fokus beim Öffnen zuverlässiger
+* Introduction: dragging the sample image now reliably opens the shelf
+* Selection in the open shelf always uses the accent color instead of grey; focus on opening is more reliable
 
 ## 1.9.2
-* Hinweis nach dem Entfernen ohne Knopf, nur noch Text (⌘Z widerruft weiterhin)
-* Vorschaubilder frisch abgelegter Dateien erscheinen sofort, ohne die Ablage neu zu öffnen
+* The message after removing has no button anymore, only text (⌘Z still undoes)
+* Thumbnails of freshly dropped files appear right away without reopening the shelf
 
 ## 1.9.1
-* Objekte auf eine Kachel ziehen bildet keinen Stapel mehr; Stapel entstehen über Auswahl und „Als Stapel zusammenfassen“
-* Höhe „Am Zeiger, mittlere Hälfte“ zusätzlich zu „mittleres Drittel“
-* Pfeil im Griff entfernt
-* Ausgewählte Aktion in den Einstellungen deutlich hervorgehoben
+* Dragging items onto a tile no longer creates a stack; stacks are created via selection and “Group as Stack”
+* Position “Follows pointer, middle half” in addition to “middle third”
+* Arrow in the handle removed
+* The selected action in Settings is clearly highlighted
 
 ## 1.9.0
-* Einführung beim ersten Start: Bild ablegen, zurückholen, Kurzbefehl drücken; jeder Schritt erkennt von selbst, wenn er geschafft ist
-* Entfernen lässt sich mit ⌘Z widerrufen und mit ⇧⌘Z wiederholen, kurzer Hinweis mit „Widerrufen“ in der Ablage
-* Kurze Rückmeldung beim Kopieren, Tastenkürzel im Kontextmenü sichtbar
-* Neue Einstellung „Reihenfolge“: neueste oder älteste zuerst
-* Einstellungen vereinheitlicht: Erklärtexte linksbündig, alle Regler gleich, ⌘Z in der Tastaturübersicht
-* Neue Standardwerte für neue Installationen
-* Symbol in der Menüleiste nur noch auf Wunsch (Einstellungen → Allgemein), Beenden auch per Rechtsklick in die Ablage
-* Aktionsleiste ohne grauen Hintergrund, Menüs ohne Auslassungspunkte
-* Auswahlrahmen bleibt innerhalb der Ablage
-* Offene Ablage hat sofort den Tastaturfokus (⌘A, Pfeiltasten …), beim Schließen geht er zurück
+* Introduction on first launch: drop an image, get it back, press the shortcut; each step notices by itself when it’s done
+* Removing can be undone with ⌘Z and redone with ⇧⌘Z, with a short “Undo” message in the shelf
+* Short feedback when copying, keyboard shortcuts visible in the context menu
+* New setting “Sort order”: newest or oldest first
+* Settings made consistent: explanations left-aligned, all sliders alike, ⌘Z in the keyboard overview
+* New defaults for new installations
+* Menu bar icon only on request (Settings → General), Quit also via right-click in the shelf
+* Action bar without grey background, menus without ellipses
+* The selection rectangle stays inside the shelf
+* The open shelf has keyboard focus right away (⌘A, arrow keys and more) and gives it back when closing
 
 ## 1.8.6
-* „Am Zeiger, nur mittleres Drittel“: Die Ablage erscheint nur noch, wenn der Zeiger wirklich im Drittel ist, und sitzt dann immer mittig am Zeiger statt versetzt am Rand des Bereichs
-* Mehrere Bildschirme: Am Rand zwischen zwei Bildschirmen öffnet sich die Ablage nicht mehr, wenn man eine Datei oder den Zeiger hinüberbewegt
+* “Follows pointer, middle third only”: the shelf only appears when the pointer is really within the third, and always sits centered at the pointer instead of offset at the edge of the area
+* Multiple displays: at the edge between two displays the shelf no longer opens when you move a file or the pointer across
 
 ## 1.8.5
-* Dateien von externen Laufwerken bleiben in der Ablage, auch wenn das Laufwerk gerade nicht angeschlossen ist (ausgegraut), und sind nach dem Anschließen wieder normal da
-* Links auf Downloads (ZIP, Videos, Disk-Images) werden sofort als Link gespeichert, ohne die ganze Datei zu laden
-* Ordner im Benutzerordner, die „tmp“, „Caches“ oder „TemporaryItems“ heißen, gelten als eigene Ordner: Dateien daraus werden verknüpft statt kopiert
-* Belegter Kurzbefehl wird im Protokoll gemeldet
+* Files from external drives stay in the shelf while the drive is disconnected (greyed out) and are back to normal once it’s connected
+* Links to downloads (ZIP, videos, disk images) are saved as links right away without downloading the whole file
+* Folders in the home folder named “tmp”, “Caches” or “TemporaryItems” count as your own folders: files from them are linked instead of copied
+* A shortcut that’s already taken is reported in the log
 
 ## 1.8.4
-* Streifen mit gerader Front, kleinen runden Ecken und kurzem Bogen in den Rand; Regler „Übergang“
+* Strip with a straight front, small round corners and a short curve into the edge; “Edge curve” slider
 
 ## 1.8.3
-* Ablage erscheint zuverlässig auf dem Bildschirm mit dem Zeiger (feste Bildschirmkennung, Rand-Toleranz, sofortiger Wechsel)
-* Kurzbefehl: schließt beim Wechsel auf einen anderen Bildschirm
-* Kleine temporäre Dateien von anderen Laufwerken sofort sichern
+* The shelf reliably appears on the display with the pointer (stable display ID, edge tolerance, immediate switch)
+* Shortcut: closes when switching to another display
+* Small temporary files from other drives are saved right away
 
 ## 1.8.2
-* Regler „Enden“: Streifen von rund bis ganz flach einstellbar, nie spitz
+* “Ends” slider: the strip can be anything from round to completely flat, never pointed
 
 ## 1.8.1
-* Weich auslaufende Enden am Streifen, ohne harte Ecken
+* Softly tapering ends on the strip, without hard corners
 
 ## 1.8.0
-* Flacher, langer Streifen dicht am Rand, wölbt sich elastisch heraus wie die iPhone-Lautstärkeanzeige; nur noch eine Vorstufe
-* Griff mit Pfeil nur noch bei „Per Klick“
-* Leichter Impuls, sobald eine gezogene Datei die Ablage erreicht, und beim Ablegen; kein doppeltes Vibrieren mehr
+* Flat, long strip close to the edge that bulges out elastically like the iPhone volume indicator; only one preliminary stage left
+* Handle with arrow only for “On click”
+* A light tap as soon as a dragged file reaches the shelf and when dropping; no more double vibration
 
 ## 1.7.0
-* Herausziehen per Datei-Versprechen (nach perch), frische Kopie für andere Programme, Text und Links im eigenen Format, Verschieben erlaubt
-* Eigene Dateien erst nach fertiger Kopie löschen, bei Fehlern zurückholen
-* Lesezeichen statt Pfade, beschädigte Einträge einzeln überspringen, Kopieren im Hintergrund, iCloud Drive
-* Takt ruht im Ruhezustand, Erkennung über Ereignisse des Systems; Quick Look auf dem Bildschirm der Ablage; „Bewegung reduzieren“
-* Einstellungen vereinheitlicht, Nachfrage vor „Alle entfernen“, Protokoll in der Konsole-App, Randlogik getestet
+* Dragging out via file promises (based on perch), fresh copy for other apps, text and links in their own format, moving allowed
+* Own files are only deleted after the copy has finished and are restored on errors
+* Bookmarks instead of paths, damaged entries skipped individually, copying in the background, iCloud Drive
+* The timer rests when idle, detection via system events; Quick Look on the shelf’s display; “Reduce motion”
+* Settings made consistent, confirmation before “Remove All”, log in the Console app, edge logic tested
 
 ## 1.6.0
-* Fehler −8060 beim Weiterziehen von Web-Bildern behoben (Dateien werden sauber neu geschrieben)
-* Adaptive Höhe: beim Ziehen mittig an der Bildschirmseite
-* Form des ersten Streifens einstellbar (Dicke, Länge, Rundung)
-* Tab „Aktionen“ im einheitlichen Stil
+* Fixed error −8060 when dragging web images onward (files are rewritten cleanly)
+* Follows pointer: centered on the side of the screen while dragging
+* Shape of the first strip adjustable (thickness, length, roundness)
+* Actions tab in the unified style
 
 ## 1.5.1
-* Einstellung „Immer eine Kopie anlegen“ (standardmäßig aus)
+* Setting “Always store a copy” (off by default)
 
 ## 1.5.0
-* Aufnahme von Web-Inhalten neu aufgebaut, mit automatischen Tests auf macOS
-* Auswahl, Auswahlrahmen und Tastaturbefehle im geöffneten Stapel
-* Kacheln werden erst nach kurzem Verweilen zum Stapel-Ziel
-* Drag-Bild mit Symbol und Dateiname wie im Finder
-* Haptik beim ersten Streifen, Pfeil abschaltbar, Einstellungen zusammengefasst, „Beim Ziehen“ mit drei Stufen
+* Taking in web content rebuilt, with automated tests on macOS
+* Selection, selection rectangle and keyboard commands in the open stack
+* Tiles only become a stack target after hovering for a moment
+* Drag image with icon and file name like in the Finder
+* Haptics for the first strip, arrow can be turned off, settings combined, “While dragging” with three levels
 
 ## 1.4.2
-* Ruhezustand spart Energie (seltenere Prüfung, wenn verborgen und Zeiger weit weg)
-* README: Erklärung der macOS-Warnung beim ersten Öffnen
+* Idle mode saves energy (fewer checks when hidden and the pointer is far away)
+* README: explanation of the macOS warning on first launch
 
 ## 1.4.1
-* Fehler −43 bei Web-Bildern behoben (temporäre Dateien werden kopiert)
-* Adaptive Höhe: kein Mitziehen beim Schließen
+* Fixed error −43 with web images (temporary files are copied)
+* Follows pointer: no dragging along when closing
 
 ## 1.4.0
-* Haptik funktioniert auch im Hintergrund, Einstellungsfenster ohne Springen und Flackern
-* Stapel als eigene Ansicht mit Zurück, Stapelgröße einstellbar, Objekte auf Kacheln ablegen
-* Animationsstärke, Öffnen per Klick, adaptive Höhe im mittleren Drittel
-* Objekte verschwinden nach Schnellaktionen (abschaltbar), Tab „Tastatur“
+* Haptics also work in the background, settings window without jumping and flickering
+* Stacks as their own view with Back, adjustable stack size, drop items onto tiles
+* Animation strength, open on click, follows pointer within the middle third
+* Items disappear after quick actions (can be turned off), Keyboard tab
 
 ## 1.3.1
-* Die Ablage bleibt auch beim Verschwinden rund
-* Vorschau-Animation zeigt Ablegen und Herausziehen in ein anderes Programm, nahtlos in Schleife
+* The shelf stays round while disappearing
+* Preview animation shows dropping and dragging out into another app, looping seamlessly
 
 ## 1.3.0
-* Herausziehen in andere Programme repariert, Ablegen zuverlässiger
-* Adaptive Höhe mittig am Zeiger
-* Mehrere Bildschirme: kein Springen, nie gleichzeitig sichtbar; Einstellung „Verfügbar auf“
-* Automatisch entfernen nach 1, 2, 5, 10 oder 24 Stunden
-* Längerer Streifen beim Ziehen, Anzahl ohne Animation, Einstellungen aufgeräumt
+* Fixed dragging out into other apps, more reliable dropping
+* Follows pointer, centered on it
+* Multiple displays: no jumping, never visible twice; “Available on” setting
+* Remove automatically after 1, 2, 5, 10 or 24 hours
+* Longer strip while dragging, count without animation, settings tidied up
 
 ## 1.2.0
-* Stapel zusammenfassen, auf- und zuklappen, Dateien lösen
-* Automatisches Entfernen, adaptive Höhe, „Pfad kopieren“ (⌥⌘C)
-* Bilder aus dem Web werden kompatibel gespeichert (WebP, AVIF, HEIC → PNG/JPEG)
-* Einstellungen mit Tabs, Auswahl im Finder-Stil, Rechtsklick auf leere Flächen
+* Group stacks, expand and collapse them, take files out
+* Automatic removal, follows pointer, “Copy Path” (⌥⌘C)
+* Web images are saved in a compatible format (WebP, AVIF, HEIC → PNG/JPEG)
+* Settings with tabs, Finder-style selection, right-click on empty areas
 
 ## 1.1.0
-* Aktionsleiste mit AirDrop, Mail, Nachrichten, Ordnern und Apps
-* Mehrfachauswahl mit ⌘/⇧-Klick und Auswahlrahmen, Tastaturkürzel
-* Rundere Vorstufen, Teilen-Menü an der Datei
+* Action bar with AirDrop, Mail, Messages, folders and apps
+* Multiple selection with ⌘/⇧-click and selection rectangle, keyboard shortcuts
+* Rounder preliminary stages, Share menu on the file
 
 ## 1.0.0
-* Erste Version: Randablage, die beim Ziehen in drei Stufen erscheint
+* First version: an edge shelf that appears in three stages while dragging

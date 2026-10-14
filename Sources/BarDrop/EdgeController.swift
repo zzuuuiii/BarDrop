@@ -114,8 +114,10 @@ final class EdgeController: NSObject {
             // Neuer Ausgangsstand: Ändert sich das Drag-Pasteboard danach, wird etwas gezogen
             dragBaseline = dragPasteboard.changeCount
         case .leftMouseDragged:
-            guard tickTimer == nil, dragPasteboard.changeCount != dragBaseline, hasDroppableContent() else { return }
-            wake()
+            guard dragPasteboard.changeCount != dragBaseline, hasDroppableContent() else { return }
+            // Läuft der Takt schon, sofort auswerten: Bei einem schnellen Wurf an den Rand
+            // zählt jedes Ereignis, damit das Fenster den Drop rechtzeitig annimmt.
+            if tickTimer == nil { wake() } else { tick() }
         case .mouseMoved:
             guard tickTimer == nil, isNearEdge(NSEvent.mouseLocation) else { return }
             wake()
@@ -468,7 +470,8 @@ final class EdgeController: NSObject {
         let config = EdgeLogic.Config(dragReveal: settings.dragReveal,
                                       revealOnHover: true,
                                       openMode: settings.openMode,
-                                      openDelay: settings.openDelay)
+                                      openDelay: settings.openDelay,
+                                      generousHitArea: settings.generousHitArea)
         logic.level = ui.level
         let result = EdgeLogic.decide(&logic, sample, config)
         if result.haptic { Haptics.tap() }   // erster Streifen oder Datei erreicht die Ablage
@@ -479,9 +482,16 @@ final class EdgeController: NSObject {
         // Mausereignisse nur annehmen, wenn der Zeiger über der offenen Ablage ist
         // Modus „Per Klick“ oder lange Verzögerung mit „Klick öffnet sofort“:
         // die mittlere Stufe nimmt einen Klick an
-        let hintBody = bodyRect(.hint, on: screen)
+        let slack = config.hitSlack
+        let hintBody = bodyRect(.hint, on: screen).insetBy(dx: -slack.x, dy: -slack.y)
+        // Mit Schwung an den Rand geworfene Dateien: Das Fenster nimmt den Drop schon an,
+        // bevor die Ablage ganz offen ist, auch knapp neben der Form. Sonst landet die
+        // Datei beim Loslassen in der App dahinter.
+        let catchesThrow = dragging && !ui.ownDragActive && settings.dragReveal != .off
+            && onScreen && !innerEdge && dx < EdgeLogic.dragExpandDistance && panel.frame.contains(loc)
         let accept = (ui.level == .expanded && (expandedBody.contains(loc) || locked))
             || (ui.level == .hint && settings.hintAcceptsClick && !dragging && hintBody.contains(loc))
+            || catchesThrow
         if accept != acceptsMouse {
             acceptsMouse = accept
             panel.ignoresMouseEvents = !accept

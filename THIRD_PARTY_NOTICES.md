@@ -1,18 +1,18 @@
-# Hinweise zu fremdem Code
+# Third-party notices
 
-BarDrop steht unter der [GNU General Public License v3.0](LICENSE). Einige Teile orientieren sich an den folgenden Open-Source-Projekten oder sind aus ihnen übernommen und angepasst. Die Stellen sind im Quellcode mit „nach boring.notch“ bzw. „nach perch“ markiert.
+BarDrop is licensed under the [GNU General Public License v3.0](LICENSE). Some parts are based on, or taken and adapted from, the following open-source projects. These places are marked in the source code with “nach boring.notch” or “nach perch” (German for “based on”).
 
 ## boring.notch
 
-* Projekt: https://github.com/TheBoredTeam/boring.notch
-* Lizenz: GNU General Public License v3.0 (gleiche Lizenz wie BarDrop, Text in [LICENSE](LICENSE))
-* Verwendet für: Übernahme von Bildern aus dem Web, Lesezeichen für verschobene Dateien, Speichern der Ablage, Vorschaubilder, Erkennung von Ziehvorgängen
+* Project: https://github.com/TheBoredTeam/boring.notch
+* License: GNU General Public License v3.0 (same license as BarDrop, text in [LICENSE](LICENSE))
+* Used for: taking in images from the web, bookmarks for moved files, saving the shelf, thumbnails, detecting drags
 
 ## perch
 
-* Projekt: https://github.com/hausfold/perch
-* Lizenz: MIT
-* Verwendet für: Datei-Versprechen beim Herausziehen, Reihenfolge beim Einlesen, iCloud-Downloads, Verhalten am Rand, Protokoll
+* Project: https://github.com/hausfold/perch
+* License: MIT
+* Used for: file promises when dragging out, read order when importing, iCloud downloads, behavior at the edge, logging
 
 ```
 MIT License
@@ -38,10 +38,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Gestalterische Vorbilder
+## Design references
 
-[Alcove](https://tryalcove.com) und [Klack](https://tryklack.com) dienten als Vorbild für Aussehen und Bedienung. Aus ihnen stammt kein Code. BarDrop steht in keiner Verbindung zu einem dieser Projekte; alle Namen gehören ihren jeweiligen Inhabern.
+[Alcove](https://tryalcove.com) and [Klack](https://tryklack.com) served as references for look and interaction. No code comes from them. BarDrop is not affiliated with any of these projects; all names belong to their respective owners.
 
-## Schrift im Installationsfenster
+## Font in the installer window
 
-Der Hintergrund der DMG (`Resources/dmg-background*.png`) wurde mit der Schrift [Inter](https://rsms.me/inter/) gesetzt (SIL Open Font License 1.1). Die Schrift selbst ist nicht enthalten.
+The DMG background (`Resources/dmg-background*.png`) was set in the [Inter](https://rsms.me/inter/) typeface (SIL Open Font License 1.1). The font itself is not included.

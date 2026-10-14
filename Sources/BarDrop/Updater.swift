@@ -74,8 +74,11 @@ final class Updater: ObservableObject {
               let link = asset["browser_download_url"] as? String,
               let dmg = URL(string: link) else {
             Log.edge.error("Update-Suche fehlgeschlagen: \(error?.localizedDescription ?? "keine Antwort", privacy: .public)")
-            state = .failed("Keine Verbindung zu GitHub.")
-            if interactive { showMessage("Suche nach Updates fehlgeschlagen", "Keine Verbindung zu GitHub. Versuch es später noch einmal.") }
+            state = .failed(L("Couldn’t reach GitHub.", "Keine Verbindung zu GitHub."))
+            if interactive {
+                showMessage(L("Update check failed", "Suche nach Updates fehlgeschlagen"),
+                            L("Couldn’t reach GitHub. Please try again later.", "Keine Verbindung zu GitHub. Versuch es später noch einmal."))
+            }
             return
         }
         let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
@@ -84,7 +87,10 @@ final class Updater: ObservableObject {
 
         guard Self.isNewer(version, than: currentVersion) else {
             state = .upToDate
-            if interactive { showMessage("BarDrop ist aktuell", "Version \(currentVersion) ist die neueste.") }
+            if interactive {
+                showMessage(L("BarDrop is up to date", "BarDrop ist aktuell"),
+                            L("Version \(currentVersion) is the latest.", "Version \(currentVersion) ist die neueste."))
+            }
             return
         }
         release = Release(version: version, dmg: dmg, sha256: digest, page: page)
@@ -109,11 +115,12 @@ final class Updater: ObservableObject {
 
     private func offer(_ version: String, interactive: Bool) {
         let alert = NSAlert()
-        alert.messageText = "BarDrop \(version) ist verfügbar"
-        alert.informativeText = "Installiert ist \(currentVersion). BarDrop wird ersetzt und startet danach neu, der Inhalt der Ablage bleibt erhalten."
-        alert.addButton(withTitle: "Installieren")
-        alert.addButton(withTitle: "Später")
-        if !interactive { alert.addButton(withTitle: "Diese Version überspringen") }
+        alert.messageText = L("BarDrop \(version) is available", "BarDrop \(version) ist verfügbar")
+        alert.informativeText = L("You have \(currentVersion). BarDrop is replaced and then restarts; the shelf keeps its items.",
+                                  "Installiert ist \(currentVersion). BarDrop wird ersetzt und startet danach neu, der Inhalt der Ablage bleibt erhalten.")
+        alert.addButton(withTitle: L("Install", "Installieren"))
+        alert.addButton(withTitle: L("Later", "Später"))
+        if !interactive { alert.addButton(withTitle: L("Skip This Version", "Diese Version überspringen")) }
         alert.icon = NSApp.applicationIconImage
         NSApp.activate(ignoringOtherApps: true)
         switch alert.runModal() {
@@ -133,15 +140,17 @@ final class Updater: ObservableObject {
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app" else { return }
         if target.path.contains("/AppTranslocation/") || target.path.hasPrefix("/Volumes/") {
-            showMessage("Erst in „Programme“ bewegen",
-                        "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort.")
+            showMessage(L("Move to Applications first", "Erst in „Programme“ bewegen"),
+                        L("BarDrop is running straight from the download. Move BarDrop to the Applications folder first and open it from there.",
+                          "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort."))
             return
         }
         state = .installing
         URLSession.shared.downloadTask(with: release.dmg) { [weak self] location, _, error in
             guard let self else { return }
             guard let location else {
-                return self.fail("Download fehlgeschlagen: \(error?.localizedDescription ?? "unbekannt")", release)
+                return self.fail(L("Download failed: \(error?.localizedDescription ?? "unknown")",
+                                  "Download fehlgeschlagen: \(error?.localizedDescription ?? "unbekannt")"), release)
             }
             do {
                 let work = FileManager.default.temporaryDirectory
@@ -166,25 +175,26 @@ final class Updater: ObservableObject {
         if let expected = release.sha256 {
             let data = try Data(contentsOf: dmg)
             let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            guard actual == expected.lowercased() else { throw UpdateError("Die Prüfsumme der DMG stimmt nicht.") }
+            guard actual == expected.lowercased() else { throw UpdateError(L("The DMG’s checksum doesn’t match.", "Die Prüfsumme der DMG stimmt nicht.")) }
         }
 
         let mount = work.appendingPathComponent("mnt", isDirectory: true)
         try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)
         guard Self.run("/usr/bin/hdiutil", ["attach", dmg.path, "-nobrowse", "-noautoopen", "-readonly",
                                             "-mountpoint", mount.path]) else {
-            throw UpdateError("Die DMG ließ sich nicht öffnen.")
+            throw UpdateError(L("The DMG couldn’t be opened.", "Die DMG ließ sich nicht öffnen."))
         }
         defer { _ = Self.run("/usr/bin/hdiutil", ["detach", mount.path, "-force"]) }
 
         guard let app = (try? FileManager.default.contentsOfDirectory(at: mount, includingPropertiesForKeys: nil))?
             .first(where: { $0.pathExtension == "app" }) else {
-            throw UpdateError("In der DMG ist keine App.")
+            throw UpdateError(L("The DMG contains no app.", "In der DMG ist keine App."))
         }
         let staged = target.deletingLastPathComponent().appendingPathComponent(".BarDrop-Update.app")
         try? FileManager.default.removeItem(at: staged)
         guard Self.run("/usr/bin/ditto", [app.path, staged.path]) else {
-            throw UpdateError("Keine Schreibrechte im Ordner „\(target.deletingLastPathComponent().lastPathComponent)“.")
+            throw UpdateError(L("No permission to write to the folder “\(target.deletingLastPathComponent().lastPathComponent)”.",
+                                "Keine Schreibrechte im Ordner „\(target.deletingLastPathComponent().lastPathComponent)“."))
         }
 
         // Austausch erst, wenn BarDrop beendet ist; danach neu starten
@@ -223,10 +233,11 @@ final class Updater: ObservableObject {
         DispatchQueue.main.async {
             self.state = .failed(message)
             let alert = NSAlert()
-            alert.messageText = "Update konnte nicht installiert werden"
-            alert.informativeText = "\(message) Du kannst die neue Version auch selbst laden."
-            alert.addButton(withTitle: "Download öffnen")
-            alert.addButton(withTitle: "Abbrechen")
+            alert.messageText = L("The update couldn’t be installed", "Update konnte nicht installiert werden")
+            alert.informativeText = L("\(message) You can also download the new version yourself.",
+                                      "\(message) Du kannst die neue Version auch selbst laden.")
+            alert.addButton(withTitle: L("Open Download", "Download öffnen"))
+            alert.addButton(withTitle: L("Cancel", "Abbrechen"))
             NSApp.activate(ignoringOtherApps: true)
             if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.page) }
         }

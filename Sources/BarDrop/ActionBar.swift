@@ -182,13 +182,35 @@ struct QuickActionBar: View {
     let store: ShelfStore
     let actions: ShelfActions
 
+    private var visible: [QuickAction] {
+        Array(settings.quickActions.prefix(QuickAction.limit(twoRows: settings.twoActionRows)))
+    }
+
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(settings.quickActions.prefix(QuickAction.maxCount)) { action in
-                QuickActionButton(action: action, ui: ui, store: store, actions: actions)
+        let items = visible
+        Group {
+            if settings.twoActionRows && items.count > QuickAction.perRow {
+                // Zwei Reihen zu je fünf Plätzen, die zweite linksbündig auf demselben Raster
+                VStack(spacing: 2) {
+                    row(Array(items.prefix(QuickAction.perRow)), slots: QuickAction.perRow)
+                    row(Array(items.dropFirst(QuickAction.perRow)), slots: QuickAction.perRow)
+                }
+            } else {
+                row(items, slots: items.count)
             }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
+    }
+
+    private func row(_ items: [QuickAction], slots: Int) -> some View {
+        HStack(spacing: 2) {
+            ForEach(items) { action in
+                QuickActionButton(action: action, ui: ui, store: store, actions: actions)
+            }
+            ForEach(0..<max(0, slots - items.count), id: \.self) { _ in
+                Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+            }
+        }
     }
 }

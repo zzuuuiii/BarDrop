@@ -196,7 +196,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
                               backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.title = "Willkommen bei BarDrop"
+        window.title = L("Welcome to BarDrop", "Willkommen bei BarDrop")
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.backgroundColor = .windowBackgroundColor
@@ -217,7 +217,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
     static func makeSample() -> URL? {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("BarDropEinfuehrung-\(UUID().uuidString)", isDirectory: true)
-        let url = dir.appendingPathComponent("Willkommen bei BarDrop.png")
+        let url = dir.appendingPathComponent(L("Welcome to BarDrop.png", "Willkommen bei BarDrop.png"))
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
@@ -256,7 +256,9 @@ struct OnboardingView: View {
     @ObservedObject var model: OnboardingModel
     var openSettings: () -> Void
 
-    private var edgeWord: String { model.settings.edge == .right ? "rechten" : "linken" }
+    private var edgeWord: String {
+        model.settings.edge == .right ? L("right", "rechten") : L("left", "linken")
+    }
 
     var body: some View {
         ZStack {
@@ -321,41 +323,50 @@ struct OnboardingView: View {
 
     private var heading: String {
         switch model.step {
-        case .welcome: return "Willkommen bei BarDrop"
-        case .drop: return model.stepDone ? "Abgelegt" : "Leg etwas ab"
-        case .retrieve: return model.stepDone ? "Genau so" : "Hol es zurück"
-        case .shortcut: return model.stepDone ? "Perfekt" : "Von überall"
-        case .done: return "Alles bereit"
+        case .welcome: return L("Welcome to BarDrop", "Willkommen bei BarDrop")
+        case .drop: return model.stepDone ? L("Dropped", "Abgelegt") : L("Drop something", "Leg etwas ab")
+        case .retrieve: return model.stepDone ? L("Exactly", "Genau so") : L("Get it back", "Hol es zurück")
+        case .shortcut: return model.stepDone ? L("Perfect", "Perfekt") : L("From anywhere", "Von überall")
+        case .done: return L("All set", "Alles bereit")
         }
     }
 
     private var message: String {
         let s = model.settings
-        let middle = s.adaptiveZoneFraction != nil ? ", etwa auf halber Höhe," : ""
+        let middle = s.adaptiveZoneFraction != nil ? L(" around the middle", ", etwa auf halber Höhe,") : ""
         switch model.step {
         case .welcome:
-            return "Eine Ablage, die unsichtbar am Bildschirmrand wartet. Probier es in drei kurzen Schritten aus."
+            return L("A shelf that waits invisibly at the edge of your screen. Try it in three short steps.",
+                     "Eine Ablage, die unsichtbar am Bildschirmrand wartet. Probier es in drei kurzen Schritten aus.")
         case .drop:
             return model.stepDone
-                ? "Das Bild liegt jetzt in der Ablage."
-                : "Zieh das Bild an den \(edgeWord) Bildschirmrand. Sobald sich die Ablage öffnet, lass es los."
+                ? L("The image is now in the shelf.", "Das Bild liegt jetzt in der Ablage.")
+                : L("Drag the image to the \(edgeWord) edge of the screen. As soon as the shelf opens, let go.",
+                    "Zieh das Bild an den \(edgeWord) Bildschirmrand. Sobald sich die Ablage öffnet, lass es los.")
         case .retrieve:
-            if model.stepDone { return "So holst du alles wieder heraus: einfach aus der Ablage ziehen." }
-            let open = s.openMode == .click ? "und klick auf den Griff" : "und warte einen Moment"
-            return "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle) \(open). Die Ablage öffnet sich."
+            if model.stepDone {
+                return L("That’s how you get everything back out: just drag it out of the shelf.",
+                         "So holst du alles wieder heraus: einfach aus der Ablage ziehen.")
+            }
+            let open = s.openMode == .click ? L("and click the handle", "und klick auf den Griff")
+                                            : L("and wait a moment", "und warte einen Moment")
+            return L("Move the pointer to the \(edgeWord) edge\(middle) \(open). The shelf opens.",
+                     "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle) \(open). Die Ablage öffnet sich.")
         case .shortcut:
             return model.stepDone
-                ? "Derselbe Kurzbefehl schließt die Ablage wieder."
-                : "Drück \(s.hotKeyDescription), um die Ablage jederzeit zu öffnen, auch ohne Maus."
+                ? L("The same shortcut closes the shelf again.", "Derselbe Kurzbefehl schließt die Ablage wieder.")
+                : L("Press \(s.hotKeyDescription) to open the shelf anytime, even without a mouse.",
+                    "Drück \(s.hotKeyDescription), um die Ablage jederzeit zu öffnen, auch ohne Maus.")
         case .done:
-            return "BarDrop wartet am Rand. Einstellungen findest du per Rechtsklick in die Ablage, und mit ⌘Z holst du Entferntes zurück."
+            return L("BarDrop is waiting at the edge. Right-click the shelf for Settings, and press ⌘Z to bring back anything you removed.",
+                     "BarDrop wartet am Rand. Einstellungen findest du per Rechtsklick in die Ablage, und mit ⌘Z holst du Entferntes zurück.")
         }
     }
 
     /// „Schritt 1 von 3“ über der Überschrift, nur bei den Schritten zum Mitmachen.
     private var stepLabel: String? {
         guard let i = model.practiceSteps.firstIndex(of: model.step) else { return nil }
-        return "Schritt \(i + 1) von \(model.practiceSteps.count)"
+        return L("Step \(i + 1) of \(model.practiceSteps.count)", "Schritt \(i + 1) von \(model.practiceSteps.count)")
     }
 
     private var texts: some View {
@@ -388,7 +399,7 @@ struct OnboardingView: View {
         VStack(spacing: 14) {
             if model.step == .done {
                 HStack {
-                    Text("Beim Anmelden öffnen")
+                    Text(L("Open at login", "Beim Anmelden öffnen"))
                         .font(.system(size: 13))
                     Spacer()
                     Toggle("", isOn: $model.launchAtLogin)
@@ -408,18 +419,18 @@ struct OnboardingView: View {
 
             switch model.step {
             case .welcome:
-                PrimaryButton(title: "Los geht’s") { model.advance() }
-                secondary("Überspringen") { model.onFinish(false) }
+                PrimaryButton(title: L("Let’s go", "Los geht’s")) { model.advance() }
+                secondary(L("Skip", "Überspringen")) { model.onFinish(false) }
             case .done:
-                PrimaryButton(title: "Fertig") { model.advance() }
-                secondary("Einstellungen öffnen") {
+                PrimaryButton(title: L("Done", "Fertig")) { model.advance() }
+                secondary(L("Open Settings", "Einstellungen öffnen")) {
                     openSettings()
                     model.advance()
                 }
             default:
-                PrimaryButton(title: "Weiter") { model.advance() }
+                PrimaryButton(title: L("Continue", "Weiter")) { model.advance() }
                     .disabled(!model.stepDone)
-                secondary("Überspringen") { model.advance() }
+                secondary(L("Skip", "Überspringen")) { model.advance() }
                     .opacity(model.stepDone ? 0 : 1)
             }
         }
@@ -509,7 +520,7 @@ private struct SampleCard: View {
                 preview
                     .frame(width: 108, height: 108)
                     .shadow(color: .black.opacity(0.25), radius: 10, y: 6)
-                Text(url?.lastPathComponent ?? "Bild")
+                Text(url?.lastPathComponent ?? L("Image", "Bild"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
             }
@@ -518,7 +529,7 @@ private struct SampleCard: View {
                     if let url { SampleDragArea(url: url, onDragStarted: onDragStarted) }
                 }
             )
-            .help("Zum Rand ziehen")
+            .help(L("Drag to the edge", "Zum Rand ziehen"))
             if edge == .right { arrows }
         }
     }

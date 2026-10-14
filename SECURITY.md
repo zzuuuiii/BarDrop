@@ -1,7 +1,7 @@
-# Sicherheit
+# Security
 
-Hast du eine Sicherheitslücke in BarDrop gefunden, melde sie bitte **nicht** als öffentliches Issue, sondern vertraulich über [„Report a vulnerability“](https://github.com/zzuuuiii/BarDrop/security/advisories/new) im Reiter „Security“.
+If you find a security issue in BarDrop, please do **not** report it as a public issue. Report it privately via [“Report a vulnerability”](https://github.com/zzuuuiii/BarDrop/security/advisories/new) in the Security tab.
 
-Unterstützt wird jeweils nur die [neueste Version](https://github.com/zzuuuiii/BarDrop/releases/latest).
+Only the [latest version](https://github.com/zzuuuiii/BarDrop/releases/latest) is supported.
 
-Gut zu wissen: BarDrop sendet keine Daten. Die einzige Netzwerkverbindung ist die Suche nach Updates bei GitHub. Updates werden vor der Installation mit der SHA-256-Prüfsumme verglichen, die GitHub zur DMG angibt.
+Good to know: BarDrop sends no data. The only network connection is the update check on GitHub. Before installing, updates are checked against the SHA-256 checksum GitHub publishes for the DMG.

@@ -225,7 +225,7 @@ struct KlackSwitch: View {
         .opacity(isEnabled ? 1 : 0.45)
         .accessibilityElement()
         .accessibilityAddTraits(.isButton)
-        .accessibilityValue(isOn ? "Ein" : "Aus")
+        .accessibilityValue(isOn ? L("On", "Ein") : L("Off", "Aus"))
     }
 }
 
@@ -382,7 +382,7 @@ struct SliderRow: View {
         .padding(.bottom, 8)
     }
 
-    static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded())) %" }
+    static func percent(_ v: Double) -> String { Format.percent(Int((v * 100).rounded())) }
     static func points(_ v: Double) -> String { "\(Int(v.rounded())) pt" }
 }
 

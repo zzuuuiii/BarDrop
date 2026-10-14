@@ -1,0 +1,11 @@
+name: Suggest an idea
+description: A new feature or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What should BarDrop be able to do, and in which situation would it help you?
+    validations:
+      required: true

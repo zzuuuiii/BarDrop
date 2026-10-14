@@ -145,7 +145,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     func announceRemoval(_ count: Int) {
         guard count > 0 else { return }
-        announce(count == 1 ? "1 Objekt entfernt" : "\(count) Objekte entfernt", canUndo: true)
+        announce(count == 1 ? L("1 item removed", "1 Objekt entfernt") : L("\(count) items removed", "\(count) Objekte entfernt"), canUndo: true)
     }
 
     /// ⌘Z: zuletzt Entferntes zurückholen und auswählen.
@@ -159,7 +159,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         } else {
             ui.selection = Set(store.entries.filter { entry in entry.files.contains { restored.contains($0.id) } }.map(\.id))
         }
-        announce(restored.count == 1 ? "1 Objekt zurückgeholt" : "\(restored.count) Objekte zurückgeholt")
+        announce(restored.count == 1 ? L("1 item restored", "1 Objekt zurückgeholt") : L("\(restored.count) items restored", "\(restored.count) Objekte zurückgeholt"))
     }
 
     /// ⇧⌘Z: Widerrufenes erneut entfernen.
@@ -367,11 +367,13 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     static func confirmRemovingAll(_ count: Int, ui: ShelfUIModel? = nil) -> Bool {
         guard count > 0 else { return false }
         let alert = NSAlert()
-        alert.messageText = count == 1 ? "1 Objekt aus der Ablage entfernen?" : "Alle \(count) Objekte aus der Ablage entfernen?"
-        alert.informativeText = "Dateien aus dem Finder bleiben erhalten. In der Ablage lässt sich das mit ⌘Z widerrufen."
+        alert.messageText = count == 1 ? L("Remove 1 item from the shelf?", "1 Objekt aus der Ablage entfernen?")
+            : L("Remove all \(count) items from the shelf?", "Alle \(count) Objekte aus der Ablage entfernen?")
+        alert.informativeText = L("Files from the Finder are kept. You can undo this in the shelf with ⌘Z.",
+                                  "Dateien aus dem Finder bleiben erhalten. In der Ablage lässt sich das mit ⌘Z widerrufen.")
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Entfernen")
-        alert.addButton(withTitle: "Abbrechen")
+        alert.addButton(withTitle: L("Remove", "Entfernen"))
+        alert.addButton(withTitle: L("Cancel", "Abbrechen"))
         alert.buttons.first?.hasDestructiveAction = true
         ui?.menuOpen = true                 // Ablage bleibt offen, solange die Frage steht
         NSApp.activate(ignoringOtherApps: true)
@@ -439,19 +441,19 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     // MARK: Menüs
 
     private func addFileItems(to menu: NSMenu, urls: [URL], anchor: NSView, open: @escaping () -> Void) {
-        menu.addItem(ClosureMenuItem("Öffnen", symbol: "arrow.up.forward.app", key: "o", handler: open))
-        menu.addItem(ClosureMenuItem("Im Finder zeigen", symbol: "folder", key: "r") {
+        menu.addItem(ClosureMenuItem(L("Open", "Öffnen"), symbol: "arrow.up.forward.app", key: "o", handler: open))
+        menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), symbol: "folder", key: "r") {
             NSWorkspace.shared.activateFileViewerSelecting(urls)
         })
-        menu.addItem(ClosureMenuItem("Kopieren", symbol: "doc.on.doc", key: "c") { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Copy", "Kopieren"), symbol: "doc.on.doc", key: "c") { [weak self] in
             ShelfActions.copyFiles(urls)
             self?.announceCopy(urls.count, pathsOnly: false)
         })
-        menu.addItem(ClosureMenuItem("Pfad kopieren", symbol: "link", key: "c", modifiers: [.command, .option]) { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Copy Path", "Pfad kopieren"), symbol: "link", key: "c", modifiers: [.command, .option]) { [weak self] in
             ShelfActions.copyPaths(urls)
             self?.announceCopy(urls.count, pathsOnly: true)
         })
-        menu.addItem(ClosureMenuItem("Teilen", symbol: "square.and.arrow.up") { [weak self, weak anchor] in
+        menu.addItem(ClosureMenuItem(L("Share", "Teilen"), symbol: "square.and.arrow.up") { [weak self, weak anchor] in
             guard let anchor else { return }
             // erst nach dem Schließen des Menüs zeigen, damit der Picker an der Kachel sitzt
             DispatchQueue.main.async { self?.share(urls, from: anchor) }
@@ -468,20 +470,20 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
         if multiple {
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem("Als Stapel zusammenfassen", symbol: "square.stack") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Group as Stack", "Als Stapel zusammenfassen"), symbol: "square.stack") { [weak self] in
                 self?.mergeSelection(targets)
             })
         } else if entry.isStack {
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem("Stapel öffnen", symbol: "square.stack") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Open Stack", "Stapel öffnen"), symbol: "square.stack") { [weak self] in
                 self?.openStack(entry)
             })
-            menu.addItem(ClosureMenuItem("Stapel auflösen", symbol: "square.stack.3d.down.right") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Ungroup Stack", "Stapel auflösen"), symbol: "square.stack.3d.down.right") { [weak self] in
                 self?.store.unstack(entry.id)
             })
         }
         menu.addItem(.separator())
-        let title = multiple ? "\(targets.count) Objekte entfernen" : "Entfernen"
+        let title = multiple ? L("Remove \(targets.count) Items", "\(targets.count) Objekte entfernen") : L("Remove", "Entfernen")
         menu.addItem(ClosureMenuItem(title, symbol: "xmark.circle", key: "\u{8}") { [weak self] in self?.remove(targets) })
         return menu
     }
@@ -493,11 +495,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let menu = NSMenu()
         addFileItems(to: menu, urls: urls, anchor: anchor) { urls.forEach { NSWorkspace.shared.open($0) } }
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(files.count > 1 ? "\(files.count) Objekte aus Stapel lösen" : "Aus Stapel lösen",
+        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Take \(files.count) Items Out of Stack", "\(files.count) Objekte aus Stapel lösen") : L("Take Out of Stack", "Aus Stapel lösen"),
                                      symbol: "arrow.up.right.square") { [weak self] in
             self?.detachMembers(files)
         })
-        menu.addItem(ClosureMenuItem(files.count > 1 ? "\(files.count) Objekte entfernen" : "Entfernen",
+        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Remove \(files.count) Items", "\(files.count) Objekte entfernen") : L("Remove", "Entfernen"),
                                      symbol: "xmark.circle", key: "\u{8}") { [weak self] in
             self?.removeMembers(files)
         })
@@ -507,20 +509,20 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Kontextmenü für die leere Fläche der Ablage.
     func backgroundMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(ClosureMenuItem("Aus Zwischenablage einfügen", symbol: "doc.on.clipboard", key: "v") { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Paste from Clipboard", "Aus der Zwischenablage einfügen"), symbol: "doc.on.clipboard", key: "v") { [weak self] in
             self?.store.pasteFromClipboard()
         })
         if store.undoManager.canUndo {
-            menu.addItem(ClosureMenuItem("Widerrufen", symbol: "arrow.uturn.backward", key: "z") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Undo", "Widerrufen"), symbol: "arrow.uturn.backward", key: "z") { [weak self] in
                 self?.undo()
             })
         }
         if !store.entries.isEmpty {
-            menu.addItem(ClosureMenuItem("Alle auswählen", symbol: "checkmark.circle", key: "a") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Select All", "Alle auswählen"), symbol: "checkmark.circle", key: "a") { [weak self] in
                 self?.selectAllCurrent()
             })
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem("Alle Objekte entfernen", symbol: "xmark.circle") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Remove All Items", "Alle Objekte entfernen"), symbol: "xmark.circle") { [weak self] in
                 guard let self else { return }
                 let count = self.store.entries.reduce(0) { $0 + $1.files.count }
                 // Erst nach dem Schließen des Menüs fragen
@@ -531,14 +533,14 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
         menu.addItem(.separator())
         if case .available(let version) = Updater.shared.state {
-            menu.addItem(ClosureMenuItem("Auf \(version) aktualisieren", symbol: "arrow.down.circle") {
+            menu.addItem(ClosureMenuItem(L("Update to \(version)", "Auf \(version) aktualisieren"), symbol: "arrow.down.circle") {
                 DispatchQueue.main.async { Updater.shared.install() }
             })
         }
-        menu.addItem(ClosureMenuItem("Einstellungen", symbol: "gearshape", key: ",") { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Settings", "Einstellungen"), symbol: "gearshape", key: ",") { [weak self] in
             self?.openSettings()
         })
-        menu.addItem(ClosureMenuItem("BarDrop beenden", symbol: "power", key: "q") {
+        menu.addItem(ClosureMenuItem(L("Quit BarDrop", "BarDrop beenden"), symbol: "power", key: "q") {
             NSApp.terminate(nil)
         })
         return menu

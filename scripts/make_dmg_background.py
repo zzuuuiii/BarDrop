@@ -45,7 +45,7 @@ def render(scale):
     d.line([(x1 - head, y - head), (x1, y), (x1 - head, y + head)], fill=color,
            width=round(2.5 * s), joint="curve")
 
-    text = "Zum Installieren BarDrop in den Ordner Programme ziehen"
+    text = "Drag BarDrop to the Applications folder to install it"
     f = font("Inter-Medium.otf", 13 * s)
     tw = d.textlength(text, font=f)
     d.text(((w - tw) / 2, 318 * s), text, font=f, fill=(134, 134, 139))
@@ -56,4 +56,4 @@ if __name__ == "__main__":
     out = ROOT / "Resources"
     render(1).save(out / "dmg-background.png")
     render(2).save(out / "dmg-background@2x.png")
-    print("Hintergrund geschrieben")
+    print("Background written")

@@ -1,0 +1,39 @@
+name: Report a bug
+description: Something doesn’t work as expected.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Drag an image from Safari to the right edge
+        2.
+  - type: input
+    id: bardrop
+    attributes:
+      label: BarDrop version
+      description: Settings → About BarDrop
+      placeholder: "1.16.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.2"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log (optional)
+      description: In the Console app, filter for “com.zzuuuiii.bardrop” and paste the relevant lines here. Please remove personal file names first.
+      render: text

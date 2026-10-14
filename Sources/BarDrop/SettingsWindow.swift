@@ -19,7 +19,7 @@ enum SettingsWindowFactory {
         window.toolbar = NSToolbar(identifier: "BarDropSettings")
         window.toolbarStyle = .unified
         window.titlebarSeparatorStyle = .none
-        window.title = "BarDrop Einstellungen"
+        window.title = "BarDrop"
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
@@ -42,12 +42,12 @@ enum SettingsPane: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .general: return "Allgemein"
-        case .shelf: return "Ablage"
-        case .items: return "Objekte"
-        case .actions: return "Aktionen"
-        case .keyboard: return "Tastatur"
-        case .about: return "Über BarDrop"
+        case .general: return L("General", "Allgemein")
+        case .shelf: return L("Shelf", "Ablage")
+        case .items: return L("Items", "Objekte")
+        case .actions: return L("Actions", "Aktionen")
+        case .keyboard: return L("Keyboard", "Tastatur")
+        case .about: return L("About BarDrop", "Über BarDrop")
         }
     }
 
@@ -125,7 +125,7 @@ struct SettingsRoot: View {
             Color.clear
             VStack(alignment: .leading, spacing: 0) {
                 row(.general)
-                header("Einstellungen")
+                header(L("Settings", "Einstellungen"))
                 row(.shelf)
                 row(.items)
                 row(.actions)
@@ -226,10 +226,12 @@ struct AboutSettings: View {
 
     private var updateNote: String {
         switch updater.state {
-        case .upToDate: return "BarDrop ist aktuell."
-        case .available(let v): return "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Ablage bleibt erhalten."
+        case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
+        case .available(let v): return L("Version \(v) is available. BarDrop is replaced and restarts; the shelf keeps its items.",
+                                         "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Ablage bleibt erhalten.")
         case .failed(let message): return message
-        default: return "Neue Versionen kommen von GitHub und werden vor der Installation geprüft."
+        default: return L("New versions come from GitHub and are verified before they’re installed.",
+                          "Neue Versionen kommen von GitHub und werden vor der Installation geprüft.")
         }
     }
 
@@ -246,7 +248,7 @@ struct AboutSettings: View {
                         Text("BarDrop")
                             .font(.system(size: 15, weight: .semibold))
                         HStack(spacing: 5) {
-                            Text("Version \(version)")
+                            Text(L("Version \(version)", "Version \(version)"))
                                 .foregroundStyle(.secondary)
                             ReleaseNotesButton()
                         }
@@ -256,15 +258,15 @@ struct AboutSettings: View {
                 }
                 .padding(.horizontal, SettingsTheme.rowPadding)
                 .padding(.vertical, 12)
-                ToggleRow("Automatisch nach Updates suchen", isOn: $settings.autoUpdateCheck)
+                ToggleRow(L("Check for updates automatically", "Automatisch nach Updates suchen"), isOn: $settings.autoUpdateCheck)
             }
 
-            SettingsSection("Dank und Quellen") {
+            SettingsSection(L("Credits", "Dank und Quellen")) {
                 // Eingeklappt: nur die Namen. Ein Klick klappt die Einträge mit Links auf.
                 Button {
                     withAnimation(.easeOut(duration: 0.2)) { showInspirations.toggle() }
                 } label: {
-                    SettingsRow("Inspiriert von", subtitle: "Alcove, Klack, boring.notch und perch") {
+                    SettingsRow(L("Inspired by", "Inspiriert von"), subtitle: L("Alcove, Klack, boring.notch and perch", "Alcove, Klack, boring.notch und perch")) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
@@ -274,22 +276,22 @@ struct AboutSettings: View {
                 }
                 .buttonStyle(.plain)
                 if showInspirations {
-                    LinkRow(title: "Alcove", detail: "Vorbild für Form und Bewegung der Ablage",
+                    LinkRow(title: "Alcove", detail: L("Model for the shape and motion of the shelf", "Vorbild für Form und Bewegung der Ablage"),
                             url: "https://tryalcove.com")
-                    LinkRow(title: "Klack", detail: "Vorbild für Aufbau und Gestaltung der Einstellungen",
+                    LinkRow(title: "Klack", detail: L("Model for the layout and design of the settings", "Vorbild für Aufbau und Gestaltung der Einstellungen"),
                             url: "https://tryklack.com")
-                    LinkRow(title: "boring.notch", detail: "Code für Bilder aus dem Web und Vorschaubilder",
+                    LinkRow(title: "boring.notch", detail: L("Code for web images and thumbnails", "Code für Bilder aus dem Web und Vorschaubilder"),
                             url: "https://github.com/TheBoredTeam/boring.notch")
-                    LinkRow(title: "perch", detail: "Code für Herausziehen und iCloud-Dateien",
+                    LinkRow(title: "perch", detail: L("Code for dragging out and iCloud files", "Code für Herausziehen und iCloud-Dateien"),
                             url: "https://github.com/hausfold/perch")
                 }
-                LinkRow(title: "Quellcode", detail: "github.com/zzuuuiii/BarDrop",
+                LinkRow(title: L("Source code", "Quellcode"), detail: "github.com/zzuuuiii/BarDrop",
                         url: "https://github.com/zzuuuiii/BarDrop")
             }
 
             SettingsSection {
-                SettingsRow("Einführung", subtitle: "Die drei Schritte vom ersten Start noch einmal") {
-                    Button("Einführung zeigen", action: showOnboarding)
+                SettingsRow(L("Introduction", "Einführung"), subtitle: L("The three steps from the first launch again", "Die drei Schritte vom ersten Start noch einmal")) {
+                    Button(L("Show introduction", "Einführung zeigen"), action: showOnboarding)
                         .buttonStyle(KlackButtonStyle())
                 }
             }
@@ -305,13 +307,13 @@ struct AboutSettings: View {
         case .installing:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.small)
-                Text("Wird installiert").foregroundStyle(.secondary)
+                Text(L("Installing", "Wird installiert")).foregroundStyle(.secondary)
             }
         case .available(let v):
-            Button("Auf \(v) aktualisieren") { updater.install() }
+            Button(L("Update to \(v)", "Auf \(v) aktualisieren")) { updater.install() }
                 .buttonStyle(KlackButtonStyle(prominent: true))
         default:
-            Button("Nach Updates suchen") { updater.check(interactive: true) }
+            Button(L("Check for updates", "Nach Updates suchen")) { updater.check(interactive: true) }
                 .buttonStyle(KlackButtonStyle())
         }
     }
@@ -370,7 +372,7 @@ struct HotKeyEditor: View {
                     toggle(mod.flag)
                 }
             }
-            SettingsKeyCap(symbol: recording ? "…" : settings.hotKeyLabel, name: recording ? "Taste" : "",
+            SettingsKeyCap(symbol: recording ? "…" : settings.hotKeyLabel, name: recording ? L("key", "Taste") : "",
                            active: true, wide: true, highlighted: recording) {
                 recording ? stopRecording() : startRecording()
             }

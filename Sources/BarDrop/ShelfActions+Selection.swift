@@ -128,7 +128,7 @@ extension ShelfActions {
         if pathsOnly {
             announce(count == 1 ? "Pfad kopiert" : "\(count) Pfade kopiert")
         } else {
-            announce(count == 1 ? "1 Objekt kopiert" : "\(count) Objekte kopiert")
+            announce(count == 1 ? L("1 item copied", "1 Objekt kopiert") : L("\(count) items copied", "\(count) Objekte kopiert"))
         }
     }
 

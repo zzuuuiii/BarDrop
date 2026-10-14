@@ -188,20 +188,20 @@ struct ShelfContent: View {
                     HStack(spacing: 3) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .semibold))
-                        Text("Ablage")
+                        Text(L("Shelf", "Ablage"))
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundStyle(.white.opacity(0.92))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Zurück zur Ablage (esc)")
+                .help(L("Back to the shelf (esc)", "Zurück zur Ablage (esc)"))
                 Spacer(minLength: 8)
                 let selected = ui.memberSelection.intersection(stack.files.map(\.id)).count
-                status(selected > 0 ? "\(selected) von \(stack.files.count) ausgewählt"
-                                    : "\(stack.files.count) Objekte im Stapel")
+                status(selected > 0 ? L("\(selected) of \(stack.files.count) selected", "\(selected) von \(stack.files.count) ausgewählt")
+                                    : L("\(stack.files.count) items in stack", "\(stack.files.count) Objekte im Stapel"))
             } else {
-                Text("Ablage")
+                Text(L("Shelf", "Ablage"))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.92))
                     .allowsHitTesting(false)
@@ -212,12 +212,12 @@ struct ShelfContent: View {
                     // Große Dateien, Downloads und iCloud brauchen einen Moment
                     HStack(spacing: 5) {
                         ProgressView().controlSize(.mini)
-                        countLabel("Wird übernommen …")
+                        countLabel(L("Importing", "Wird übernommen"))
                     }
                 } else {
                     status(count == 0 ? nil
-                           : selected > 0 ? "\(selected) von \(count) ausgewählt"
-                           : (count == 1 ? "1 Objekt" : "\(count) Objekte"))
+                           : selected > 0 ? L("\(selected) of \(count) selected", "\(selected) von \(count) ausgewählt")
+                           : (count == 1 ? L("1 item", "1 Objekt") : L("\(count) items", "\(count) Objekte")))
                 }
             }
         }
@@ -337,10 +337,10 @@ struct ShelfContent: View {
                 .font(.system(size: 30, weight: .light))
                 .foregroundStyle(.white.opacity(ui.isDropTargeted ? 0.95 : 0.45))
                 .scaleEffect(ui.isDropTargeted ? 1.12 : 1)
-            Text("Hier ablegen")
+            Text(L("Drop here", "Hier ablegen"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.85))
-            Text("Dateien, Bilder aus dem Web,\nLinks und Text")
+            Text(L("Files, web images,\nlinks and text", "Dateien, Bilder aus dem Web,\nLinks und Text"))
                 .font(.system(size: 11))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.white.opacity(0.45))
@@ -436,8 +436,8 @@ struct TileView: View {
             )
         )
         .opacity(offlineVolume != nil ? 0.4 : 1)
-        .help(offlineVolume.map { "Laufwerk „\($0)“ ist nicht angeschlossen" }
-              ?? (entry.isStack ? "Stapel öffnen" : entry.urls.map(\.lastPathComponent).joined(separator: "\n")))
+        .help(offlineVolume.map { L("Drive “\($0)” isn’t connected", "Laufwerk „\($0)“ ist nicht angeschlossen") }
+              ?? (entry.isStack ? L("Open stack", "Stapel öffnen") : entry.urls.map(\.lastPathComponent).joined(separator: "\n")))
     }
 
     /// Alle Dateien liegen auf einem Laufwerk, das gerade nicht angeschlossen ist
@@ -476,7 +476,7 @@ struct StackMemberTile: View {
             )
         )
         .opacity(file.offlineVolumeName != nil ? 0.4 : 1)
-        .help(file.offlineVolumeName.map { "Laufwerk „\($0)“ ist nicht angeschlossen" } ?? file.url.lastPathComponent)
+        .help(file.offlineVolumeName.map { L("Drive “\($0)” isn’t connected", "Laufwerk „\($0)“ ist nicht angeschlossen") } ?? file.url.lastPathComponent)
     }
 }
 

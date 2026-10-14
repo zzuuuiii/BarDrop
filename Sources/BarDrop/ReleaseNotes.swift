@@ -10,9 +10,17 @@ final class ReleaseNotes: ObservableObject {
     struct Entry: Identifiable, Equatable {
         let version: String
         let date: Date?
+        /// Englische Notizen (bei älteren Versionen die einzigen, auf Deutsch)
         let notes: [String]
+        /// Deutsche Fassung, falls das Release beide Sprachen enthält
+        let notesGerman: [String]?
         let page: URL?
         var id: String { version }
+
+        /// Notizen in der gewählten Sprache
+        var lines: [String] {
+            AppSettings.shared.language == .german ? (notesGerman ?? notes) : notes
+        }
     }
 
     enum State: Equatable {
@@ -54,10 +62,18 @@ final class ReleaseNotes: ObservableObject {
             let version = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
             let date = (json["published_at"] as? String).flatMap { iso.date(from: $0) }
             let page = (json["html_url"] as? String).flatMap(URL.init(string:))
+            let body = json["body"] as? String ?? ""
+            // Zweisprachige Releases: Englisch oben, Deutsch nach der Marke <!-- de -->
+            let parts = body.components(separatedBy: germanMarker)
             return Entry(version: version, date: date,
-                         notes: cleanNotes(json["body"] as? String ?? ""), page: page)
+                         notes: cleanNotes(parts[0]),
+                         notesGerman: parts.count > 1 ? cleanNotes(parts[1]) : nil,
+                         page: page)
         }
     }
+
+    /// Trennt in den Release-Notizen die englische von der deutschen Fassung
+    static let germanMarker = "<!-- de -->"
 
     /// Nur die Aufzählung der Änderungen: ohne Überschrift, Installationshinweis
     /// und Notizblöcke, die in jedem Release gleich sind.
@@ -65,8 +81,8 @@ final class ReleaseNotes: ObservableObject {
         body.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { line in
-                !line.isEmpty && !line.hasPrefix("#") && !line.hasPrefix(">")
-                    && !line.hasPrefix("**Installation")
+                !line.isEmpty && !line.hasPrefix("#") && !line.hasPrefix(">") && !line.hasPrefix("<!--")
+                    && !line.hasPrefix("**Installation") && !line.hasPrefix("**Install")
             }
             .map { line in
                 for marker in ["* ", "- "] where line.hasPrefix(marker) {
@@ -95,8 +111,8 @@ struct ReleaseNotesButton: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help("Was ist neu")
-        .accessibilityLabel("Was ist neu")
+        .help(L("What’s new", "Was ist neu"))
+        .accessibilityLabel(L("What’s new", "Was ist neu"))
         .onAppear { notes.loadIfNeeded() }
         .popover(isPresented: $shown, arrowEdge: .bottom) {
             ReleaseNotesList(notes: notes)
@@ -108,17 +124,17 @@ struct ReleaseNotesButton: View {
 private struct ReleaseNotesList: View {
     @ObservedObject var notes: ReleaseNotes
 
-    private static let dateFormat: DateFormatter = {
+    private static var dateFormat: DateFormatter {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "de_DE")
+        f.locale = AppSettings.shared.language.locale
         f.dateStyle = .medium
         f.timeStyle = .none
         return f
-    }()
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Was ist neu")
+            Text(L("What’s new", "Was ist neu"))
                 .font(.system(size: 13, weight: .semibold))
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
@@ -139,7 +155,7 @@ private struct ReleaseNotesList: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 case .failed:
-                    Text("Keine Verbindung zu GitHub.")
+                    Text(L("Couldn’t reach GitHub.", "Keine Verbindung zu GitHub."))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 default:
@@ -154,7 +170,7 @@ private struct ReleaseNotesList: View {
 
             HStack {
                 Spacer()
-                Link("Alle Versionen auf GitHub", destination: ReleaseNotes.allReleases)
+                Link(L("All versions on GitHub", "Alle Versionen auf GitHub"), destination: ReleaseNotes.allReleases)
                     .font(.callout)
             }
             .padding(.horizontal, 14)
@@ -166,10 +182,10 @@ private struct ReleaseNotesList: View {
     private func entryView(_ entry: ReleaseNotes.Entry) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Version \(entry.version)")
+                Text(L("Version \(entry.version)", "Version \(entry.version)"))
                     .font(.system(size: 13, weight: .semibold))
                 if entry.version == Updater.shared.currentVersion {
-                    Text("installiert")
+                    Text(L("installed", "installiert"))
                         .font(.system(size: 10, weight: .semibold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
@@ -182,7 +198,7 @@ private struct ReleaseNotesList: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            ForEach(Array(entry.notes.enumerated()), id: \.offset) { _, line in
+            ForEach(Array(entry.lines.enumerated()), id: \.offset) { _, line in
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("•").foregroundStyle(.secondary)
                     Text(Self.markdown(line))

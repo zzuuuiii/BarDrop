@@ -7,7 +7,7 @@ import Combine
 enum ScreenEdge: String, CaseIterable, Identifiable {
     case left, right
     var id: String { rawValue }
-    var title: String { self == .left ? "Links" : "Rechts" }
+    var title: String { self == .left ? L("Left", "Links") : L("Right", "Rechts") }
 }
 
 /// Wählbare Zeiträume für das automatische Entfernen (in Stunden).
@@ -23,9 +23,9 @@ enum AutoRemoveOption: Double, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .never: return "Nie"
-        case .h1: return "Nach 1 Stunde"
-        default: return "Nach \(Int(rawValue / 3_600)) Stunden"
+        case .never: return L("Never", "Nie")
+        case .h1: return L("After 1 hour", "Nach 1 Stunde")
+        default: return L("After \(Int(rawValue / 3_600)) hours", "Nach \(Int(rawValue / 3_600)) Stunden")
         }
     }
 }
@@ -37,9 +37,9 @@ enum AnimationStyle: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .subtle: return "Dezent"
-        case .standard: return "Standard"
-        case .lively: return "Lebhaft"
+        case .subtle: return L("Subtle", "Dezent")
+        case .standard: return L("Standard", "Standard")
+        case .lively: return L("Lively", "Lebhaft")
         }
     }
 
@@ -100,8 +100,8 @@ enum OpenMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .automatic: return "Automatisch"
-        case .click: return "Per Klick"
+        case .automatic: return L("Automatically", "Automatisch")
+        case .click: return L("On click", "Per Klick")
         }
     }
 }
@@ -112,9 +112,9 @@ enum OpenDelay {
     static let choices: [Double] = [instant, 1, 2, 3, 4, 5]
 
     static func title(_ value: Double) -> String {
-        if value <= instant { return "Sofort" }
+        if value <= instant { return L("Instantly", "Sofort") }
         let s = Int(value.rounded())
-        return s == 1 ? "Nach 1 Sekunde" : "Nach \(s) Sekunden"
+        return s == 1 ? L("After 1 second", "Nach 1 Sekunde") : L("After \(s) seconds", "Nach \(s) Sekunden")
     }
 }
 
@@ -125,9 +125,9 @@ enum DragReveal: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .immediately: return "Sofort andeuten"
-        case .nearEdge: return "Erst in Randnähe"
-        case .off: return "Nie"
+        case .immediately: return L("Hint right away", "Sofort andeuten")
+        case .nearEdge: return L("Only near the edge", "Erst in Randnähe")
+        case .off: return L("Never", "Nie")
         }
     }
 }
@@ -139,8 +139,8 @@ enum SortOrder: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .newestFirst: return "Neueste zuerst"
-        case .oldestFirst: return "Älteste zuerst"
+        case .newestFirst: return L("Newest first", "Neueste zuerst")
+        case .oldestFirst: return L("Oldest first", "Älteste zuerst")
         }
     }
 }
@@ -152,9 +152,9 @@ enum DisplayMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .all: return "Alle Bildschirme"
-        case .builtIn: return "Nur integrierter Bildschirm"
-        case .external: return "Nur externe Bildschirme"
+        case .all: return L("All displays", "Alle Bildschirme")
+        case .builtIn: return L("Built-in display only", "Nur integrierter Bildschirm")
+        case .external: return L("External displays only", "Nur externe Bildschirme")
         }
     }
 
@@ -234,6 +234,9 @@ final class AppSettings: ObservableObject {
         static let showOutline = "showOutline"
         static let openDelay = "openDelay"
         static let clickToOpenEarly = "clickToOpenEarly"
+        static let language = "language"
+        static let generousHitArea = "generousHitArea"
+        static let twoActionRows = "twoActionRows"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -332,6 +335,13 @@ final class AppSettings: ObservableObject {
     /// Bei langer Verzögerung (ab 1 Sekunde) öffnet ein Klick auf den Streifen die Ablage sofort.
     @Published var clickToOpenEarly: Bool { didSet { defaults.set(clickToOpenEarly, forKey: Key.clickToOpenEarly) } }
 
+    /// Sprache der Oberfläche
+    @Published var language: AppLanguage { didSet { defaults.set(language.rawValue, forKey: Key.language) } }
+    /// Etwas größerer Bereich um Streifen und Griff, in dem der Zeiger noch zählt
+    @Published var generousHitArea: Bool { didSet { defaults.set(generousHitArea, forKey: Key.generousHitArea) } }
+    /// Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen
+    @Published var twoActionRows: Bool { didSet { defaults.set(twoActionRows, forKey: Key.twoActionRows) } }
+
     /// Ab dieser Verzögerung lässt sich das Öffnen per Klick abkürzen.
     static let clickToOpenMinDelay = 1.0
 
@@ -386,6 +396,9 @@ final class AppSettings: ObservableObject {
             Key.showOutline: true,
             Key.openDelay: OpenDelay.instant,
             Key.clickToOpenEarly: true,
+            Key.language: AppLanguage.english.rawValue,
+            Key.generousHitArea: false,
+            Key.twoActionRows: false,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
             Key.hotKeyModifiers: Self.defaultHotKey.modifiers,
@@ -431,6 +444,9 @@ final class AppSettings: ObservableObject {
         showOutline = defaults.bool(forKey: Key.showOutline)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
         clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
+        language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
+        generousHitArea = defaults.bool(forKey: Key.generousHitArea)
+        twoActionRows = defaults.bool(forKey: Key.twoActionRows)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -479,6 +495,8 @@ final class AppSettings: ObservableObject {
         openMode = .automatic
         openDelay = OpenDelay.instant
         clickToOpenEarly = true
+        generousHitArea = false
+        twoActionRows = false
         showOutline = true
         removeAfterDragOut = true
         stackMultiple = true

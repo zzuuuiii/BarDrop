@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.15.0
+* Einstellungen eins zu eins im Stil von Klack: eigene Karten, Zeilen, längliche Schalter, schlichte Auswahlmenüs, Regler, Tasten und Seitenleiste, unabhängig von der macOS-Version
+
 ## 1.14.0
 * Aktionen lassen sich wieder per Ziehen anordnen
 * Kein Symbol in der Menüleiste mehr; der Bildschirmrand öffnet die Ablage immer

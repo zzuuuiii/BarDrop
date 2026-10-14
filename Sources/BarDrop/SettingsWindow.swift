@@ -4,10 +4,10 @@ import Carbon
 
 // MARK: Fenster
 
-/// Einstellungsfenster im Stil von Klack: ein einheitlicher, durchscheinender
-/// Hintergrund, links die Bereiche mit farbigen Symbolen, rechts Titel und Karten.
+/// Einstellungsfenster im Stil von Klack: ein einheitliches Grau, links die
+/// Bereiche mit farbigen Symbolen, rechts Titel und Karten.
 enum SettingsWindowFactory {
-    static let size = NSSize(width: 700, height: 600)
+    static let size = NSSize(width: 680, height: 700)
 
     static func make(settings: AppSettings, store: ShelfStore, showOnboarding: @escaping () -> Void) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
@@ -24,6 +24,7 @@ enum SettingsWindowFactory {
         window.isReleasedWhenClosed = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.backgroundColor = NSColor(SettingsTheme.window)
         window.contentView = NSHostingView(rootView: SettingsRoot(settings: settings, store: store,
                                                                   showOnboarding: showOnboarding))
         window.setContentSize(size)
@@ -97,9 +98,9 @@ struct SettingsRoot: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-                .frame(width: 220)
+                .frame(width: 244)
             Rectangle()
-                .fill(Color.primary.opacity(0.08))
+                .fill(SettingsTheme.divider)
                 .frame(width: 1)
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -107,7 +108,7 @@ struct SettingsRoot: View {
         // Füllt das ganze Fenster, auch den Bereich unter der Titelleiste. Eine feste
         // Höhe würde nach oben verschoben und ließe unten einen leeren Streifen frei.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SettingsWindowMaterial().ignoresSafeArea())
+        .background(SettingsTheme.window.ignoresSafeArea())
         .ignoresSafeArea()
     }
 
@@ -116,7 +117,7 @@ struct SettingsRoot: View {
     private var sidebar: some View {
         ZStack(alignment: .top) {
             Color.clear
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 row(.general)
                 header("Einstellungen")
                 row(.shelf)
@@ -127,18 +128,18 @@ struct SettingsRoot: View {
                 row(.about)
                 Spacer()
             }
-            .padding(.horizontal, 10)
-            .padding(.top, 52)
+            .padding(.horizontal, 13)
+            .padding(.top, 56)
         }
     }
 
     private func header(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: 14, weight: .medium))
             .foregroundStyle(.secondary)
-            .padding(.leading, 10)
-            .padding(.top, 16)
-            .padding(.bottom, 4)
+            .padding(.leading, 8)
+            .padding(.top, 21)
+            .padding(.bottom, 7)
     }
 
     private func row(_ item: SettingsPane) -> some View {
@@ -149,13 +150,14 @@ struct SettingsRoot: View {
 
     private var detail: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 9) {
+            HStack(spacing: 10) {
                 PaneIcon(pane: pane, size: 24)
                 Text(pane.title)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 17, weight: .semibold))
             }
-            .padding(.leading, 20)
+            .padding(.leading, 18)
             .frame(height: 52)
+            .padding(.bottom, 4)
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -187,15 +189,19 @@ private struct SidebarRow: View {
             HStack(spacing: 9) {
                 PaneIcon(pane: item)
                 Text(item.title)
-                    .font(.system(size: 13))
+                    .font(.system(size: 14))
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 9)
+            .frame(height: 42)
             .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(selected ? SettingsTheme.card : Color.primary.opacity(hovering ? 0.04 : 0))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(selected ? SettingsTheme.cardBorder : Color.clear, lineWidth: 1)
             )
             .contentShape(Rectangle())
         }
@@ -228,8 +234,8 @@ struct AboutSettings: View {
     @State private var showInspirations = false
 
     var body: some View {
-        Form {
-            Section {
+        SettingsPage {
+            SettingsSection(note: updateNote) {
                 HStack(spacing: 14) {
                     Image(nsImage: NSApp.applicationIconImage ?? NSImage())
                         .resizable()
@@ -246,26 +252,17 @@ struct AboutSettings: View {
                     Spacer()
                     updateControl
                 }
-                .padding(.vertical, 4)
-                Toggle("Automatisch nach Updates suchen", isOn: $settings.autoUpdateCheck)
-            } footer: {
-                SectionNote(updateNote)
+                .padding(.horizontal, SettingsTheme.rowPadding)
+                .padding(.vertical, 12)
+                ToggleRow("Automatisch nach Updates suchen", isOn: $settings.autoUpdateCheck)
             }
 
-            Section {
+            SettingsSection("Dank und Quellen") {
                 // Eingeklappt: nur die Namen. Ein Klick klappt die Einträge mit Links auf.
                 Button {
                     withAnimation(.easeOut(duration: 0.2)) { showInspirations.toggle() }
                 } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Inspiriert von")
-                                .foregroundStyle(.primary)
-                            Text("Alcove, Klack, boring.notch und perch")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
+                    SettingsRow("Inspiriert von", subtitle: "Alcove, Klack, boring.notch und perch") {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.secondary)
@@ -286,25 +283,15 @@ struct AboutSettings: View {
                 }
                 LinkRow(title: "Quellcode", detail: "github.com/zzuuuiii/BarDrop",
                         url: "https://github.com/zzuuuiii/BarDrop")
-            } header: {
-                SettingsHeader("Dank und Quellen")
             }
 
-            Section {
-                LabeledContent {
+            SettingsSection {
+                SettingsRow("Einführung", subtitle: "Die drei Schritte vom ersten Start noch einmal") {
                     Button("Einführung zeigen", action: showOnboarding)
-                } label: {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("Einführung")
-                        Text("Die drei Schritte vom ersten Start noch einmal")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                        .buttonStyle(KlackButtonStyle())
                 }
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 
     /// Knopf oben rechts: suchen, Fortschritt oder installieren
@@ -320,9 +307,10 @@ struct AboutSettings: View {
             }
         case .available(let v):
             Button("Auf \(v) aktualisieren") { updater.install() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(KlackButtonStyle(prominent: true))
         default:
             Button("Nach Updates suchen") { updater.check(interactive: true) }
+                .buttonStyle(KlackButtonStyle())
         }
     }
 }
@@ -333,15 +321,13 @@ private struct LinkRow: View {
     let url: String
 
     var body: some View {
-        LabeledContent {
+        SettingsRow(title, subtitle: detail) {
             Link(destination: URL(string: url)!) {
-                Image(systemName: "arrow.up.right.square")
+                Image(systemName: "arrow.up.right.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
             }
-        } label: {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                Text(detail).font(.caption).foregroundStyle(.secondary)
-            }
+            .help(url)
         }
     }
 }
@@ -375,7 +361,7 @@ struct HotKeyEditor: View {
     ]
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ForEach(modifiers, id: \.flag) { mod in
                 let on = settings.hotKeyModifiers & mod.flag != 0
                 SettingsKeyCap(symbol: mod.symbol, name: mod.name, active: on, wide: false) {
@@ -387,7 +373,6 @@ struct HotKeyEditor: View {
                 recording ? stopRecording() : startRecording()
             }
         }
-        .padding(.vertical, 4)
         .onDisappear { stopRecording() }
     }
 
@@ -438,6 +423,8 @@ struct HotKeyEditor: View {
     }
 }
 
+/// Taste wie bei Klack: dunkel eingelassen, Symbol oben, Name unten.
+/// Aktive Tasten sind dunkler und hell beschriftet, inaktive blass.
 private struct SettingsKeyCap: View {
     let symbol: String
     let name: String
@@ -449,31 +436,31 @@ private struct SettingsKeyCap: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: wide ? .center : .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 if wide && name.isEmpty {
-                    Spacer(minLength: 0)
-                    Text(symbol).font(.system(size: 18, weight: .medium))
-                    Spacer(minLength: 0)
+                    Text(symbol)
+                        .font(.system(size: 17, weight: .medium))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Text(symbol).font(.system(size: 14, weight: .medium))
                     Spacer(minLength: 0)
-                    Text(name).font(.system(size: 12, weight: .medium))
+                    Text(name).font(.system(size: 13, weight: .medium))
                 }
             }
-            .foregroundStyle(active ? Color.primary : Color.secondary.opacity(0.6))
+            .foregroundStyle(active ? Color.primary : Color.secondary.opacity(0.7))
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .frame(width: wide ? 64 : 74, height: 58, alignment: wide ? .center : .leading)
+            .frame(maxWidth: wide ? 62 : .infinity, alignment: .leading)
+            .frame(width: wide ? 62 : nil, height: 60)
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(highlighted ? Color.accentColor.opacity(0.25)
-                          : Color.primary.opacity(active ? 0.13 : hovering ? 0.06 : 0.03))
+                    .fill(highlighted ? Color.accentColor.opacity(0.3)
+                          : Color.black.opacity(active ? 0.42 : hovering ? 0.2 : 0.24))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(active ? 0.12 : 0.06), lineWidth: 1)
+                    .strokeBorder(Color.white.opacity(active ? 0.06 : 0.04), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(active ? 0.25 : 0), radius: 1.5, y: 1)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

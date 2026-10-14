@@ -11,64 +11,53 @@ struct GeneralSettings: View {
     @State private var loginError: String?
 
     var body: some View {
-        Form {
-            Section {
-                Toggle("Beim Anmelden öffnen", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, enabled in
-                        do {
-                            if enabled { try SMAppService.mainApp.register() }
-                            else { try SMAppService.mainApp.unregister() }
-                            loginError = nil
-                        } catch {
-                            loginError = "Nicht möglich. Liegt BarDrop im Ordner „Programme“?"
-                            launchAtLogin = SMAppService.mainApp.status == .enabled
-                        }
-                    }
-            } header: {
-                SettingsHeader("Start", info: "BarDrop hat kein Symbol in der Menüleiste. Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden, BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.")
-            } footer: {
-                if let loginError {
-                    SectionNote(loginError, color: .red)
+        SettingsPage {
+            SettingsSection("Start",
+                            info: "BarDrop hat kein Symbol in der Menüleiste. Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden, BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.",
+                            note: loginError, noteColor: .red) {
+                ToggleRow("Beim Anmelden öffnen", isOn: $launchAtLogin)
+            }
+            .onChange(of: launchAtLogin) { _, enabled in
+                do {
+                    if enabled { try SMAppService.mainApp.register() }
+                    else { try SMAppService.mainApp.unregister() }
+                    loginError = nil
+                } catch {
+                    loginError = "Nicht möglich. Liegt BarDrop im Ordner „Programme“?"
+                    launchAtLogin = SMAppService.mainApp.status == .enabled
                 }
             }
 
-            Section {
-                Picker("Ablage ganz öffnen", selection: $settings.openMode) {
-                    ForEach(OpenMode.allCases) { Text($0.title).tag($0) }
-                }
-                Picker("Verzögerung", selection: $settings.openDelay) {
-                    ForEach(OpenDelay.choices, id: \.self) { Text(OpenDelay.title($0)).tag($0) }
-                }
-                .disabled(settings.openMode != .automatic)
+            SettingsSection("Öffnen", info: "Fährt der Zeiger an den Rand, wölbt sich zuerst ein flacher Streifen heraus. Bleibt er dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.") {
+                PickerRow("Ablage ganz öffnen", selection: $settings.openMode,
+                          options: OpenMode.allCases.map { ($0, $0.title) })
+                PickerRow("Verzögerung", selection: $settings.openDelay,
+                          options: OpenDelay.choices.map { ($0, OpenDelay.title($0)) })
+                    .disabled(settings.openMode != .automatic)
                 if settings.openMode == .automatic
                     && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
-                    InfoToggle("Klick auf den Streifen öffnet sofort",
-                               info: "Bei einer Verzögerung ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der eingestellten Zeit.",
-                               isOn: $settings.clickToOpenEarly)
+                    ToggleRow("Klick auf den Streifen öffnet sofort",
+                              info: "Bei einer Verzögerung ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der eingestellten Zeit.",
+                              isOn: $settings.clickToOpenEarly)
                 }
-                Picker("Beim Ziehen von Objekten", selection: $settings.dragReveal) {
-                    ForEach(DragReveal.allCases) { Text($0.title).tag($0) }
-                }
-            } header: {
-                SettingsHeader("Öffnen", info: "Fährt der Zeiger an den Rand, wölbt sich zuerst ein flacher Streifen heraus. Bleibt er dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.")
+                PickerRow("Beim Ziehen von Objekten", selection: $settings.dragReveal,
+                          options: DragReveal.allCases.map { ($0, $0.title) })
             }
 
-            Section {
-                Toggle("Haptisches Feedback", isOn: $settings.hapticsEnabled)
-            } header: {
-                SettingsHeader("Rückmeldung", info: "Ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen.")
+            SettingsSection("Rückmeldung") {
+                ToggleRow("Haptisches Feedback",
+                          info: "Ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen.",
+                          isOn: $settings.hapticsEnabled)
             }
 
-            Section {
-                LabeledContent("Alle Einstellungen") {
-                    Button("Zurücksetzen", role: .destructive) { confirmReset() }
+            SettingsSection("Werkseinstellungen") {
+                SettingsRow("Alle Einstellungen",
+                            info: "Setzt alle Einstellungen in allen Bereichen auf den Auslieferungszustand, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Objekte in der Ablage bleiben erhalten.") {
+                    Button("Zurücksetzen") { confirmReset() }
+                        .buttonStyle(KlackButtonStyle(destructive: true))
                 }
-            } header: {
-                SettingsHeader("Werkseinstellungen", info: "Setzt alle Einstellungen in allen Bereichen auf den Auslieferungszustand, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Objekte in der Ablage bleiben erhalten.")
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 
     private func confirmReset() {
@@ -93,22 +82,19 @@ struct KeyboardSettings: View {
     @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
 
     var body: some View {
-        Form {
-            Section {
+        SettingsPage {
+            SettingsSection("Ablage ein- oder ausblenden",
+                            info: "Sondertasten antippen, um sie an- oder abzuschalten. Auf die Taste rechts klicken und eine neue drücken.",
+                            note: hotKeyStatus.available ? nil : "Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination.",
+                            noteColor: .red) {
+                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: "Standard wiederherstellen",
+                                 disabled: settings.hotKeyIsDefault) { settings.resetHotKey() }
+            } content: {
                 HotKeyEditor(settings: settings)
-            } header: {
-                SettingsHeader("Ablage ein- oder ausblenden",
-                               info: "Sondertasten antippen, um sie an- oder abzuschalten. Auf die Taste rechts klicken und eine neue drücken.") {
-                    HeaderIconButton(symbol: "arrow.counterclockwise", help: "Standard wiederherstellen",
-                                     disabled: settings.hotKeyIsDefault) { settings.resetHotKey() }
-                }
-            } footer: {
-                if !hotKeyStatus.available {
-                    SectionNote("Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination.",
-                                color: .red)
-                }
+                    .padding(8)
             }
-            Section {
+
+            SettingsSection("In der offenen Ablage") {
                 ShortcutRow("Übersicht", "Leertaste oder ⌘Y")
                 ShortcutRow("Öffnen", "↩ oder ⌘O")
                 ShortcutRow("Im Finder zeigen", "⌘R")
@@ -122,81 +108,14 @@ struct KeyboardSettings: View {
                 ShortcutRow("Widerrufen", "⌘Z")
                 ShortcutRow("Wiederholen", "⇧⌘Z")
                 ShortcutRow("Auswahl aufheben, dann schließen", "esc")
-            } header: {
-                SettingsHeader("In der offenen Ablage")
             }
-            Section {
+
+            SettingsSection("Stapel", info: "Die Befehle stehen auch im Kontextmenü der Objekte.") {
                 ShortcutRow("Stapel öffnen", "Klick")
                 ShortcutRow("Zurück zur Ablage", "esc oder ⌘↑")
-            } header: {
-                SettingsHeader("Stapel", info: "Die Befehle stehen auch im Kontextmenü der Objekte.")
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
-}
-
-/// Erklärtext unter einem Abschnitt: immer linksbündig, wie in den Systemeinstellungen.
-struct SectionNote: View {
-    let text: String
-    var color: Color = .secondary
-    init(_ text: String, color: Color = .secondary) {
-        self.text = text
-        self.color = color
-    }
-    var body: some View {
-        Text(text)
-            .font(.callout)
-            .foregroundStyle(color)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-/// Regler ohne Teilstriche, der trotzdem in Schritten einrastet. Wie bei Klack:
-/// Titel und Wert in einer Zeile, darunter der Regler über die ganze Breite.
-private struct StepSlider: View {
-    let title: String
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    var step: Double = 0
-    let low: String
-    let high: String
-    var format: (Double) -> String = { "\(Int($0.rounded()))" }
-
-    private var snapped: Binding<Double> {
-        Binding(
-            get: { value },
-            set: { new in
-                let v = step > 0 ? (new / step).rounded() * step : new
-                let clamped = min(max(v, range.lowerBound), range.upperBound)
-                if clamped != value { value = clamped }
-            }
-        )
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(format(value))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
-            }
-            Slider(value: snapped, in: range) {
-                Text(title)
-            }
-            .labelsHidden()
-            .help("\(low) bis \(high)")
-        }
-        .padding(.vertical, 2)
-    }
-
-    static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded())) %" }
-    static func points(_ v: Double) -> String { "\(Int(v.rounded())) pt" }
 }
 
 private struct ShortcutRow: View {
@@ -207,9 +126,9 @@ private struct ShortcutRow: View {
         self.keys = keys
     }
     var body: some View {
-        LabeledContent(title) {
+        SettingsRow(title) {
             Text(keys)
-                .font(.system(.body, design: .rounded))
+                .font(.system(size: 13, design: .rounded))
                 .foregroundStyle(.secondary)
         }
     }
@@ -250,77 +169,61 @@ struct ShelfSettings: View {
     }
 
     var body: some View {
-        Form {
-            Section {
+        SettingsPage {
+            SettingsCard {
                 ScreenPreview(settings: settings)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 14)
             }
 
-            Section {
-                Picker("Bildschirmrand", selection: $settings.edge) {
-                    ForEach(ScreenEdge.allCases) { Text($0.title).tag($0) }
-                }
-
-                Picker("Bildschirme", selection: $settings.displayMode) {
-                    ForEach(DisplayMode.allCases) { Text($0.title).tag($0) }
-                }
-
-                Picker("Höhe", selection: heightMode) {
-                    ForEach(HeightMode.allCases) { Text($0.title).tag($0) }
-                }
-
+            SettingsSection("Position") {
+                PickerRow("Bildschirmrand", selection: $settings.edge,
+                          options: ScreenEdge.allCases.map { ($0, $0.title) })
+                PickerRow("Bildschirme", selection: $settings.displayMode,
+                          options: DisplayMode.allCases.map { ($0, $0.title) })
+                PickerRow("Höhe", selection: heightMode,
+                          options: HeightMode.allCases.map { ($0, $0.title) })
                 if !settings.adaptivePosition {
-                    StepSlider(title: "Lage", value: $settings.verticalPosition, range: 0...1,
-                               low: "Unten", high: "Oben", format: StepSlider.percent)
-                }
-            } header: {
-                SettingsHeader("Position")
-            }
-
-            Section {
-                StepSlider(title: "Breite", value: $settings.shelfWidth, range: 240...400, step: 10,
-                           low: "Schmal", high: "Breit", format: StepSlider.points)
-                StepSlider(title: "Länge", value: $settings.shelfHeight, range: 280...680, step: 10,
-                           low: "Kurz", high: "Lang", format: StepSlider.points)
-            } header: {
-                SettingsHeader("Größe", info: "Beim Verändern zeigt sich die offene Ablage am Rand, so siehst du die neue Größe sofort.")
-            }
-
-            Section {
-                StepSlider(title: "Dicke", value: $settings.peekThickness, range: 3...20, step: 1,
-                           low: "Dünn", high: "Dick", format: StepSlider.points)
-                StepSlider(title: "Länge", value: $settings.peekLength, range: 60...200, step: 4,
-                           low: "Kurz", high: "Lang", format: StepSlider.points)
-                StepSlider(title: "Übergang", value: $settings.peekRoundness, range: 0...1,
-                           low: "Kurz", high: "Weich", format: StepSlider.percent)
-            } header: {
-                SettingsHeader("Streifen und Griff",
-                               info: "Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft. Beim Verändern zeigt sich der Streifen am Rand.") {
-                    HeaderIconButton(symbol: "arrow.counterclockwise",
-                                     help: "Lage, Größe und Streifen auf den Standard setzen") {
-                        settings.resetShelfLayout()
-                    }
+                    SliderRow("Lage", value: $settings.verticalPosition, range: 0...1,
+                              format: SliderRow.percent)
                 }
             }
 
-            Section {
-                InfoToggle("Heller Rahmen",
-                           info: "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz.",
-                           isOn: $settings.showOutline)
-                Picker("Animation", selection: $settings.animationStyle) {
-                    ForEach(AnimationStyle.allCases) { Text($0.title).tag($0) }
+            SettingsSection("Größe", info: "Beim Verändern zeigt sich die offene Ablage am Rand, so siehst du die neue Größe sofort.") {
+                SliderRow("Breite", value: $settings.shelfWidth, range: 240...400, step: 10,
+                          format: SliderRow.points)
+                SliderRow("Länge", value: $settings.shelfHeight, range: 280...680, step: 10,
+                          format: SliderRow.points)
+            }
+
+            SettingsSection("Streifen und Griff",
+                            info: "Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft. Beim Verändern zeigt sich der Streifen am Rand.") {
+                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
+                                 help: "Lage, Größe und Streifen auf den Standard setzen") {
+                    settings.resetShelfLayout()
                 }
-                .disabled(AnimationStyle.reduceMotion)
-            } header: {
-                SettingsHeader("Aussehen",
-                               info: AnimationStyle.reduceMotion
-                                   ? "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über."
-                                   : "„Animation“ bestimmt, wie lebhaft Streifen und Ablage auf- und zuklappen.")
+            } content: {
+                SliderRow("Dicke", value: $settings.peekThickness, range: 3...20, step: 1,
+                          format: SliderRow.points)
+                SliderRow("Länge", value: $settings.peekLength, range: 60...200, step: 4,
+                          format: SliderRow.points)
+                SliderRow("Übergang", value: $settings.peekRoundness, range: 0...1,
+                          format: SliderRow.percent)
+            }
+
+            SettingsSection("Aussehen") {
+                ToggleRow("Heller Rahmen",
+                          info: "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz.",
+                          isOn: $settings.showOutline)
+                PickerRow("Animation",
+                          info: AnimationStyle.reduceMotion
+                              ? "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über."
+                              : "Bestimmt, wie lebhaft Streifen und Ablage auf- und zuklappen.",
+                          selection: $settings.animationStyle,
+                          options: AnimationStyle.allCases.map { ($0, $0.title) })
+                    .disabled(AnimationStyle.reduceMotion)
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 }
 
@@ -427,60 +330,40 @@ struct ItemSettings: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                Picker("Reihenfolge", selection: $settings.sortOrder) {
-                    ForEach(SortOrder.allCases) { Text($0.title).tag($0) }
-                }
-            } header: {
-                SettingsHeader("Anordnung")
+        SettingsPage {
+            SettingsSection("Anordnung") {
+                PickerRow("Reihenfolge", selection: $settings.sortOrder,
+                          options: SortOrder.allCases.map { ($0, $0.title) })
+                PickerRow("Stapel bilden",
+                          info: "Werden gleichzeitig so viele Objekte abgelegt, entsteht ein Stapel. Mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“. Ein Klick öffnet einen Stapel.",
+                          selection: stackFrom,
+                          options: [(0, "Nie")] + (2...10).map { ($0, "Ab \($0) Objekten") })
             }
 
-            Section {
-                Picker("Stapel bilden", selection: stackFrom) {
-                    Text("Nie").tag(0)
-                    Divider()
-                    ForEach(2...10, id: \.self) { n in
-                        Text("Ab \(n) Objekten").tag(n)
-                    }
-                }
-            } header: {
-                SettingsHeader("Stapel", info: "Werden gleichzeitig so viele Objekte abgelegt, entsteht ein Stapel. Mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“. Ein Klick öffnet einen Stapel.")
+            SettingsSection("Verwenden", info: afterUseNote) {
+                PickerRow("Nach dem Verwenden", selection: afterUse,
+                          options: AfterUse.allCases.map { ($0, $0.title) })
+                ToggleRow("Beim Herausziehen nur kopieren", isOn: $settings.dragOutCopyOnly)
             }
 
-            Section {
-                Picker("Nach dem Verwenden", selection: afterUse) {
-                    ForEach(AfterUse.allCases) { Text($0.title).tag($0) }
-                }
-                Toggle("Beim Herausziehen nur kopieren", isOn: $settings.dragOutCopyOnly)
-            } header: {
-                SettingsHeader("Verwenden", info: afterUseNote)
+            SettingsSection("Speichern", info: "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.") {
+                ToggleRow("Immer eine Kopie anlegen", isOn: $settings.copyAllFiles)
+                ToggleRow("Bilder aus dem Web kompatibel speichern", isOn: $settings.convertWebImages)
             }
 
-            Section {
-                Toggle("Immer eine Kopie anlegen", isOn: $settings.copyAllFiles)
-                Toggle("Bilder aus dem Web kompatibel speichern", isOn: $settings.convertWebImages)
-            } header: {
-                SettingsHeader("Speichern", info: "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")
-            }
-
-            Section {
-                Picker("Automatisch entfernen", selection: autoRemove) {
-                    ForEach(AutoRemoveOption.allCases) { Text($0.title).tag($0) }
-                }
-                LabeledContent("Alle Objekte entfernen") {
-                    Button("Entfernen", role: .destructive) {
+            SettingsSection("Aufräumen", info: "Dateien aus dem Finder bleiben beim Entfernen erhalten. Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.") {
+                PickerRow("Automatisch entfernen", selection: autoRemove,
+                          options: AutoRemoveOption.allCases.map { ($0, $0.title) })
+                SettingsRow("Alle Objekte entfernen") {
+                    Button("Entfernen") {
                         let count = store.entries.reduce(0) { $0 + $1.files.count }
                         if ShelfActions.confirmRemovingAll(count) { store.removeAll() }
                     }
+                    .buttonStyle(KlackButtonStyle(destructive: true))
                     .disabled(store.entries.isEmpty)
                 }
-            } header: {
-                SettingsHeader("Aufräumen", info: "Dateien aus dem Finder bleiben beim Entfernen erhalten. Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.")
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
     }
 }
 
@@ -493,108 +376,95 @@ struct ActionSettings: View {
     @State private var dragging: QuickAction.ID?
 
     var body: some View {
-        Form {
-            Section {
-                ForEach(settings.quickActions) { action in
-                    let selected = selection == action.id
-                    HStack(spacing: 10) {
-                        QuickActionIcon(action: action, size: 26)
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(action.title)
-                                .foregroundStyle(selected ? Color.white : Color.primary)
-                            Text(action.help)
-                                .font(.caption)
-                                .foregroundStyle(selected ? Color.white.opacity(0.8) : Color.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "line.3.horizontal")
-                            .foregroundStyle(selected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.6))
-                            .help("Zum Anordnen ziehen")
-                    }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(selected ? Color(nsColor: .selectedContentBackgroundColor) : Color.clear)
-                    )
-                    .padding(.horizontal, -8)
-                    .padding(.vertical, -4)
-                    .contentShape(Rectangle())
-                    .onTapGesture { selection = selection == action.id ? nil : action.id }
-                    // Anordnen per Ziehen: „onMove“ wirkt nur in Listen, nicht in einem
-                    // Formular. Deshalb ziehen und ablegen auf eine andere Zeile.
-                    .onDrag {
-                        dragging = action.id
-                        return NSItemProvider(object: action.id.uuidString as NSString)
-                    }
-                    .onDrop(of: [.text], delegate: ReorderDropDelegate(target: action.id,
-                                                                       items: $settings.quickActions,
-                                                                       dragging: $dragging))
-                    .contextMenu {
-                        Button("Nach oben") { move(action, by: -1) }
-                            .disabled(settings.quickActions.first?.id == action.id)
-                        Button("Nach unten") { move(action, by: 1) }
-                            .disabled(settings.quickActions.last?.id == action.id)
-                        Divider()
-                        Button("Entfernen") { remove(action) }
-                    }
-                }
-
-                if settings.quickActions.isEmpty {
-                    Text("Keine Aktionen")
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                SettingsHeader("Aktionsleiste", info: "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen Einträge ziehen. Höchstens \(QuickAction.maxCount) Aktionen.")
-            } footer: {
-                VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 0) {
-                    Menu {
-                        ForEach([QuickAction.Kind.airdrop, .mail, .messages, .share], id: \.self) { kind in
-                            Button(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
-                                .disabled(settings.quickActions.contains { $0.kind == kind })
-                        }
-                        Divider()
-                        Button("Ordner") { chooseFolder() }
-                        Button("App") { chooseApp() }
-                    } label: {
-                        Image(systemName: "plus").frame(width: 22, height: 20)
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .disabled(settings.quickActions.count >= QuickAction.maxCount)
-                    .help("Aktion hinzufügen")
-
-                    Button {
+        SettingsPage {
+            SettingsSection("Aktionsleiste",
+                            info: "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen Einträge ziehen oder per Rechtsklick verschieben. Höchstens \(QuickAction.maxCount) Aktionen.") {
+                HStack(spacing: 8) {
+                    addMenu
+                    HeaderIconButton(symbol: "minus.circle.fill", help: "Ausgewählte Aktion entfernen",
+                                     disabled: selection == nil) {
                         if let action = settings.quickActions.first(where: { $0.id == selection }) { remove(action) }
-                    } label: {
-                        Image(systemName: "minus").frame(width: 22, height: 20)
                     }
-                    .buttonStyle(.borderless)
-                    .disabled(selection == nil)
-                    .help("Ausgewählte Aktion entfernen")
-
-                    Spacer()
-
-                    Button("Standard wiederherstellen") {
+                    HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: "Standard wiederherstellen") {
                         settings.quickActions = QuickAction.defaults
                         selection = nil
                     }
-                    .buttonStyle(.link)
-                    .font(.callout)
                 }
-                .padding(.top, 4)
+            } content: {
+                ForEach(settings.quickActions) { action in
+                    row(action)
+                }
+                if settings.quickActions.isEmpty {
+                    SettingsRow("Keine Aktionen") { EmptyView() }
+                        .foregroundStyle(.secondary)
                 }
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
         // Abgelegt neben den Zeilen: Ziehen beenden, damit nichts hängen bleibt
         .onDrop(of: [.text], isTargeted: nil) { _ in
             dragging = nil
             return false
         }
+    }
+
+    private func row(_ action: QuickAction) -> some View {
+        let selected = selection == action.id
+        return HStack(spacing: 10) {
+            QuickActionIcon(action: action, size: 26)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(action.title)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                Text(action.help)
+                    .font(.system(size: 11))
+                    .foregroundStyle(selected ? Color.white.opacity(0.8) : Color.secondary)
+            }
+            Spacer()
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(selected ? Color.white.opacity(0.7) : Color.secondary.opacity(0.6))
+                .help("Zum Anordnen ziehen")
+        }
+        .padding(.horizontal, SettingsTheme.rowPadding)
+        .frame(minHeight: 52)
+        .background(selected ? Color(nsColor: .controlAccentColor) : Color.clear)
+        .contentShape(Rectangle())
+        .onTapGesture { selection = selection == action.id ? nil : action.id }
+        // Anordnen per Ziehen auf eine andere Zeile
+        .onDrag {
+            dragging = action.id
+            return NSItemProvider(object: action.id.uuidString as NSString)
+        }
+        .onDrop(of: [.text], delegate: ReorderDropDelegate(target: action.id,
+                                                           items: $settings.quickActions,
+                                                           dragging: $dragging))
+        .contextMenu {
+            Button("Nach oben") { move(action, by: -1) }
+                .disabled(settings.quickActions.first?.id == action.id)
+            Button("Nach unten") { move(action, by: 1) }
+                .disabled(settings.quickActions.last?.id == action.id)
+            Divider()
+            Button("Entfernen") { remove(action) }
+        }
+    }
+
+    private var addMenu: some View {
+        Menu {
+            ForEach([QuickAction.Kind.airdrop, .mail, .messages, .share], id: \.self) { kind in
+                Button(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
+                    .disabled(settings.quickActions.contains { $0.kind == kind })
+            }
+            Divider()
+            Button("Ordner") { chooseFolder() }
+            Button("App") { chooseApp() }
+        } label: {
+            Image(systemName: "plus.circle.fill")
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .foregroundStyle(.secondary)
+        .disabled(settings.quickActions.count >= QuickAction.maxCount)
+        .help("Aktion hinzufügen")
     }
 
     private func remove(_ action: QuickAction) {

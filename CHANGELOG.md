@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.13.2
+* Einstellungen: kein heller Streifen mehr am unteren Fensterrand
+
 ## 1.13.1
 * Schatten der offenen Ablage läuft weich aus, statt am Fensterrand abgeschnitten zu werden
 * „Über BarDrop“: Info-Symbol neben der Version zeigt die Änderungen der letzten Versionen direkt von GitHub

@@ -1,7 +1,6 @@
-## BarDrop 1.13.1
+## BarDrop 1.13.2
 
-* **Sauberer Schatten:** Der Schatten der offenen Ablage wurde am Fensterrand hart abgeschnitten. Er ist jetzt weicher und läuft ganz aus.
-* **Was ist neu:** In „Über BarDrop“ steht neben der Version ein Info-Symbol. Ein Klick zeigt die Änderungen der letzten Versionen, direkt aus den Releases auf GitHub.
+* **Einstellungen ohne Streifen:** Am unteren Rand des Einstellungsfensters lag ein heller Streifen, weil der Inhalt nicht bis ganz nach unten reichte. Jetzt füllt der Hintergrund das ganze Fenster.
 
 **Installation:** `BarDrop.dmg` laden, öffnen, BarDrop auf „Programme“ ziehen. Ab Version 1.10 kommen Updates direkt über die App.
 

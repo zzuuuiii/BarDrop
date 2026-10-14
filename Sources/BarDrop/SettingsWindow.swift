@@ -104,8 +104,10 @@ struct SettingsRoot: View {
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(SettingsWindowMaterial())
-        .frame(width: SettingsWindowFactory.size.width, height: SettingsWindowFactory.size.height)
+        // Füllt das ganze Fenster, auch den Bereich unter der Titelleiste. Eine feste
+        // Höhe würde nach oben verschoben und ließe unten einen leeren Streifen frei.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(SettingsWindowMaterial().ignoresSafeArea())
         .ignoresSafeArea()
     }
 

@@ -24,7 +24,10 @@ enum SettingsWindowFactory {
         window.isReleasedWhenClosed = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = true
-        window.backgroundColor = NSColor(SettingsTheme.window)
+        // Leicht durchscheinend wie bei Klack: Fenster selbst ohne Farbe,
+        // die Flächen zeichnet SettingsRoot über einer Unschärfe.
+        window.isOpaque = false
+        window.backgroundColor = .clear
         window.contentView = NSHostingView(rootView: SettingsRoot(settings: settings, store: store,
                                                                   showOnboarding: showOnboarding))
         window.setContentSize(size)
@@ -99,16 +102,19 @@ struct SettingsRoot: View {
         HStack(spacing: 0) {
             sidebar
                 .frame(width: 244)
+                .frame(maxHeight: .infinity)
+                .background(SettingsTheme.sidebar.opacity(SettingsTheme.backdropOpacity))
             Rectangle()
                 .fill(SettingsTheme.divider)
                 .frame(width: 1)
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(SettingsTheme.content.opacity(SettingsTheme.backdropOpacity))
         }
         // Füllt das ganze Fenster, auch den Bereich unter der Titelleiste. Eine feste
         // Höhe würde nach oben verschoben und ließe unten einen leeren Streifen frei.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SettingsTheme.window.ignoresSafeArea())
+        .background(SettingsBackdrop().ignoresSafeArea())
         .ignoresSafeArea()
     }
 
@@ -197,11 +203,7 @@ private struct SidebarRow: View {
             .frame(height: 42)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? SettingsTheme.card : Color.primary.opacity(hovering ? 0.04 : 0))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(selected ? SettingsTheme.cardBorder : Color.clear, lineWidth: 1)
+                    .fill(selected ? SettingsTheme.selectedRow : Color.primary.opacity(hovering ? 0.04 : 0))
             )
             .contentShape(Rectangle())
         }

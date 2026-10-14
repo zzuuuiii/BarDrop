@@ -9,16 +9,28 @@ import AppKit
 // Auswahlmenüs mit ⌃⌄. Maße und Farben sind von Klack abgenommen.
 
 enum SettingsTheme {
-    /// Fenster und Seitenleiste
-    static let window = dynamic(dark: (0.271, 0.282, 0.275), light: (0.925, 0.925, 0.925))
-    /// Karten und gewählter Eintrag der Seitenleiste
-    static let card = dynamic(dark: (0.318, 0.325, 0.325), light: (0.985, 0.985, 0.985))
+    // Farben von Klack abgenommen (dunkel). Seitenleiste und Inhalt liegen leicht
+    // durchscheinend über dem Schreibtisch, Karten sind deckend.
+    /// Seitenleiste
+    static let sidebar = dynamic(dark: (0.161, 0.165, 0.169), light: (0.905, 0.905, 0.91))
+    /// Inhalt rechts
+    static let content = dynamic(dark: (0.192, 0.196, 0.2), light: (0.94, 0.94, 0.945))
+    /// Deckkraft von Seitenleiste und Inhalt über dem Schreibtisch
+    static let backdropOpacity = 0.88
+    /// Karten
+    static let card = dynamic(dark: (0.184, 0.188, 0.188), light: (0.99, 0.99, 0.99))
+    /// Gewählter Eintrag der Seitenleiste
+    static let selectedRow = dynamic(dark: (0.212, 0.212, 0.216), light: (0.84, 0.84, 0.85))
     /// Rand der Karten
-    static let cardBorder = dynamic(dark: (0.337, 0.345, 0.341), light: (0.86, 0.86, 0.86))
-    /// Trennlinien zwischen Zeilen
-    static let separator = dynamic(dark: (0.380, 0.388, 0.384), light: (0.89, 0.89, 0.89))
+    static let cardBorder = dynamic(dark: (0.255, 0.259, 0.263), light: (0.86, 0.86, 0.86))
+    /// Trennlinien zwischen Zeilen, Leiste der Regler
+    static let separator = dynamic(dark: (0.267, 0.271, 0.271), light: (0.89, 0.89, 0.89))
     /// Senkrechte Linie zwischen Seitenleiste und Inhalt
-    static let divider = dynamic(dark: (0.337, 0.345, 0.341), light: (0.85, 0.85, 0.85))
+    static let divider = dynamic(dark: (0.247, 0.251, 0.255), light: (0.85, 0.85, 0.85))
+    /// Ausgeschalteter Schalter
+    static let switchOff = dynamic(dark: (0.255, 0.259, 0.259), light: (0.82, 0.82, 0.83))
+    /// Rasterpunkte unter den Reglern
+    static let tick = dynamic(dark: (0.388, 0.388, 0.392), light: (0.7, 0.7, 0.7))
 
     static let rowHeight: CGFloat = 45
     static let cardRadius: CGFloat = 11
@@ -199,7 +211,7 @@ struct KlackSwitch: View {
         } label: {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 Capsule()
-                    .fill(isOn ? Color(nsColor: .controlAccentColor) : Color.primary.opacity(0.13))
+                    .fill(isOn ? Color(nsColor: .controlAccentColor) : SettingsTheme.switchOff)
                 Capsule()
                     .fill(isOn ? Color(red: 0.86, green: 0.91, blue: 0.99) : Color(white: 0.9))
                     .frame(width: 27, height: 18)
@@ -238,12 +250,14 @@ struct PickerRow<Value: Hashable>: View {
     }
 }
 
-/// Schlichtes Auswahlmenü ohne Rahmen: „Wert ⌃⌄“.
+/// Auswahlmenü wie bei Klack: Wert und ⌃⌄ im Kreis. Das Menü öffnet sich immer
+/// am Wert, der gewählte Eintrag liegt genau darüber (wie bei macOS üblich).
 struct PopupValue<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(Value, String)]
     @Environment(\.isEnabled) private var isEnabled
     @State private var hovering = false
+    @State private var frame: CGRect = .zero
 
     private var current: String {
         options.first { $0.0 == selection }?.1 ?? ""
@@ -251,31 +265,26 @@ struct PopupValue<Value: Hashable>: View {
 
     var body: some View {
         Button(action: showMenu) {
-            HStack(spacing: 7) {
+            HStack(spacing: 9) {
                 Text(current)
                     .font(.system(size: 13.5))
                     .foregroundStyle(.primary)
                 Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
+                    .background(Circle().fill(Color.primary.opacity(hovering && isEnabled ? 0.08 : 0.03)))
+                    .overlay(Circle().strokeBorder(SettingsTheme.separator, lineWidth: 1))
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.primary.opacity(hovering && isEnabled ? 0.07 : 0))
-            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.trailing, -6)
         .opacity(isEnabled ? 1 : 0.45)
         .onHover { hovering = $0 }
+        .readFrame($frame)
     }
 
-    /// Systemmenü an der Stelle des Werts, der gewählte Eintrag mit Haken.
     private func showMenu() {
-        guard let event = NSApp.currentEvent, let view = event.window?.contentView else { return }
         let menu = NSMenu()
         var selectedItem: NSMenuItem?
         for (value, title) in options {
@@ -286,12 +295,57 @@ struct PopupValue<Value: Hashable>: View {
             }
             menu.addItem(item)
         }
-        let point = view.convert(event.locationInWindow, from: nil)
-        menu.popUp(positioning: selectedItem, at: point, in: view)
+        MenuPresenter.show(menu, over: frame, selected: selectedItem)
     }
 }
 
-/// Regler wie bei Klack: Titel und Wert in einer Zeile, darunter die Leiste.
+/// Merkt sich die Lage einer Ansicht im Fenster (für Menüs, die daran ausgerichtet werden).
+private struct FrameReader: ViewModifier {
+    @Binding var frame: CGRect
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { frame = geo.frame(in: .global) }
+                    .onChange(of: geo.frame(in: .global)) { _, new in frame = new }
+            }
+        )
+    }
+}
+
+extension View {
+    func readFrame(_ frame: Binding<CGRect>) -> some View { modifier(FrameReader(frame: frame)) }
+}
+
+/// Zeigt ein Menü an einer festen Stelle im Einstellungsfenster statt am Mauszeiger.
+enum MenuPresenter {
+    /// Gewählter Eintrag genau über dem Bereich (wie ein Auswahlmenü), sonst darunter.
+    static func show(_ menu: NSMenu, over frame: CGRect, selected: NSMenuItem?) {
+        guard let view = NSApp.currentEvent?.window?.contentView ?? NSApp.keyWindow?.contentView else { return }
+        menu.font = NSFont.systemFont(ofSize: 13)
+        if let selected {
+            // Text des Eintrags auf Höhe des Werts: Platz für den Haken links abziehen
+            let point = viewPoint(x: frame.minX - 18, y: frame.minY - 3, in: view)
+            menu.popUp(positioning: selected, at: point, in: view)
+        } else {
+            show(menu, below: frame)
+        }
+    }
+
+    static func show(_ menu: NSMenu, below frame: CGRect) {
+        guard let view = NSApp.currentEvent?.window?.contentView ?? NSApp.keyWindow?.contentView else { return }
+        let point = viewPoint(x: frame.minX, y: frame.maxY + 4, in: view)
+        menu.popUp(positioning: nil, at: point, in: view)
+    }
+
+    /// SwiftUI misst von oben links, AppKit je nach Ansicht von unten links.
+    private static func viewPoint(x: CGFloat, y: CGFloat, in view: NSView) -> NSPoint {
+        NSPoint(x: x, y: view.isFlipped ? y : view.bounds.height - y)
+    }
+}
+
+/// Regler wie bei Klack: Titel und Wert (in einer Kapsel) in einer Zeile,
+/// darunter die Leiste mit Rasterpunkten.
 struct SliderRow: View {
     let title: String
     @Binding var value: Double
@@ -314,66 +368,101 @@ struct SliderRow: View {
                 Text(title).font(.system(size: 13.5))
                 Spacer()
                 Text(format(value))
-                    .font(.system(size: 13.5))
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(.primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.primary.opacity(0.03)))
+                    .overlay(Capsule().strokeBorder(SettingsTheme.separator, lineWidth: 1))
             }
             KlackSlider(value: $value, range: range, step: step)
         }
         .padding(.horizontal, SettingsTheme.rowPadding)
-        .padding(.vertical, 11)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
     }
 
     static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded())) %" }
     static func points(_ v: Double) -> String { "\(Int(v.rounded())) pt" }
 }
 
-/// Leiste mit blauem Anteil und weißem Knopf; rastet in Schritten ein.
+/// Leiste mit blauem Anteil, weißem Knopf und Rasterpunkten darunter. Rastet in
+/// Schritten ein und gibt bei jedem Schritt einen leichten Impuls auf dem Trackpad.
 struct KlackSlider: View {
     @Binding var value: Double
     let range: ClosedRange<Double>
     var step: Double = 0
     @Environment(\.isEnabled) private var isEnabled
 
-    private let knob: CGFloat = 18
+    private let knobWidth: CGFloat = 22
+    private let knobHeight: CGFloat = 16
+    private let track: CGFloat = 6
+    /// Höchstens so viele Rasterpunkte, damit es nicht zu dicht wird
+    private let maxTicks = 20
+
+    /// Werte der Rasterpunkte: jeder Schritt, bei vielen Schritten jeder n-te
+    private var tickFractions: [CGFloat] {
+        let span = range.upperBound - range.lowerBound
+        guard span > 0 else { return [] }
+        let unit = step > 0 ? step : span / 10
+        let count = Int((span / unit).rounded())
+        guard count > 0 else { return [] }
+        let every = max(1, Int((Double(count) / Double(maxTicks)).rounded(.up)))
+        var result = stride(from: 0, through: count, by: every).map { CGFloat(Double($0) / Double(count)) }
+        if result.last != 1 { result.append(1) }
+        return result
+    }
 
     var body: some View {
         GeometryReader { geo in
-            let usable = max(1, geo.size.width - knob)
+            let usable = max(1, geo.size.width - knobWidth)
             let fraction = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
             let x = usable * min(max(fraction, 0), 1)
-            ZStack(alignment: .leading) {
+            ZStack(alignment: .topLeading) {
+                // Rasterpunkte
+                ForEach(Array(tickFractions.enumerated()), id: \.offset) { _, f in
+                    Circle()
+                        .fill(SettingsTheme.tick)
+                        .frame(width: 2.5, height: 2.5)
+                        .offset(x: knobWidth / 2 + usable * f - 1.25, y: knobHeight + 5)
+                }
+                // Leiste und Anteil
                 Capsule()
-                    .fill(Color.primary.opacity(0.13))
-                    .frame(height: 4)
+                    .fill(SettingsTheme.separator)
+                    .frame(height: track)
+                    .offset(y: (knobHeight - track) / 2)
                 Capsule()
                     .fill(Color(nsColor: .controlAccentColor))
-                    .frame(width: x + knob / 2, height: 4)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: knob, height: knob)
-                    .shadow(color: .black.opacity(0.3), radius: 1.5, y: 0.5)
+                    .frame(width: x + knobWidth / 2, height: track)
+                    .offset(y: (knobHeight - track) / 2)
+                // Knopf
+                Capsule()
+                    .fill(Color(white: 0.92))
+                    .frame(width: knobWidth, height: knobHeight)
+                    .shadow(color: .black.opacity(0.35), radius: 1.5, y: 0.5)
                     .offset(x: x)
             }
-            .frame(height: knob)
-            .frame(maxHeight: .infinity)
+            .frame(width: geo.size.width, height: knobHeight + 10, alignment: .topLeading)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { g in
-                        let f = Double(min(max((g.location.x - knob / 2) / usable, 0), 1))
+                        let f = Double(min(max((g.location.x - knobWidth / 2) / usable, 0), 1))
                         set(range.lowerBound + f * (range.upperBound - range.lowerBound))
                     }
             )
         }
-        .frame(height: knob)
+        .frame(height: knobHeight + 10)
         .opacity(isEnabled ? 1 : 0.45)
     }
 
     private func set(_ raw: Double) {
         let v = step > 0 ? (raw / step).rounded() * step : raw
         let clamped = min(max(v, range.lowerBound), range.upperBound)
-        if clamped != value { value = clamped }
+        guard abs(clamped - value) > 1e-9 else { return }
+        value = clamped
+        // Jeder neue Schritt: ein leichter Impuls, wie beim Einrasten
+        if step > 0 { Haptics.tap() }
     }
 }
 
@@ -511,4 +600,18 @@ struct SectionNote: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
+}
+
+/// Unschärfe des Schreibtischs hinter dem Fenster; darüber liegen die Farben
+/// von Seitenleiste und Inhalt leicht durchscheinend.
+struct SettingsBackdrop: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .underWindowBackground
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
 }

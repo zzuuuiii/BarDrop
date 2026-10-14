@@ -1,5 +1,11 @@
 # Änderungen
 
+## 1.15.1
+* Einstellungen dunkler und leicht durchscheinend, Farben von Klack übernommen
+* Regler mit Rasterpunkten, rasten in Schritten ein und geben dabei einen leichten Impuls auf dem Trackpad
+* Auswahlmenüs öffnen sich immer am Wert statt am Mauszeiger; ⌃⌄ im Kreis, Werte der Regler in einer Kapsel
+* ⌘, öffnet die Einstellungen und ⌘Q beendet BarDrop auch aus der offenen Ablage
+
 ## 1.15.0
 * Einstellungen eins zu eins im Stil von Klack: eigene Karten, Zeilen, längliche Schalter, schlichte Auswahlmenüs, Regler, Tasten und Seitenleiste, unabhängig von der macOS-Version
 

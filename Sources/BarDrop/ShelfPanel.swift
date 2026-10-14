@@ -88,6 +88,11 @@ final class ShelfPanel: NSPanel {
             actions.revealCurrentSelection()
         case "z":
             if event.modifierFlags.contains(.shift) { actions.redo() } else { actions.undo() }
+        case ",":
+            // Wie im Kontextmenü angezeigt: Einstellungen öffnen
+            actions.openSettings()
+        case "q":
+            NSApp.terminate(nil)
         default:
             if event.keyCode == 51 { // ⌘⌫
                 actions.removeCurrentSelection()

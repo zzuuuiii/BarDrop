@@ -184,7 +184,7 @@ struct ShelfSettings: View {
                 PickerRow("Höhe", selection: heightMode,
                           options: HeightMode.allCases.map { ($0, $0.title) })
                 if !settings.adaptivePosition {
-                    SliderRow("Lage", value: $settings.verticalPosition, range: 0...1,
+                    SliderRow("Lage", value: $settings.verticalPosition, range: 0...1, step: 0.05,
                               format: SliderRow.percent)
                 }
             }
@@ -207,7 +207,7 @@ struct ShelfSettings: View {
                           format: SliderRow.points)
                 SliderRow("Länge", value: $settings.peekLength, range: 60...200, step: 4,
                           format: SliderRow.points)
-                SliderRow("Übergang", value: $settings.peekRoundness, range: 0...1,
+                SliderRow("Übergang", value: $settings.peekRoundness, range: 0...1, step: 0.05,
                           format: SliderRow.percent)
             }
 
@@ -374,6 +374,7 @@ struct ActionSettings: View {
     @State private var selection: QuickAction.ID?
     /// Aktion, die gerade zum Anordnen gezogen wird
     @State private var dragging: QuickAction.ID?
+    @State private var addButtonFrame: CGRect = .zero
 
     var body: some View {
         SettingsPage {
@@ -448,23 +449,26 @@ struct ActionSettings: View {
     }
 
     private var addMenu: some View {
-        Menu {
-            ForEach([QuickAction.Kind.airdrop, .mail, .messages, .share], id: \.self) { kind in
-                Button(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
-                    .disabled(settings.quickActions.contains { $0.kind == kind })
-            }
-            Divider()
-            Button("Ordner") { chooseFolder() }
-            Button("App") { chooseApp() }
-        } label: {
-            Image(systemName: "plus.circle.fill")
+        HeaderIconButton(symbol: "plus.circle.fill", help: "Aktion hinzufügen",
+                         disabled: settings.quickActions.count >= QuickAction.maxCount) {
+            showAddMenu()
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .foregroundStyle(.secondary)
-        .disabled(settings.quickActions.count >= QuickAction.maxCount)
-        .help("Aktion hinzufügen")
+        .readFrame($addButtonFrame)
+    }
+
+    private func showAddMenu() {
+        let menu = NSMenu()
+        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share] {
+            let item = ClosureMenuItem(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
+            if settings.quickActions.contains(where: { $0.kind == kind }) {
+                item.action = nil   // schon vorhanden: ausgegraut
+            }
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem("Ordner") { chooseFolder() })
+        menu.addItem(ClosureMenuItem("App") { chooseApp() })
+        MenuPresenter.show(menu, below: addButtonFrame)
     }
 
     private func remove(_ action: QuickAction) {

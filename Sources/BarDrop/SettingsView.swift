@@ -24,12 +24,12 @@ struct GeneralSettings: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                Toggle("Symbol in der Menüleiste", isOn: $settings.showMenuBarIcon)
+                InfoToggle("Symbol in der Menüleiste",
+                           info: "Ohne Symbol: Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden. BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.",
+                           isOn: $settings.showMenuBarIcon)
             } footer: {
                 if let loginError {
                     SectionNote(loginError, color: .red)
-                } else if !settings.showMenuBarIcon {
-                    SectionNote("Ohne Symbol: Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden. BarDrop erneut öffnen zeigt ebenfalls die Einstellungen.")
                 }
             }
 
@@ -46,23 +46,26 @@ struct GeneralSettings: View {
                     ForEach(OpenDelay.choices, id: \.self) { Text(OpenDelay.title($0)).tag($0) }
                 }
                 .disabled(!settings.revealOnHover || settings.openMode != .automatic)
+                if settings.openMode == .automatic
+                    && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
+                    InfoToggle("Klick auf den Streifen öffnet sofort",
+                               info: "Bei einer Verzögerung ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der eingestellten Zeit.",
+                               isOn: $settings.clickToOpenEarly)
+                        .disabled(!settings.revealOnHover)
+                }
             } header: {
-                Text("Einblenden")
-            } footer: {
-                SectionNote("Am Rand wölbt sich zuerst ein flacher Streifen heraus. Bleibt der Zeiger dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.")
+                SettingsHeader("Einblenden", info: "Am Rand wölbt sich zuerst ein flacher Streifen heraus. Bleibt der Zeiger dort für die eingestellte Zeit, öffnet sich die Ablage. „Per Klick“ zeigt stattdessen einen etwas größeren Griff, ein Klick darauf öffnet. Beim Ziehen einer Datei öffnet sie sich immer von selbst.")
             }
 
             Section {
                 Picker("Animation", selection: $settings.animationStyle) {
                     ForEach(AnimationStyle.allCases) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.segmented)
                 .disabled(AnimationStyle.reduceMotion)
                 Toggle("Haptisches Feedback", isOn: $settings.hapticsEnabled)
             } header: {
-                Text("Bewegung und Rückmeldung")
-            } footer: {
-                SectionNote(AnimationStyle.reduceMotion
+                SettingsHeader("Bewegung und Rückmeldung",
+                               info: AnimationStyle.reduceMotion
                      ? "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über. Haptik: ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen."
                      : "Haptik: ein dezenter Impuls auf dem Trackpad beim ersten Streifen, beim Ablegen und über Aktionen.")
             }
@@ -83,21 +86,18 @@ struct KeyboardSettings: View {
             Section {
                 HotKeyEditor(settings: settings)
             } header: {
-                HStack {
-                    Text("Ablage ein- oder ausblenden")
-                    Spacer()
-                    Button("Standard") { settings.resetHotKey() }
-                        .buttonStyle(.link)
-                        .font(.callout)
-                        .disabled(settings.hotKeyIsDefault)
+                SettingsHeader("Ablage ein- oder ausblenden",
+                               info: "Sondertasten antippen, um sie an- oder abzuschalten. Auf die Taste rechts klicken und eine neue drücken.") {
+                    HeaderIconButton(symbol: "arrow.counterclockwise", help: "Standard wiederherstellen",
+                                     disabled: settings.hotKeyIsDefault) { settings.resetHotKey() }
                 }
             } footer: {
-                SectionNote(hotKeyStatus.available
-                    ? "Sondertasten antippen, um sie an- oder abzuschalten. Auf die Taste rechts klicken und eine neue drücken."
-                    : "Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination.",
-                    color: hotKeyStatus.available ? .secondary : .red)
+                if !hotKeyStatus.available {
+                    SectionNote("Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination.",
+                                color: .red)
+                }
             }
-            Section("In der offenen Ablage") {
+            Section {
                 ShortcutRow("Übersicht", "Leertaste oder ⌘Y")
                 ShortcutRow("Öffnen", "↩ oder ⌘O")
                 ShortcutRow("Im Finder zeigen", "⌘R")
@@ -111,14 +111,14 @@ struct KeyboardSettings: View {
                 ShortcutRow("Widerrufen", "⌘Z")
                 ShortcutRow("Wiederholen", "⇧⌘Z")
                 ShortcutRow("Auswahl aufheben, dann schließen", "esc")
+            } header: {
+                SettingsHeader("In der offenen Ablage")
             }
             Section {
                 ShortcutRow("Stapel öffnen", "Klick")
                 ShortcutRow("Zurück zur Ablage", "esc oder ⌘↑")
             } header: {
-                Text("Stapel")
-            } footer: {
-                SectionNote("Die Befehle stehen auch im Kontextmenü der Objekte.")
+                SettingsHeader("Stapel", info: "Die Befehle stehen auch im Kontextmenü der Objekte.")
             }
         }
         .formStyle(.grouped)
@@ -144,28 +144,8 @@ struct SectionNote: View {
     }
 }
 
-/// Fußzeile mit Erklärung und „Standard wiederherstellen“ rechts, in allen Tabs gleich.
-private struct SettingsFooter: View {
-    let text: String
-    let reset: () -> Void
-    init(_ text: String, reset: @escaping () -> Void) {
-        self.text = text
-        self.reset = reset
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if !text.isEmpty { SectionNote(text) }
-            HStack {
-                Spacer()
-                Button("Standard wiederherstellen", action: reset)
-                    .buttonStyle(.link)
-                    .font(.callout)
-            }
-        }
-    }
-}
-
-/// Regler ohne Teilstriche, der trotzdem in Schritten einrastet. Alle Regler sehen so gleich aus.
+/// Regler ohne Teilstriche, der trotzdem in Schritten einrastet. Wie bei Klack:
+/// Titel und Wert in einer Zeile, darunter der Regler über die ganze Breite.
 private struct StepSlider: View {
     let title: String
     @Binding var value: Double
@@ -173,6 +153,7 @@ private struct StepSlider: View {
     var step: Double = 0
     let low: String
     let high: String
+    var format: (Double) -> String = { "\(Int($0.rounded()))" }
 
     private var snapped: Binding<Double> {
         Binding(
@@ -186,14 +167,25 @@ private struct StepSlider: View {
     }
 
     var body: some View {
-        Slider(value: snapped, in: range) {
-            Text(title)
-        } minimumValueLabel: {
-            Text(low).foregroundStyle(.secondary)
-        } maximumValueLabel: {
-            Text(high).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text(format(value))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            Slider(value: snapped, in: range) {
+                Text(title)
+            }
+            .labelsHidden()
+            .help("\(low) bis \(high)")
         }
+        .padding(.vertical, 2)
     }
+
+    static func percent(_ v: Double) -> String { "\(Int((v * 100).rounded())) %" }
+    static func points(_ v: Double) -> String { "\(Int(v.rounded())) pt" }
 }
 
 private struct ShortcutRow: View {
@@ -254,11 +246,18 @@ struct ShelfSettings: View {
                     .padding(.vertical, 6)
             }
 
-            Section("Position") {
+            Section {
+                InfoToggle("Heller Rahmen",
+                           info: "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz.",
+                           isOn: $settings.showOutline)
+            } header: {
+                SettingsHeader("Aussehen")
+            }
+
+            Section {
                 Picker("Bildschirmrand", selection: $settings.edge) {
                     ForEach(ScreenEdge.allCases) { Text($0.title).tag($0) }
                 }
-                .pickerStyle(.segmented)
 
                 Picker("Bildschirme", selection: $settings.displayMode) {
                     ForEach(DisplayMode.allCases) { Text($0.title).tag($0) }
@@ -270,34 +269,35 @@ struct ShelfSettings: View {
 
                 if !settings.adaptivePosition {
                     StepSlider(title: "Lage", value: $settings.verticalPosition, range: 0...1,
-                               low: "Unten", high: "Oben")
+                               low: "Unten", high: "Oben", format: StepSlider.percent)
                 }
+            } header: {
+                SettingsHeader("Position")
             }
 
             Section {
                 StepSlider(title: "Breite", value: $settings.shelfWidth, range: 240...400, step: 10,
-                           low: "Schmal", high: "Breit")
+                           low: "Schmal", high: "Breit", format: StepSlider.points)
                 StepSlider(title: "Länge", value: $settings.shelfHeight, range: 280...680, step: 10,
-                           low: "Kurz", high: "Lang")
+                           low: "Kurz", high: "Lang", format: StepSlider.points)
             } header: {
-                Text("Größe")
-            } footer: {
-                SectionNote("Beim Verändern zeigt sich die Ablage kurz am Rand.")
+                SettingsHeader("Größe", info: "Beim Verändern zeigt sich die Ablage kurz am Rand.")
             }
 
             Section {
                 StepSlider(title: "Dicke", value: $settings.peekThickness, range: 3...20, step: 1,
-                           low: "Dünn", high: "Dick")
+                           low: "Dünn", high: "Dick", format: StepSlider.points)
                 StepSlider(title: "Länge", value: $settings.peekLength, range: 60...200, step: 4,
-                           low: "Kurz", high: "Lang")
+                           low: "Kurz", high: "Lang", format: StepSlider.points)
                 StepSlider(title: "Übergang", value: $settings.peekRoundness, range: 0...1,
-                           low: "Kurz", high: "Weich")
-                Toggle("Feiner Rahmen", isOn: $settings.showOutline)
+                           low: "Kurz", high: "Weich", format: StepSlider.percent)
             } header: {
-                Text("Streifen und Griff")
-            } footer: {
-                SettingsFooter("Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft. Der feine Rahmen macht Streifen und Ablage auf dunklem Hintergrund sichtbar; auf hellem fällt er kaum auf.") {
-                    settings.resetShelfLayout()
+                SettingsHeader("Streifen und Griff",
+                               info: "Der Streifen wölbt sich flach aus dem Rand, wie ein Stück Bildschirm. „Übergang“ bestimmt, wie weich der kleine Bogen in den Rand ausläuft.") {
+                    HeaderIconButton(symbol: "arrow.counterclockwise",
+                                     help: "Lage, Größe und Streifen auf den Standard setzen") {
+                        settings.resetShelfLayout()
+                    }
                 }
             }
         }
@@ -410,10 +410,12 @@ struct ItemSettings: View {
 
     var body: some View {
         Form {
-            Section("Anordnung") {
+            Section {
                 Picker("Reihenfolge", selection: $settings.sortOrder) {
                     ForEach(SortOrder.allCases) { Text($0.title).tag($0) }
                 }
+            } header: {
+                SettingsHeader("Anordnung")
             }
 
             Section {
@@ -425,9 +427,7 @@ struct ItemSettings: View {
                     }
                 }
             } header: {
-                Text("Stapel")
-            } footer: {
-                SectionNote("Werden gleichzeitig so viele Objekte abgelegt, entsteht ein Stapel. Mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“. Ein Klick öffnet einen Stapel.")
+                SettingsHeader("Stapel", info: "Werden gleichzeitig so viele Objekte abgelegt, entsteht ein Stapel. Mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“. Ein Klick öffnet einen Stapel.")
             }
 
             Section {
@@ -436,18 +436,14 @@ struct ItemSettings: View {
                 }
                 Toggle("Beim Herausziehen nur kopieren", isOn: $settings.dragOutCopyOnly)
             } header: {
-                Text("Verwenden")
-            } footer: {
-                SectionNote(afterUseNote)
+                SettingsHeader("Verwenden", info: afterUseNote)
             }
 
             Section {
                 Toggle("Immer eine Kopie anlegen", isOn: $settings.copyAllFiles)
                 Toggle("Bilder aus dem Web kompatibel speichern", isOn: $settings.convertWebImages)
             } header: {
-                Text("Speichern")
-            } footer: {
-                SectionNote("Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")
+                SettingsHeader("Speichern", info: "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")
             }
 
             Section {
@@ -462,9 +458,7 @@ struct ItemSettings: View {
                     .disabled(store.entries.isEmpty)
                 }
             } header: {
-                Text("Aufräumen")
-            } footer: {
-                SectionNote("Dateien aus dem Finder bleiben beim Entfernen erhalten. Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.")
+                SettingsHeader("Aufräumen", info: "Dateien aus dem Finder bleiben beim Entfernen erhalten. Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.")
             }
         }
         .formStyle(.grouped)
@@ -523,7 +517,7 @@ struct ActionSettings: View {
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                Text("Aktionsleiste")
+                SettingsHeader("Aktionsleiste", info: "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen Einträge ziehen. Höchstens \(QuickAction.maxCount) Aktionen.")
             } footer: {
                 VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
@@ -563,9 +557,6 @@ struct ActionSettings: View {
                     .font(.callout)
                 }
                 .padding(.top, 4)
-
-                SectionNote("Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen Einträge ziehen. Höchstens \(QuickAction.maxCount) Aktionen.")
-                    .padding(.top, 8)
                 }
             }
         }

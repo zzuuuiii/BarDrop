@@ -1,5 +1,10 @@
 # Änderungen
 
+## 1.13.0
+* Einstellungen noch näher an Klack: ein einheitlicher, durchscheinender Hintergrund, kurze Überschriften, Erklärungen hinter einem Info-Symbol, Regler mit Wertanzeige
+* „Heller Rahmen“ als eigener Schalter unter „Ablage → Aussehen“
+* Ab 1 Sekunde Verzögerung öffnet ein Klick auf den Streifen die Ablage sofort (abschaltbar)
+
 ## 1.12.1
 * Abgelegte Objekte erscheinen sofort, nicht erst beim Schließen der Ablage
 * Lizenz GPL-3.0, Hinweise zu fremdem Code, README neu, Vorschau zeigt das aktuelle Aussehen

@@ -1,7 +1,8 @@
-## BarDrop 1.12.1
+## BarDrop 1.13.0
 
-* **Abgelegte Objekte sofort sichtbar:** Dateien und Bilder erschienen nach dem Loslassen teils erst, wenn sich die Ablage wieder schloss. Jetzt sind sie sofort da, und die Ablage übernimmt nach dem Ablegen den Tastaturfokus.
-* **Offen und lizenziert:** BarDrop steht jetzt unter der GPL-3.0. Fremder Code von boring.notch und perch ist in `THIRD_PARTY_NOTICES.md` aufgeführt.
+* **Einstellungen im Stil von Klack:** Seitenleiste und Inhalt liegen auf einem gemeinsamen, durchscheinenden Hintergrund. Lange Erklärtexte stecken jetzt hinter einem kleinen Info-Symbol, Regler zeigen ihren Wert direkt an.
+* **Heller Rahmen abschaltbar:** Unter „Ablage → Aussehen“ lässt sich die feine helle Linie um Streifen und Ablage mit einem Schalter ausblenden.
+* **Schneller öffnen per Klick:** Ist eine Verzögerung ab 1 Sekunde eingestellt, öffnet ein Klick auf den schwarzen Streifen die Ablage sofort. Der Schalter dazu erscheint unter „Allgemein → Einblenden“.
 
 **Installation:** `BarDrop.dmg` laden, öffnen, BarDrop auf „Programme“ ziehen. Ab Version 1.10 kommen Updates direkt über die App.
 

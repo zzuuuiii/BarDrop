@@ -4,10 +4,10 @@ import Carbon
 
 // MARK: Fenster
 
-/// Einstellungsfenster mit Seitenleiste wie in den Systemeinstellungen:
-/// links die Bereiche mit farbigen Symbolen, rechts Titel und Inhalt.
+/// Einstellungsfenster im Stil von Klack: ein einheitlicher, durchscheinender
+/// Hintergrund, links die Bereiche mit farbigen Symbolen, rechts Titel und Karten.
 enum SettingsWindowFactory {
-    static let size = NSSize(width: 700, height: 580)
+    static let size = NSSize(width: 700, height: 600)
 
     static func make(settings: AppSettings, store: ShelfStore, showOnboarding: @escaping () -> Void) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
@@ -97,11 +97,14 @@ struct SettingsRoot: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-                .frame(width: 210)
-            Divider()
+                .frame(width: 220)
+            Rectangle()
+                .fill(Color.primary.opacity(0.08))
+                .frame(width: 1)
             detail
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .background(SettingsWindowMaterial())
         .frame(width: SettingsWindowFactory.size.width, height: SettingsWindowFactory.size.height)
         .ignoresSafeArea()
     }
@@ -110,7 +113,7 @@ struct SettingsRoot: View {
 
     private var sidebar: some View {
         ZStack(alignment: .top) {
-            SidebarMaterial()
+            Color.clear
             VStack(alignment: .leading, spacing: 2) {
                 row(.general)
                 header("Einstellungen")
@@ -137,25 +140,7 @@ struct SettingsRoot: View {
     }
 
     private func row(_ item: SettingsPane) -> some View {
-        Button {
-            pane = item
-        } label: {
-            HStack(spacing: 9) {
-                PaneIcon(pane: item)
-                Text(item.title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.primary.opacity(pane == item ? 0.09 : 0))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        SidebarRow(item: item, selected: pane == item) { pane = item }
     }
 
     // MARK: Inhalt
@@ -167,13 +152,12 @@ struct SettingsRoot: View {
                 Text(pane.title)
                     .font(.system(size: 15, weight: .bold))
             }
-            .padding(.leading, 22)
+            .padding(.leading, 20)
             .frame(height: 52)
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     @ViewBuilder
@@ -189,17 +173,34 @@ struct SettingsRoot: View {
     }
 }
 
-/// Durchscheinender Hintergrund der Seitenleiste.
-private struct SidebarMaterial: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .sidebar
-        view.blendingMode = .behindWindow
-        view.state = .followsWindowActiveState
-        return view
-    }
+/// Eintrag der Seitenleiste: hell hinterlegt, wenn gewählt, dezent beim Darüberfahren.
+private struct SidebarRow: View {
+    let item: SettingsPane
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
 
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                PaneIcon(pane: item)
+                Text(item.title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.primary.opacity(selected ? 0.1 : hovering ? 0.05 : 0))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
 }
 
 // MARK: Über BarDrop
@@ -270,7 +271,7 @@ struct AboutSettings: View {
                 LinkRow(title: "Quellcode", detail: "github.com/zzuuuiii/BarDrop",
                         url: "https://github.com/zzuuuiii/BarDrop")
             } header: {
-                Text("Inspiriert von")
+                SettingsHeader("Inspiriert von")
             }
         }
         .formStyle(.grouped)

@@ -466,10 +466,11 @@ final class EdgeController: NSObject {
         }
 
         // Mausereignisse nur annehmen, wenn der Zeiger über der offenen Ablage ist
-        // Modus „Per Klick“: die mittlere Stufe nimmt einen Klick an
+        // Modus „Per Klick“ oder lange Verzögerung mit „Klick öffnet sofort“:
+        // die mittlere Stufe nimmt einen Klick an
         let hintBody = bodyRect(.hint, on: screen)
         let accept = (ui.level == .expanded && (expandedBody.contains(loc) || locked))
-            || (ui.level == .hint && settings.openMode == .click && !dragging && hintBody.contains(loc))
+            || (ui.level == .hint && settings.hintAcceptsClick && !dragging && hintBody.contains(loc))
         if accept != acceptsMouse {
             acceptsMouse = accept
             panel.ignoresMouseEvents = !accept

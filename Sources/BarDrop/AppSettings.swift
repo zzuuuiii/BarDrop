@@ -235,6 +235,7 @@ final class AppSettings: ObservableObject {
         static let showMenuBarIcon = "showMenuBarIcon"
         static let showOutline = "showOutline"
         static let openDelay = "openDelay"
+        static let clickToOpenEarly = "clickToOpenEarly"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -331,6 +332,17 @@ final class AppSettings: ObservableObject {
     @Published var showOutline: Bool { didSet { defaults.set(showOutline, forKey: Key.showOutline) } }
     /// So lange (Sekunden) muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht.
     @Published var openDelay: Double { didSet { defaults.set(openDelay, forKey: Key.openDelay) } }
+    /// Bei langer Verzögerung (ab 1 Sekunde) öffnet ein Klick auf den Streifen die Ablage sofort.
+    @Published var clickToOpenEarly: Bool { didSet { defaults.set(clickToOpenEarly, forKey: Key.clickToOpenEarly) } }
+
+    /// Ab dieser Verzögerung lässt sich das Öffnen per Klick abkürzen.
+    static let clickToOpenMinDelay = 1.0
+
+    /// Nimmt der Streifen bzw. Griff gerade einen Klick zum Öffnen an?
+    var hintAcceptsClick: Bool {
+        openMode == .click
+            || (clickToOpenEarly && openDelay >= Self.clickToOpenMinDelay - 0.01)
+    }
     /// Symbol in der Menüleiste anzeigen.
     @Published var showMenuBarIcon: Bool { didSet { defaults.set(showMenuBarIcon, forKey: Key.showMenuBarIcon) } }
     /// Reihenfolge der Objekte in der Ablage.
@@ -380,6 +392,7 @@ final class AppSettings: ObservableObject {
             Key.showMenuBarIcon: false,
             Key.showOutline: true,
             Key.openDelay: OpenDelay.instant,
+            Key.clickToOpenEarly: true,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
             Key.hotKeyModifiers: Self.defaultHotKey.modifiers,
@@ -426,6 +439,7 @@ final class AppSettings: ObservableObject {
         showMenuBarIcon = defaults.bool(forKey: Key.showMenuBarIcon)
         showOutline = defaults.bool(forKey: Key.showOutline)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
+        clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)

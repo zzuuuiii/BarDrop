@@ -115,8 +115,12 @@ struct ShelfContent: View {
     @State private var selectionBeforeBand: Set<UUID> = []
     /// Höhe der Aktionsleiste: so viel Platz bleibt unter den Kacheln frei
     @State private var barHeight: CGFloat = 0
-    /// Länge des Verlaufs über der Leiste
+    /// Länge des Verlaufs über der Leiste: kurz, damit er nicht weit in die Kacheln reicht
     private static let barFade: CGFloat = 24
+    /// Deckkraft entlang des Verlaufs (S-Kurve, smoothstep)
+    private static let fadeCurve: [(CGFloat, Double)] = stride(from: 0.0, through: 1.0, by: 0.125).map { t in
+        (CGFloat(t), t * t * (3 - 2 * t))
+    }
 
     private let columns = [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 8)]
 
@@ -176,12 +180,12 @@ struct ShelfContent: View {
                         // Darüber noch ein Stück Verlauf, damit nirgends eine Kante entsteht
                         // Hinter den Aktionen ganz deckend, nur darüber ein kurzer Übergang
                         let fade = Self.barFade / max(1, barHeight + Self.barFade)
-                        LinearGradient(stops: [
-                            .init(color: .black.opacity(0), location: 0),
-                            .init(color: .black.opacity(0.65), location: fade * 0.55),
-                            .init(color: .black, location: fade),
-                            .init(color: .black, location: 1)
-                        ], startPoint: .top, endPoint: .bottom)
+                        // Sanft beginnend und sanft endend (wie eine S-Kurve), damit weder oben
+                        // noch am Übergang zum Deckenden eine Linie zu sehen ist
+                        LinearGradient(stops: Self.fadeCurve.map { t, alpha in
+                            Gradient.Stop(color: .black.opacity(alpha), location: t * fade)
+                        } + [Gradient.Stop(color: .black, location: 1)],
+                        startPoint: .top, endPoint: .bottom)
                         .frame(height: barHeight + Self.barFade)
                         .allowsHitTesting(false)
                     }

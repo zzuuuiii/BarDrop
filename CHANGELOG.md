@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.24.2
+* The fade above the action bar starts and ends softly, so no line is visible where it turns opaque; it still reaches only 24 points into the items
+
 ## 1.24.1
 * Menus under a button open upward when there isn’t enough room below, instead of running into the screen edge
 * Not in these apps: list and “Add App” look like the action list, with “No apps” while it’s empty

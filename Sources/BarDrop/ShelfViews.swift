@@ -173,13 +173,14 @@ struct ShelfContent: View {
                     .padding(.bottom, 12)
                     .padding(.top, 4)
                     .background(alignment: .bottom) {
-                        // Darüber noch ein Stück Verlauf, damit nirgends eine Kante entsteht;
-                        // hinter den Symbolen scheinen Kacheln nur noch leicht durch
+                        // Darüber noch ein Stück Verlauf, damit nirgends eine Kante entsteht
+                        // Hinter den Aktionen ganz deckend, nur darüber ein kurzer Übergang
+                        let fade = Self.barFade / max(1, barHeight + Self.barFade)
                         LinearGradient(stops: [
                             .init(color: .black.opacity(0), location: 0),
-                            .init(color: .black.opacity(0.7), location: 0.3),
-                            .init(color: .black.opacity(0.88), location: 0.55),
-                            .init(color: .black.opacity(0.94), location: 1)
+                            .init(color: .black.opacity(0.65), location: fade * 0.55),
+                            .init(color: .black, location: fade),
+                            .init(color: .black, location: 1)
                         ], startPoint: .top, endPoint: .bottom)
                         .frame(height: barHeight + Self.barFade)
                         .allowsHitTesting(false)

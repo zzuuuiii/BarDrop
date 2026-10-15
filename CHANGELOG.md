@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.23.1
+* Action bar fully opaque again; items only fade out above it
+* Keyboard: the three most used shortcuts shown, all others behind “All shortcuts”
+* Not in these apps: the menu suggests only the eight most recently opened apps
+
 ## 1.23.0
 * Not in these apps (Settings → Opening): while one of the listed apps is in front, moving to the edge doesn’t open the shelf; dragging files and the shortcut still work
 

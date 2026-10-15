@@ -68,6 +68,7 @@ struct GeneralSettings: View {
 struct KeyboardSettings: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
+    @State private var showAll = false
 
     var body: some View {
         SettingsPage {
@@ -84,27 +85,35 @@ struct KeyboardSettings: View {
                     .padding(8)
             }
 
+            // Nur das Wichtigste offen, alles Weitere eingeklappt
             SettingsSection(L("In the open shelf", "In der offenen Ablage")) {
-                ShortcutRow(L("Quick Look", "Übersicht"), L("Space or ⌘Y", "Leertaste oder ⌘Y"))
-                ShortcutRow(L("Open", "Öffnen"), L("↩ or ⌘O", "↩ oder ⌘O"))
-                ShortcutRow(L("Show in Finder", "Im Finder zeigen"), "⌘R")
-                ShortcutRow(L("Move selection", "Auswahl bewegen"), "← → ↑ ↓")
-                ShortcutRow(L("Extend selection", "Auswahl erweitern"), L("⇧ + arrow key", "⇧ + Pfeiltaste"))
-                ShortcutRow(L("Select all", "Alle auswählen"), "⌘A")
-                ShortcutRow(L("Copy", "Kopieren"), "⌘C")
-                ShortcutRow(L("Copy path", "Pfad kopieren"), "⌥⌘C")
-                ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), "⌘V")
-                ShortcutRow(L("Remove selection", "Auswahl entfernen"), L("⌫ or ⌘⌫", "⌫ oder ⌘⌫"))
+                ShortcutRow(L("Quick Look", "Übersicht"), L("Space", "Leertaste"))
+                ShortcutRow(L("Remove selection", "Auswahl entfernen"), "⌫")
                 ShortcutRow(L("Undo", "Widerrufen"), "⌘Z")
-                ShortcutRow(L("Redo", "Wiederholen"), "⇧⌘Z")
-                ShortcutRow(L("Settings", "Einstellungen"), "⌘,")
-                ShortcutRow(L("Quit BarDrop", "BarDrop beenden"), "⌘Q")
-                ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), "esc")
-            }
-
-            SettingsSection(L("Stacks", "Stapel")) {
-                ShortcutRow(L("Open stack", "Stapel öffnen"), L("Click", "Klick"))
-                ShortcutRow(L("Back to the shelf", "Zurück zur Ablage"), L("esc or ⌘↑", "esc oder ⌘↑"))
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { showAll.toggle() }
+                } label: {
+                    SettingsRow(showAll ? L("Fewer shortcuts", "Weniger Kurzbefehle") : L("All shortcuts", "Alle Kurzbefehle")) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(showAll ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if showAll {
+                    ShortcutRow(L("Open", "Öffnen"), L("↩ or ⌘O", "↩ oder ⌘O"))
+                    ShortcutRow(L("Show in Finder", "Im Finder zeigen"), "⌘R")
+                    ShortcutRow(L("Move or extend selection", "Auswahl bewegen oder erweitern"), L("Arrow keys, ⇧", "Pfeiltasten, ⇧"))
+                    ShortcutRow(L("Select all", "Alle auswählen"), "⌘A")
+                    ShortcutRow(L("Copy, copy path", "Kopieren, Pfad kopieren"), "⌘C  ⌥⌘C")
+                    ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), "⌘V")
+                    ShortcutRow(L("Redo", "Wiederholen"), "⇧⌘Z")
+                    ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), "esc  ⌘↑")
+                    ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), "esc")
+                    ShortcutRow(L("Settings, quit", "Einstellungen, beenden"), "⌘,  ⌘Q")
+                }
             }
         }
     }
@@ -1024,12 +1033,16 @@ private struct AddExcludedAppRow: View {
     private func showMenu() {
         let menu = NSMenu()
         let own = Bundle.main.bundleIdentifier
+        // Nur die zuletzt gestarteten Apps vorschlagen, sonst wird das Menü zu lang;
+        // alle anderen über „Andere App wählen“
         let running = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
+            .sorted { ($0.launchDate ?? .distantPast) > ($1.launchDate ?? .distantPast) }
             .compactMap { app -> (id: String, name: String, icon: NSImage?)? in
                 guard let id = app.bundleIdentifier, id != own, !settings.excludedApps.contains(id) else { return nil }
                 return (id, app.localizedName ?? id, app.icon)
             }
+            .prefix(8)
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         for app in running {
             let item = ClosureMenuItem(app.name) { add(app.id) }

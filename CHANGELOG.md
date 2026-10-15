@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.17.0
+* Reordering actions rebuilt: the order stays fixed while you drag, every row has a computed place, the dragged row follows the pointer and the others glide aside; saved only when you let go
+* Two rows: drag an action into the top or bottom row, up to five per row; a full row passes its last action on
+* The shelf redraws right away when content arrives late (web images, large files, iCloud) instead of only after reopening
+* Longer introduction: three tips on actions, keeping things tidy and settings, plus a language switch on the first page
+* New preview animation in the README: three captioned steps, seamless loop
+
 ## 1.16.0
 * English by default, German selectable in Settings → General; all texts reviewed and clarified in both languages
 * Repository in English, German README available

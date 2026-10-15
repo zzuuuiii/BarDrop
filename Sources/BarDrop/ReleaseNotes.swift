@@ -13,6 +13,7 @@ final class ReleaseNotes: ObservableObject {
         let notesEnglish: [String]?
         let notesGerman: [String]?
         let page: URL?
+        var beta = false
         var id: String { version }
 
         /// Notizen in der gewählten Sprache, sonst in der anderen
@@ -90,15 +91,16 @@ final class ReleaseNotes: ObservableObject {
             let date = (json["published_at"] as? String).flatMap { iso.date(from: $0) }
             let page = (json["html_url"] as? String).flatMap(URL.init(string:))
             let body = json["body"] as? String ?? ""
+            let beta = (json["prerelease"] as? Bool) == true
             // Zweisprachige Releases (ab 1.16): Englisch oben, Deutsch nach der Marke <!-- de -->.
             // Ältere Releases sind nur deutsch; Englisch kommt dann aus dem Änderungsprotokoll.
             let parts = body.components(separatedBy: germanMarker)
             if parts.count > 1 {
                 return Entry(version: version, date: date, notesEnglish: cleanNotes(parts[0]),
-                             notesGerman: cleanNotes(parts[1]), page: page)
+                             notesGerman: cleanNotes(parts[1]), page: page, beta: beta)
             }
             return Entry(version: version, date: date, notesEnglish: englishFallback[version],
-                         notesGerman: cleanNotes(body), page: page)
+                         notesGerman: cleanNotes(body), page: page, beta: beta)
         }
     }
 
@@ -214,6 +216,13 @@ private struct ReleaseNotesList: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(L("Version \(entry.version)", "Version \(entry.version)"))
                     .font(.system(size: 13, weight: .semibold))
+                if entry.beta {
+                    Text("Beta")
+                        .font(.system(size: 10, weight: .semibold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.orange.opacity(0.25)))
+                }
                 if entry.version == Updater.shared.currentVersion {
                     Text(L("installed", "installiert"))
                         .font(.system(size: 10, weight: .semibold))

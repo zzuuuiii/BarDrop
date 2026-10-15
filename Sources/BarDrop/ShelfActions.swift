@@ -310,8 +310,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             guard let folder = action.url else { return }
             move(urls, to: folder) { [weak self] moved in self?.finishAction(moved) }
         case .convert:
-            // Originale bleiben, die Ergebnisse kommen dazu
-            showConvertMenu(urls, anchor: anchor)
+            break   // gibt es nicht mehr als Aktion
         case .trash:
             // Wie im Finder: in den Papierkorb, von dort lässt es sich zurücklegen.
             // Danach immer aus der Ablage, denn die Dateien sind dort nicht mehr.
@@ -327,26 +326,22 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
-    /// Menü mit den passenden Zielformaten an der Aktion; die Ergebnisse landen in der Ablage.
-    private func showConvertMenu(_ urls: [URL], anchor: NSView) {
-        let groups = Converter.targets(for: urls)
-        let menu = NSMenu()
-        menu.font = NSFont.systemFont(ofSize: 13)
-        if groups.allSatisfy(\.isEmpty) {
-            let item = NSMenuItem(title: L("Can’t convert these items", "Diese Objekte lassen sich nicht umwandeln"),
-                                  action: nil, keyEquivalent: "")
-            item.isEnabled = false
-            menu.addItem(item)
-        }
-        for group in groups where !group.isEmpty {
-            if menu.numberOfItems > 0 { menu.addItem(.separator()) }
+    /// Untermenü „Umwandeln“ mit den Zielformaten, die zu den Dateien passen; nil, wenn keines passt.
+    /// Die Ergebnisse landen zusätzlich in der Ablage, die Originale bleiben.
+    private func convertMenuItem(for urls: [URL]) -> NSMenuItem? {
+        let groups = Converter.targets(for: urls).filter { !$0.isEmpty }
+        guard !groups.isEmpty else { return nil }
+        let submenu = NSMenu()
+        for group in groups {
+            if submenu.numberOfItems > 0 { submenu.addItem(.separator()) }
             for target in group {
-                menu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
+                submenu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
             }
         }
-        ui.menuOpen = true
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
-        ui.menuOpen = false
+        let item = NSMenuItem(title: L("Convert", "Umwandeln"), action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+        item.submenu = submenu
+        return item
     }
 
     private func convert(_ urls: [URL], to target: Converter.Target) {
@@ -521,6 +516,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             // erst nach dem Schließen des Menüs zeigen, damit der Picker an der Kachel sitzt
             DispatchQueue.main.async { self?.share(urls, from: anchor) }
         })
+        if let convert = convertMenuItem(for: urls) { menu.addItem(convert) }
     }
 
     /// Kontextmenü für eine Kachel. Gilt für die ganze Auswahl, wenn die Kachel dazugehört.

@@ -4,7 +4,9 @@ import AppKit
 /// (oder auswählen und anklicken) führt sie aus.
 struct QuickAction: Codable, Identifiable, Hashable {
     enum Kind: String, Codable, CaseIterable {
-        case airdrop, share, mail, messages, folder, app, trash, convert
+        case airdrop, share, mail, messages, folder, app, trash
+        /// Nur noch zum Einlesen alter Einstellungen (1.28): Umwandeln steht im Kontextmenü
+        case convert
     }
 
     var id = UUID()

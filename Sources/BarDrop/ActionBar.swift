@@ -240,7 +240,6 @@ struct QuickActionButton: View {
                     .font(.system(size: 10, weight: targeted ? .semibold : .medium))
                     .foregroundStyle(.white.opacity(0.7))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)      // erst etwas kleiner, dann gekürzt
                     .truncationMode(.middle)
             }
         }

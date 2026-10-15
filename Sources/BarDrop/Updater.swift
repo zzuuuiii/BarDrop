@@ -29,7 +29,10 @@ final class Updater: ObservableObject {
         let page: URL
     }
 
+    /// Neueste reguläre Version (GitHub zählt Vorabversionen hier nicht mit)
     private let latestURL = URL(string: "https://api.github.com/repos/zzuuuiii/BarDrop/releases/latest")!
+    /// Alle Versionen, auch Betas
+    private let listURL = URL(string: "https://api.github.com/repos/zzuuuiii/BarDrop/releases?per_page=20")!
     private let releasesPage = URL(string: "https://github.com/zzuuuiii/BarDrop/releases/latest")!
     private var release: Release?
     private var timer: Timer?
@@ -58,7 +61,8 @@ final class Updater: ObservableObject {
         if case .installing = state { return }
         if case .checking = state { return }
         state = .checking
-        var request = URLRequest(url: latestURL)
+        // Beta-Kanal: auch Vorabversionen; sonst nur reguläre Versionen
+        var request = URLRequest(url: AppSettings.shared.betaUpdates ? listURL : latestURL)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 20
         URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
@@ -68,7 +72,7 @@ final class Updater: ObservableObject {
 
     private func handle(data: Data?, error: Error?, interactive: Bool) {
         guard let data,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let json = Self.newestRelease(in: data),
               let tag = json["tag_name"] as? String,
               let assets = json["assets"] as? [[String: Any]],
               let asset = assets.first(where: { ($0["name"] as? String) == "BarDrop.dmg" }),
@@ -99,6 +103,21 @@ final class Updater: ObservableObject {
         if interactive || AppSettings.shared.skippedUpdateVersion != version {
             offer(version, interactive: interactive)
         }
+    }
+
+    /// Eine einzelne Version (reguläre) oder aus einer Liste die höchste mit DMG (Beta-Kanal)
+    private static func newestRelease(in data: Data) -> [String: Any]? {
+        let object = try? JSONSerialization.jsonObject(with: data)
+        if let single = object as? [String: Any] { return single }
+        guard let list = object as? [[String: Any]] else { return nil }
+        func version(_ r: [String: Any]) -> String {
+            let tag = r["tag_name"] as? String ?? "0"
+            return tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+        }
+        return list
+            .filter { ($0["draft"] as? Bool) != true }
+            .filter { (($0["assets"] as? [[String: Any]]) ?? []).contains { ($0["name"] as? String) == "BarDrop.dmg" } }
+            .max { isNewer(version($1), than: version($0)) }
     }
 
     static func isNewer(_ a: String, than b: String) -> Bool {

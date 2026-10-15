@@ -479,7 +479,7 @@ struct ActionSettings: View {
 
     private func showAddMenu() {
         let menu = NSMenu()
-        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share, .convert, .trash] {
+        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share, .trash] {
             let item = ClosureMenuItem(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
             if settings.quickActions.contains(where: { $0.kind == kind }) {
                 item.action = nil   // schon vorhanden: ausgegraut

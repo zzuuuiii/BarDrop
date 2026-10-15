@@ -8,3 +8,9 @@ Thanks for your interest in BarDrop.
 * **Texts:** every text in the app exists in English and German, side by side in the code as `L("English", "Deutsch")`. Please add both when you add or change a text.
 
 Contributions are licensed under the [GPL-3.0](../LICENSE), like BarDrop itself.
+
+## Releases
+
+Every push to `main` builds BarDrop and publishes the version in `Resources/VERSION` as a **beta** (a GitHub pre-release). Only people who turned on Settings → About BarDrop → Beta versions get it.
+
+A **regular** version is published by a commit whose message contains `[stable]`. Its release notes summarize all changes since the previous regular version. `[skip release]` builds and tests without publishing anything.

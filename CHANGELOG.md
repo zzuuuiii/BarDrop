@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.28.1
+* Beta channel: Settings → About BarDrop → Beta versions. New versions appear as betas first; regular versions summarize everything since the last one
+* Convert moved to the right-click menu of an item or a selection (several images can be combined into one PDF); it’s no longer an action in the bar
+* Names under the actions are back to their previous size
+
 ## 1.28.0
 * New action “Convert” (add it under Actions): drop files on it and pick a format. Uses only what macOS includes: images to PNG, JPEG, HEIC, TIFF, GIF, BMP (and any other format macOS can write), resize to 2048, 1024 or 512 px, images into one PDF, PDF pages as PNG or JPEG, text documents (TXT, RTF, HTML, DOCX, DOC, ODT), audio (M4A, Apple Lossless, WAV, AIFF, CAF) and video (MP4, MOV, HEVC, 1080p, 720p, audio only). The result appears in the shelf, the original stays
 * Share and Convert tiles look like app icons, with a soft shine and shadow

@@ -268,6 +268,10 @@ struct AboutSettings: View {
                 .padding(.horizontal, SettingsTheme.rowPadding)
                 .padding(.vertical, 12)
                 ToggleRow(L("Check for updates automatically", "Automatisch nach Updates suchen"), isOn: $settings.autoUpdateCheck)
+                ToggleRow(L("Beta versions", "Beta-Versionen"),
+                          info: L("Get new versions earlier, as soon as they’re built. They may still have bugs. Regular versions collect all changes since the last one.",
+                                  "Neue Versionen früher bekommen, sobald sie fertig sind. Sie können noch Fehler haben. Reguläre Versionen fassen alle Änderungen seit der letzten zusammen."),
+                          isOn: $settings.betaUpdates)
             }
 
             SettingsSection(L("Credits", "Dank und Quellen")) {

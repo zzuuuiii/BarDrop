@@ -1,9 +1,9 @@
-* New action “Convert” (add it under Actions): drop files on it and pick a format. Uses only what macOS includes: images (PNG, JPEG, HEIC, TIFF, GIF, BMP, resize, into a PDF), PDF pages as images, text documents, audio and video. The result appears in the shelf, the original stays
-* Share and Convert tiles look like app icons
-* Actions → Show names: hide the names under the actions
+* Beta channel: Settings → About BarDrop → Beta versions. New versions appear as betas first; regular versions summarize everything since the last one
+* Convert moved to the right-click menu of an item or a selection (several images can be combined into one PDF); it’s no longer an action in the bar
+* Names under the actions are back to their previous size
 
 <!-- de -->
 
-* Neue Aktion „Umwandeln“ (unter Aktionen hinzufügen): Dateien darauf ziehen und ein Format wählen. Nutzt nur, was macOS mitbringt: Bilder (PNG, JPEG, HEIC, TIFF, GIF, BMP, verkleinern, zu einem PDF), PDF-Seiten als Bilder, Textdokumente, Audio und Video. Das Ergebnis landet in der Ablage, das Original bleibt
-* Teilen und Umwandeln sehen aus wie App-Symbole
-* Aktionen → Namen anzeigen: Namen unter den Aktionen ausblenden
+* Beta-Kanal: Einstellungen → Über BarDrop → Beta-Versionen. Neue Versionen erscheinen zuerst als Beta; reguläre Versionen fassen alles seit der letzten zusammen
+* Umwandeln steht jetzt im Rechtsklick-Menü eines Objekts oder einer Auswahl (mehrere Bilder lassen sich zu einem PDF zusammenfassen); als Aktion in der Leiste gibt es es nicht mehr
+* Die Namen unter den Aktionen haben wieder ihre frühere Größe

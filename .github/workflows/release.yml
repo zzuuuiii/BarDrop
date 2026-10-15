@@ -82,16 +82,27 @@ jobs:
         if: ${{ github.event_name != 'pull_request' && !contains(github.event.head_commit.message, '[skip release]') }}
         env:
           GH_TOKEN: ${{ github.token }}
+          STABLE: ${{ contains(github.event.head_commit.message, '[stable]') }}
         run: |
           VERSION="$(cat Resources/VERSION | tr -d '[:space:]')"
           TAG="v$VERSION"
+          # Beta-Kanal: Jede Version erscheint zuerst als Beta (Vorabversion). Erst ein Commit
+          # mit [stable] in der Nachricht veröffentlicht sie als reguläre Version.
+          if [ "$STABLE" = "true" ]; then
+            CHANNEL_FLAGS="--latest"
+            PRE="false"
+          else
+            CHANNEL_FLAGS="--prerelease --latest=false"
+            PRE="true"
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/BarDrop.dmg --clobber
-            gh release edit "$TAG" --notes-file .github/RELEASE_NOTES.md
+            gh release edit "$TAG" --notes-file .github/RELEASE_NOTES.md --prerelease="$PRE"
+            if [ "$PRE" = "false" ]; then gh release edit "$TAG" --latest; fi
           else
             gh release create "$TAG" build/BarDrop.dmg \
               --title "BarDrop $VERSION" \
               --notes-file .github/RELEASE_NOTES.md \
               --target "$GITHUB_SHA" \
-              --latest
+              $CHANNEL_FLAGS
           fi

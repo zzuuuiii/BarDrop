@@ -255,6 +255,7 @@ final class AppSettings: ObservableObject {
         static let excludedApps = "excludedApps"
         static let openInFullScreen = "openInFullScreen"
         static let showActionLabels = "showActionLabels"
+        static let betaUpdates = "betaUpdates"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -373,6 +374,8 @@ final class AppSettings: ObservableObject {
     @Published var openInFullScreen: Bool { didSet { defaults.set(openInFullScreen, forKey: Key.openInFullScreen) } }
     /// Namen unter den Aktionen in der Ablage
     @Published var showActionLabels: Bool { didSet { defaults.set(showActionLabels, forKey: Key.showActionLabels) } }
+    /// Auch Beta-Versionen installieren (Vorabversionen auf GitHub)
+    @Published var betaUpdates: Bool { didSet { defaults.set(betaUpdates, forKey: Key.betaUpdates) } }
 
     /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
     /// fünf Aktionen hat.
@@ -484,6 +487,7 @@ final class AppSettings: ObservableObject {
             Key.addScreenshots: false,
             Key.openInFullScreen: true,
             Key.showActionLabels: true,
+            Key.betaUpdates: false,
             Key.actionRowSplit: QuickAction.perRow,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
@@ -552,6 +556,7 @@ final class AppSettings: ObservableObject {
         excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
         openInFullScreen = defaults.bool(forKey: Key.openInFullScreen)
         showActionLabels = defaults.bool(forKey: Key.showActionLabels)
+        betaUpdates = defaults.bool(forKey: Key.betaUpdates)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -571,7 +576,8 @@ final class AppSettings: ObservableObject {
 
         if let data = defaults.data(forKey: Key.quickActions),
            let decoded = try? JSONDecoder().decode([QuickAction].self, from: data) {
-            quickActions = decoded
+            // „Umwandeln“ war in 1.28 eine Aktion; jetzt steht es im Kontextmenü
+            quickActions = decoded.filter { $0.kind != .convert }
         } else {
             quickActions = QuickAction.defaults
         }

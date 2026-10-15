@@ -70,6 +70,9 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         onMouseDown([])
         guard let menu = menuProvider(self) else { return }
         ui?.menuOpen = true
+        // Menüs einer App im Hintergrund folgen dem Zeiger teils verzögert: vorher aktivieren
+        if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+        window?.makeKey()
         NSMenu.popUpContextMenu(menu, with: event, for: self)
         ui?.menuOpen = false
     }

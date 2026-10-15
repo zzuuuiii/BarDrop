@@ -159,7 +159,7 @@ extension ShelfActions {
     func copyCurrent(pathsOnly: Bool) {
         let urls = hasCurrentSelection ? currentSelectionURLs : currentAllURLs
         guard !urls.isEmpty else { return NSSound.beep() }
-        if pathsOnly { Self.copyPaths(urls) } else { Self.copyFiles(urls) }
+        if pathsOnly { Self.copyPaths(originals(urls)) } else { Self.copyFiles(urls) }
         announceCopy(urls.count, pathsOnly: pathsOnly)
     }
 

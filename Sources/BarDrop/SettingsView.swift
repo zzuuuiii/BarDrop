@@ -462,6 +462,8 @@ struct ActionSettings: View {
             .zIndex(1)
 
             SettingsSection(L("Layout", "Darstellung")) {
+                SliderRow(L("Icon size", "Symbolgröße"), value: $settings.actionIconSize, range: 24...48, step: 2,
+                          format: SliderRow.points)
                 ToggleRow(L("Show names", "Namen anzeigen"), isOn: $settings.showActionLabels)
             }
 

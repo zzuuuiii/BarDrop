@@ -336,7 +336,8 @@ struct ShelfContent: View {
                 if showPending && settings.sortOrder == .newestFirst { pendingTiles }
                 ForEach(actions.orderedEntries) { entry in
                     TileView(entry: entry, ui: ui, actions: actions,
-                             isSelected: ui.selection.contains(entry.id))
+                             isSelected: ui.selection.contains(entry.id),
+                             iconSize: CGFloat(settings.tileIconSize))
                         .background(
                             GeometryReader { g in
                                 Color.clear.preference(key: TileFramesKey.self,
@@ -369,7 +370,8 @@ struct ShelfContent: View {
         LazyVGrid(columns: columns, spacing: 6) {
             ForEach(stack.files) { file in
                 StackMemberTile(file: file, entry: stack, ui: ui, actions: actions,
-                                isSelected: ui.memberSelection.contains(file.id))
+                                isSelected: ui.memberSelection.contains(file.id),
+                                iconSize: CGFloat(settings.tileIconSize))
                     .background(
                         GeometryReader { g in
                             Color.clear.preference(key: TileFramesKey.self,
@@ -459,9 +461,10 @@ struct TileLabel<Preview: View>: View {
     let isSelected: Bool
     let isKey: Bool
     var isDropTarget = false
+    /// Eingestellte Symbolgröße (Aussehen → Größe)
+    var iconSize: CGFloat = TileLabel<EmptyView>.iconSize
     @ViewBuilder let preview: () -> Preview
 
-    /// Eingestellte Symbolgröße (Aussehen → Größe)
     static var iconSize: CGFloat { CGFloat(AppSettings.shared.tileIconSize) }
 
     private var nameBackground: Color {
@@ -472,7 +475,7 @@ struct TileLabel<Preview: View>: View {
     var body: some View {
         VStack(spacing: 4) {
             preview()
-                .frame(width: Self.iconSize + 4, height: Self.iconSize + 4)
+                .frame(width: iconSize + 4, height: iconSize + 4)
                 .padding(4)
                 .background(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -489,7 +492,7 @@ struct TileLabel<Preview: View>: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1)
                 .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(nameBackground))
-                .frame(maxWidth: Self.iconSize + 28, minHeight: 30, alignment: .top)
+                .frame(maxWidth: iconSize + 28, minHeight: 30, alignment: .top)
         }
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
@@ -501,13 +504,15 @@ struct TileView: View {
     @ObservedObject var ui: ShelfUIModel
     let actions: ShelfActions
     let isSelected: Bool
+    /// Als Wert übergeben, damit sich die Kachel beim Verstellen sofort neu zeichnet
+    var iconSize: CGFloat = 64
 
     var body: some View {
-        TileLabel(title: entry.title, isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded) {
+        TileLabel(title: entry.title, isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded, iconSize: iconSize) {
             if entry.isStack {
-                StackPreview(files: Array(entry.files.prefix(3)))
+                StackPreview(files: Array(entry.files.prefix(3)), size: (iconSize * 0.82).rounded())
             } else if let file = entry.files.first {
-                ThumbnailView(url: file.url, size: TileLabel<EmptyView>.iconSize)
+                ThumbnailView(url: file.url, size: iconSize)
             }
         }
         .overlay(
@@ -550,10 +555,12 @@ struct StackMemberTile: View {
     @ObservedObject var ui: ShelfUIModel
     let actions: ShelfActions
     let isSelected: Bool
+    var iconSize: CGFloat = 64
 
     var body: some View {
-        TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded) {
-            ThumbnailView(url: file.url, size: TileLabel<EmptyView>.iconSize)
+        TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded,
+                  iconSize: iconSize) {
+            ThumbnailView(url: file.url, size: iconSize)
         }
         .overlay(
             DragSource(
@@ -578,6 +585,7 @@ struct StackMemberTile: View {
 /// Aufgefächerte Vorschau eines Stapels (bis zu drei Dateien).
 private struct StackPreview: View {
     let files: [ShelfFile]
+    let size: CGFloat
 
     private func angle(_ index: Int) -> Angle {
         .degrees(Double(index) * 7.0 - 7.0)
@@ -590,7 +598,7 @@ private struct StackPreview: View {
     var body: some View {
         ZStack {
             ForEach(Array(files.indices.reversed()), id: \.self) { index in
-                ThumbnailView(url: files[index].url, size: (TileLabel<EmptyView>.iconSize * 0.82).rounded())
+                ThumbnailView(url: files[index].url, size: size)
                     .rotationEffect(angle(index))
                     .offset(x: offsetX(index), y: CGFloat(-2 * index))
             }

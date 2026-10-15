@@ -61,6 +61,9 @@ final class SelectionBackgroundNSView: NSView {
     private func showMenu(with event: NSEvent) {
         guard let menu = menuProvider() else { return }
         ui?.menuOpen = true
+        // Menüs einer App im Hintergrund folgen dem Zeiger teils verzögert: vorher aktivieren
+        if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
+        window?.makeKey()
         NSMenu.popUpContextMenu(menu, with: event, for: self)
         ui?.menuOpen = false
     }

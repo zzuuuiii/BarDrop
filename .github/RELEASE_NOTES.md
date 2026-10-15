@@ -1,17 +1,15 @@
-* New introduction: a calmer welcome, the three steps to try, and one page with everything else BarDrop can do
-* Short choices sit right in the row as a switch; longer lists still open a menu
-* Keyboard: important shortcuts first, the rest under “More”, shown as key caps; a light tap when you change the shortcut
-* Two rows are always available, the switch is gone
-* Web images keep their original format when converting is off; loading items show up right away
-* Show in Finder shows the original file, also for copies
-* Changing the icon size shows the shelf live
+* The introduction is built like Settings: steps in a sidebar that tick themselves off, content in the same cards and buttons
+* Choices in Settings open a list in the style of the cards instead of a system menu
+* Actions → Icon size for the action bar; both icon sizes change live in the shelf
+* For copies, Show in Finder and Copy Path use the original file
+* Convert opens its own menu in the same place, so it looks like the right-click menu
+* No more double tap on switches and modifier keys; right-click menus follow the pointer more reliably
 
 <!-- de -->
 
-* Neue Einführung: ein ruhigerer Anfang, die drei Schritte zum Ausprobieren und eine Seite mit allem, was BarDrop sonst kann
-* Kurze Auswahlen stehen direkt in der Zeile als Umschalter; längere Listen öffnen weiter ein Menü
-* Tastatur: wichtige Kurzbefehle zuerst, der Rest unter „Weitere“, als kleine Tasten dargestellt; ein leichter Impuls beim Ändern des Kurzbefehls
-* Zwei Reihen gibt es immer, der Schalter ist weg
-* Bilder aus dem Web behalten ihr Format, wenn das Umwandeln aus ist; Ladendes erscheint sofort als Kachel
-* Im Finder zeigen zeigt die Originaldatei, auch bei Kopien
-* Symbolgröße ändern zeigt die Ablage live
+* Die Einführung ist aufgebaut wie die Einstellungen: Schritte in einer Seitenleiste, die sich selbst abhaken, Inhalt in denselben Karten und Knöpfen
+* Auswahlen in den Einstellungen öffnen eine Liste im Stil der Karten statt eines Systemmenüs
+* Aktionen → Symbolgröße für die Aktionsleiste; beide Symbolgrößen ändern sich live in der Ablage
+* Bei Kopien zeigen „Im Finder zeigen“ und „Pfad kopieren“ das Original
+* Umwandeln öffnet ein eigenes Menü an derselben Stelle und sieht so aus wie das Rechtsklick-Menü
+* Kein doppelter Impuls mehr bei Umschaltern und Sondertasten; Rechtsklick-Menüs folgen dem Zeiger zuverlässiger

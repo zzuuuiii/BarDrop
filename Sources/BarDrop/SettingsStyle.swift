@@ -274,8 +274,9 @@ struct SegmentedValue<Value: Hashable>: View {
                 let selected = option.0 == selection
                 Button {
                     guard !selected else { return }
+                    // Kein eigener Impuls: Der Klick auf dem Trackpad ist schon einer,
+                    // zusammen fühlte es sich doppelt an
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { selection = option.0 }
-                    Haptics.tap()
                 } label: {
                     Text(option.1)
                         .font(.system(size: 12.5, weight: selected ? .semibold : .regular))
@@ -379,40 +380,14 @@ extension View {
 
 /// Zeigt ein Menü an einer festen Stelle im Einstellungsfenster statt am Mauszeiger.
 enum MenuPresenter {
-    /// Gewählter Eintrag genau über dem Bereich (wie ein Auswahlmenü), sonst darunter.
+    /// Auswahl unter dem Wert, rechtsbündig daran (die Werte stehen rechts in der Zeile)
     static func show(_ menu: NSMenu, over frame: CGRect, selected: NSMenuItem?) {
-        guard let view = NSApp.currentEvent?.window?.contentView ?? NSApp.keyWindow?.contentView else { return }
-        menu.font = NSFont.systemFont(ofSize: 13)
-        if let selected {
-            // Text des Eintrags auf Höhe des Werts: Platz für den Haken links abziehen
-            let point = viewPoint(x: frame.minX - 18, y: frame.minY - 3, in: view)
-            menu.popUp(positioning: selected, at: point, in: view)
-        } else {
-            show(menu, below: frame)
-        }
+        ChoicePopup.present(menu, anchor: frame, align: .trailing)
     }
 
+    /// Liste unter einem Knopf, linksbündig daran; bei zu wenig Platz nach oben
     static func show(_ menu: NSMenu, below frame: CGRect) {
-        guard let view = NSApp.currentEvent?.window?.contentView ?? NSApp.keyWindow?.contentView else { return }
-        menu.font = NSFont.systemFont(ofSize: 13)
-        var point = viewPoint(x: frame.minX, y: frame.maxY + 4, in: view)
-        // Reicht der Platz bis zum unteren Bildschirmrand nicht, öffnet das Menü nach oben
-        // (sonst schneidet der Rand es ab und es muss gescrollt werden)
-        if let window = view.window, let screen = window.screen ?? NSScreen.main {
-            let height = menu.size.height
-            let below = window.convertPoint(toScreen: view.convert(point, to: nil)).y - screen.visibleFrame.minY
-            let topPoint = viewPoint(x: frame.minX, y: frame.minY - 4, in: view)
-            let above = screen.visibleFrame.maxY - window.convertPoint(toScreen: view.convert(topPoint, to: nil)).y
-            if below < height + 8, above > below {
-                point = viewPoint(x: frame.minX, y: frame.minY - 4 - height, in: view)
-            }
-        }
-        menu.popUp(positioning: nil, at: point, in: view)
-    }
-
-    /// SwiftUI misst von oben links, AppKit je nach Ansicht von unten links.
-    private static func viewPoint(x: CGFloat, y: CGFloat, in view: NSView) -> NSPoint {
-        NSPoint(x: x, y: view.isFlipped ? y : view.bounds.height - y)
+        ChoicePopup.present(menu, anchor: frame, align: .leading)
     }
 }
 

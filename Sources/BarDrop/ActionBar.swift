@@ -207,6 +207,8 @@ struct QuickActionButton: View {
     @ObservedObject var ui: ShelfUIModel
     let store: ShelfStore
     let actions: ShelfActions
+    /// Als Wert übergeben, damit die Leiste beim Verstellen sofort neu zeichnet
+    var iconSize: CGFloat = 34
 
     @State private var targeted = false
     /// Wird gerade herausgezogen: blass an ihrem Platz, wie ein Symbol im Dock
@@ -233,7 +235,7 @@ struct QuickActionButton: View {
     var body: some View {
         VStack(spacing: 4) {
             // Ohne Namen größer, damit die Leiste nicht leer wirkt
-            QuickActionIcon(action: action, size: AppSettings.shared.showActionLabels ? 34 : 44)
+            QuickActionIcon(action: action, size: iconSize)
                 .scaleEffect(targeted ? 1.1 : 1)
                 .opacity(draggingOut ? 0.3 : 1)
             if AppSettings.shared.showActionLabels {
@@ -334,15 +336,20 @@ struct QuickActionBar: View {
         }
     }
 
+    /// Symbolgröße: eingestellt, ohne Namen etwas größer, damit die Leiste nicht leer wirkt
+    private var iconSize: CGFloat {
+        CGFloat(settings.actionIconSize) + (settings.showActionLabels ? 0 : 10)
+    }
+
     /// Eine Reihe: die Aktionen teilen sich die ganze Breite, jede mittig in ihrem Teil.
     private func row(_ items: [Slot]) -> some View {
         HStack(spacing: 2) {
             ForEach(items) { slot in
                 switch slot {
                 case .action(let action):
-                    QuickActionButton(action: action, ui: ui, store: store, actions: actions)
+                    QuickActionButton(action: action, ui: ui, store: store, actions: actions, iconSize: iconSize)
                 case .pin(let url):
-                    PinSlot(url: url, ui: ui, settings: settings)
+                    PinSlot(url: url, ui: ui, settings: settings, iconSize: iconSize)
                         .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
             }
@@ -359,6 +366,7 @@ private struct PinSlot: View {
     let url: URL
     @ObservedObject var ui: ShelfUIModel
     let settings: AppSettings
+    var iconSize: CGFloat = 34
     @State private var targeted = false
 
     private var name: String {
@@ -374,7 +382,7 @@ private struct PinSlot: View {
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: settings.showActionLabels ? 34 : 44, height: settings.showActionLabels ? 34 : 44)
+                .frame(width: iconSize, height: iconSize)
                 .opacity(targeted ? 1 : 0.45)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "plus.circle.fill")

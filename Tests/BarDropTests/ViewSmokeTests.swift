@@ -72,16 +72,13 @@ final class ViewSmokeTests: XCTestCase {
 
     func testIntroductionPagesRender() {
         let model = OnboardingModel(settings: AppSettings.shared, sampleURL: nil)
-        var pages = 0
         model.onFinish = { _ in }
-        while pages < 10 {
+        for step in OnboardingModel.Step.allCases {
+            model.go(to: step)
             render(OnboardingView(model: model, openSettings: {}),
-                   size: OnboardingController.size, "Einführung \(model.step)")
-            if model.step == .done { break }
-            model.advance()
-            pages += 1
+                   size: OnboardingController.size, "Einführung \(step)")
         }
-        XCTAssertEqual(model.step, .done)
+        XCTAssertEqual(model.step, .features)
     }
 
     func testOpenShelfRenders() throws {

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.30.0-beta.3
+* The introduction is built like Settings: the steps in a sidebar that tick themselves off, the content in the same cards, buttons and switches; language and opening at login right on the first page, everything else BarDrop can do on the last
+* Choices in Settings open a list in the style of the cards instead of a system menu; the same goes for adding actions and apps
+* Actions → Icon size: a slider for the icons in the action bar
+* Both icon sizes change live in the shelf at the edge
+* For copies, Show in Finder and Copy Path use the original file
+* Convert opens its own menu in the same place instead of a submenu, so it looks like the right-click menu
+* No more double tap on switches and modifier keys in Settings; the click on the trackpad is the one tap
+* Right-click menus of the shelf make BarDrop active first, so the highlight follows the pointer
+
 ## 1.30.0-beta.2
 * New introduction: a calmer welcome, the three steps to try, and one page with everything else BarDrop can do
 * Short choices sit right in the row as a switch (for example edge, sort order, title, animation, language); longer lists still open a menu

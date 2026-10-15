@@ -417,8 +417,8 @@ struct HotKeyEditor: View {
             NSSound.beep()
             return
         }
+        // Kein zusätzlicher Impuls: Der Klick auf dem Trackpad ist schon der eine Impuls
         settings.hotKeyModifiers = new
-        Haptics.tap()   // wie eine echte Taste: ein leichter Impuls
     }
 
     private func startRecording() {
@@ -430,7 +430,7 @@ struct HotKeyEditor: View {
             }
             settings.hotKeyCode = Int(event.keyCode)
             settings.hotKeyLabel = Self.label(for: event)
-            Haptics.tap()
+            Haptics.tap()   // per Taste aufgenommen: kein Klick, daher ein leichter Impuls
             stopRecording()
             return nil
         }

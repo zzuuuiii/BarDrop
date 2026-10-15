@@ -326,21 +326,30 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
-    /// Untermenü „Umwandeln“ mit den Zielformaten, die zu den Dateien passen; nil, wenn keines passt.
-    /// Die Ergebnisse landen zusätzlich in der Ablage, die Originale bleiben.
+    /// „Umwandeln“ öffnet ein eigenes Menü an derselben Stelle statt eines Untermenüs:
+    /// So liegt es wie das Kontextmenü über der Ablage und sieht genauso aus (ein
+    /// Untermenü lag daneben über anderen Fenstern und wirkte durch das Glas anders).
     private func convertMenuItem(for urls: [URL]) -> NSMenuItem? {
         let groups = Converter.targets(for: urls).filter { !$0.isEmpty }
         guard !groups.isEmpty else { return nil }
-        let submenu = NSMenu()
-        for group in groups {
-            if submenu.numberOfItems > 0 { submenu.addItem(.separator()) }
+        return ClosureMenuItem(L("Convert", "Umwandeln")) { [weak self] in
+            let location = NSEvent.mouseLocation
+            DispatchQueue.main.async { self?.showConvertMenu(urls, groups: groups, at: location) }
+        }
+    }
+
+    private func showConvertMenu(_ urls: [URL], groups: [[Converter.Target]], at location: NSPoint) {
+        let menu = NSMenu()
+        menu.addItem(NSMenuItem.sectionHeader(title: L("Convert to", "Umwandeln in")))
+        for (index, group) in groups.enumerated() {
+            if index > 0 { menu.addItem(.separator()) }
             for target in group {
-                submenu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
+                menu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
             }
         }
-        let item = NSMenuItem(title: L("Convert", "Umwandeln"), action: nil, keyEquivalent: "")
-        item.submenu = submenu
-        return item
+        ui.menuOpen = true
+        menu.popUp(positioning: nil, at: location, in: nil)
+        ui.menuOpen = false
     }
 
     private func convert(_ urls: [URL], to target: Converter.Target) {
@@ -498,11 +507,13 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Im Finder zeigen: bei Kopien das Original, sofern es noch da ist
     func reveal(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(originals(urls))
+    }
+
+    /// Bei Kopien der Ort des Originals (für „Im Finder zeigen“ und „Pfad kopieren“)
+    func originals(_ urls: [URL]) -> [URL] {
         let files = store.entries.flatMap(\.files)
-        let targets = urls.map { url in
-            files.first { $0.url == url }?.originURL() ?? url
-        }
-        NSWorkspace.shared.activateFileViewerSelecting(targets)
+        return urls.map { url in files.first { $0.url == url }?.originURL() ?? url }
     }
 
     // MARK: Menüs
@@ -517,7 +528,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             self?.announceCopy(urls.count, pathsOnly: false)
         })
         menu.addItem(ClosureMenuItem(L("Copy Path", "Pfad kopieren"), key: "c", modifiers: [.command, .option]) { [weak self] in
-            ShelfActions.copyPaths(urls)
+            ShelfActions.copyPaths(self?.originals(urls) ?? urls)
             self?.announceCopy(urls.count, pathsOnly: true)
         })
         menu.addItem(ClosureMenuItem(L("Share", "Teilen"), symbol: "square.and.arrow.up") { [weak self, weak anchor] in

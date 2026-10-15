@@ -148,6 +148,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.delegate = self
             settingsWindow = window
         }
+        // Auf dem Bildschirm der Ablage öffnen, mittig in dessen sichtbarem Bereich
+        if let window = settingsWindow, let target = controller.currentScreen ?? NSScreen.main,
+           !window.isVisible || window.screen?.frame != target.frame {
+            let area = target.visibleFrame
+            let size = window.frame.size
+            window.setFrameOrigin(NSPoint(x: (area.midX - size.width / 2).rounded(),
+                                          y: (area.midY - size.height / 2).rounded()))
+        }
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow?.makeKeyAndOrderFront(nil)
     }

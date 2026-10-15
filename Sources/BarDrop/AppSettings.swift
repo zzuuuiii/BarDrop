@@ -193,9 +193,9 @@ extension NSScreen {
 
 /// Form des ersten Streifens: flach, lang und dicht am Rand.
 enum PeekDefaults {
-    static let thickness = 8.0
-    static let length = 64.0
-    static let roundness = 0.4
+    static let thickness = 7.0
+    static let length = 80.0
+    static let roundness = 0.65
 }
 
 /// Standardwerte für Lage und Größe der Ablage.
@@ -207,7 +207,7 @@ enum ShelfDefaults {
     static let adaptiveZoneHalf = true
     static let displayMode = DisplayMode.all
     static let width = 240.0
-    static let height = 430.0
+    static let height = 380.0
 }
 
 /// Persistente Einstellungen der App (UserDefaults).
@@ -472,16 +472,16 @@ final class AppSettings: ObservableObject {
             Key.openMode: OpenMode.automatic.rawValue,
             Key.autoRemoveAfter: AutoRemoveOption.h2.rawValue,
             Key.convertWebImages: true,
-            Key.copyAllFiles: false,
+            Key.copyAllFiles: true,
             Key.dragOutCopyOnly: false,
             Key.sortOrder: SortOrder.newestFirst.rawValue,
-            Key.showOutline: true,
+            Key.showOutline: false,
             Key.showTitle: true,
             Key.openDelay: OpenDelay.instant,
             Key.language: AppLanguage.english.rawValue,
-            Key.generousHitArea: false,
+            Key.generousHitArea: true,
             Key.twoActionRows: false,
-            Key.pinFromShelf: false,
+            Key.pinFromShelf: true,
             Key.addScreenshots: false,
             Key.openInFullScreen: true,
             Key.actionRowSplit: QuickAction.perRow,
@@ -599,14 +599,14 @@ final class AppSettings: ObservableObject {
         animationStyle = .standard
         openMode = .automatic
         openDelay = OpenDelay.instant
-        generousHitArea = false
+        generousHitArea = true
         twoActionRows = false
         actionRowSplit = QuickAction.perRow
-        pinFromShelf = false
+        pinFromShelf = true
         addScreenshots = false
         excludedApps = []
         openInFullScreen = true
-        showOutline = true
+        showOutline = false
         showTitle = true
         removeAfterDragOut = true
         stackMultiple = true
@@ -614,7 +614,7 @@ final class AppSettings: ObservableObject {
         keepAfterAction = false
         autoRemoveAfter = AutoRemoveOption.h2.rawValue
         convertWebImages = true
-        copyAllFiles = false
+        copyAllFiles = true
         dragOutCopyOnly = false
         sortOrder = .newestFirst
         quickActions = QuickAction.defaults

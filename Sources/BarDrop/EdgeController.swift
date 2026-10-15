@@ -25,6 +25,8 @@ final class EdgeController: NSObject {
     var keepAppActive: () -> Bool = { false }
 
     private var screen: NSScreen?
+    /// Bildschirm, an dem die Ablage gerade sitzt (dort öffnen auch die Einstellungen)
+    var currentScreen: NSScreen? { screen }
     private var logic = EdgeLogic.State()
     private var previewUntil: Date?
     /// Welche Stufe die Vorschau beim Ändern der Einstellungen zeigt

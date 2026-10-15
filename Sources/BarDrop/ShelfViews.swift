@@ -115,6 +115,21 @@ struct ShelfContent: View {
     @State private var selectionBeforeBand: Set<UUID> = []
     /// Höhe der Aktionsleiste: so viel Platz bleibt unter den Kacheln frei
     @State private var barHeight: CGFloat = 0
+    /// Hinter der Aktionsleiste ganz deckend, darüber ein kurzer Übergang. Sanft beginnend
+    /// und sanft endend (S-Kurve), damit weder oben noch am Übergang eine Linie zu sehen ist.
+    private var barBackdrop: some View {
+        let total = barHeight + Self.barFade
+        let fade = Self.barFade / max(1, total)
+        var stops: [Gradient.Stop] = []
+        for (t, alpha) in Self.fadeCurve {
+            stops.append(Gradient.Stop(color: Color.black.opacity(alpha), location: t * fade))
+        }
+        stops.append(Gradient.Stop(color: Color.black, location: 1))
+        return LinearGradient(stops: stops, startPoint: .top, endPoint: .bottom)
+            .frame(height: total)
+            .allowsHitTesting(false)
+    }
+
     /// Länge des Verlaufs über der Leiste: kurz, damit er nicht weit in die Kacheln reicht
     private static let barFade: CGFloat = 24
     /// Deckkraft entlang des Verlaufs (S-Kurve, smoothstep)
@@ -176,19 +191,7 @@ struct ShelfContent: View {
                     .padding(.horizontal, 10)
                     .padding(.bottom, 12)
                     .padding(.top, 4)
-                    .background(alignment: .bottom) {
-                        // Darüber noch ein Stück Verlauf, damit nirgends eine Kante entsteht
-                        // Hinter den Aktionen ganz deckend, nur darüber ein kurzer Übergang
-                        let fade = Self.barFade / max(1, barHeight + Self.barFade)
-                        // Sanft beginnend und sanft endend (wie eine S-Kurve), damit weder oben
-                        // noch am Übergang zum Deckenden eine Linie zu sehen ist
-                        LinearGradient(stops: Self.fadeCurve.map { t, alpha in
-                            Gradient.Stop(color: .black.opacity(alpha), location: t * fade)
-                        } + [Gradient.Stop(color: .black, location: 1)],
-                        startPoint: .top, endPoint: .bottom)
-                        .frame(height: barHeight + Self.barFade)
-                        .allowsHitTesting(false)
-                    }
+                    .background(alignment: .bottom) { barBackdrop }
                     .background(
                         GeometryReader { g in
                             Color.clear.preference(key: BarHeightKey.self, value: g.size.height)

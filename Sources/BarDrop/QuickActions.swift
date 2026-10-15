@@ -84,7 +84,8 @@ struct QuickAction: Codable, Identifiable, Hashable {
         let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first?.path
         return [
             QuickAction(kind: .airdrop),
-            QuickAction(kind: .folder, path: downloads)
+            QuickAction(kind: .folder, path: downloads),
+            QuickAction(kind: .trash)
         ]
     }
 

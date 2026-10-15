@@ -99,6 +99,11 @@ struct ShelfRootView: View {
 
 // MARK: Inhalt der offenen Ablage
 
+private struct BarHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = max(value, nextValue()) }
+}
+
 struct ShelfContent: View {
     @ObservedObject var ui: ShelfUIModel
     @ObservedObject var store: ShelfStore
@@ -108,6 +113,10 @@ struct ShelfContent: View {
     @State private var tileFrames: [UUID: CGRect] = [:]
     @State private var band: CGRect?
     @State private var selectionBeforeBand: Set<UUID> = []
+    /// Höhe der Aktionsleiste: so viel Platz bleibt unter den Kacheln frei
+    @State private var barHeight: CGFloat = 0
+    /// Länge des Verlaufs über der Leiste
+    private static let barFade: CGFloat = 24
 
     private let columns = [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 8)]
 
@@ -125,53 +134,63 @@ struct ShelfContent: View {
                 .padding(.top, 12)
                 .padding(.bottom, 4)
 
-            GeometryReader { geo in
-                ScrollView(.vertical, showsIndicators: false) {
-                    Group {
-                        if let stack {
-                            stackGrid(stack)
-                                .transition(.opacity)
-                        } else {
-                            mainGrid
-                                .transition(.opacity)
+            // Die Kacheln laufen unter der Aktionsleiste weiter, statt über ihr abgeschnitten
+            // zu werden; hinter der Leiste liegt ein weicher Verlauf ins Schwarz
+            ZStack(alignment: .bottom) {
+                GeometryReader { geo in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        Group {
+                            if let stack {
+                                stackGrid(stack)
+                                    .transition(.opacity)
+                            } else {
+                                mainGrid
+                                    .transition(.opacity)
+                            }
                         }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
-                    // Ohne Fokus laufen Einblend-Animationen nicht zuverlässig weiter: neue
-                    // Kacheln dann sofort zeigen statt unsichtbar am Anfang der Animation
-                    .transaction { if !ui.isKey { $0.animation = nil } }
-                    .coordinateSpace(name: "grid")
-                    .background(
-                        SelectionBackground(
-                            ui: ui,
-                            onBandChanged: updateBand,
-                            onClick: { actions.clearCurrentSelection() },
-                            menu: { actions.backgroundMenu() }
+                        // Platz unter der letzten Reihe: Sie lässt sich ganz über die Leiste scrollen
+                        .padding(.bottom, barHeight)
+                        .frame(maxWidth: .infinity, minHeight: geo.size.height, alignment: .top)
+                        // Ohne Fokus laufen Einblend-Animationen nicht zuverlässig weiter: neue
+                        // Kacheln dann sofort zeigen statt unsichtbar am Anfang der Animation
+                        .transaction { if !ui.isKey { $0.animation = nil } }
+                        .coordinateSpace(name: "grid")
+                        .background(
+                            SelectionBackground(
+                                ui: ui,
+                                onBandChanged: updateBand,
+                                onClick: { actions.clearCurrentSelection() },
+                                menu: { actions.backgroundMenu() }
+                            )
                         )
-                    )
-                    .overlay(alignment: .topLeading) { bandOverlay }
-                    .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
-                }
-                // Unten weich auslaufen statt hart abgeschnitten: ganz bis unsichtbar und
-                // mit sanftem Verlauf, sonst bliebe am Ende doch eine Kante stehen
-                .mask(
-                    VStack(spacing: 0) {
-                        Color.black
-                        LinearGradient(stops: [
-                            .init(color: .black, location: 0),
-                            .init(color: .black.opacity(0.8), location: 0.3),
-                            .init(color: .black.opacity(0.4), location: 0.65),
-                            .init(color: .black.opacity(0), location: 1)
-                        ], startPoint: .top, endPoint: .bottom)
-                        .frame(height: 22)
+                        .overlay(alignment: .topLeading) { bandOverlay }
+                        .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
                     }
-                )
-            }
+                }
 
-            QuickActionBar(settings: settings, ui: ui, store: store, actions: actions)
-                .padding(.horizontal, 10)
-                .padding(.bottom, 12)
-                .padding(.top, 4)
+                QuickActionBar(settings: settings, ui: ui, store: store, actions: actions)
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 12)
+                    .padding(.top, 4)
+                    .background(alignment: .bottom) {
+                        // Darüber noch ein Stück Verlauf, damit nirgends eine Kante entsteht;
+                        // hinter den Symbolen scheinen Kacheln nur noch leicht durch
+                        LinearGradient(stops: [
+                            .init(color: .black.opacity(0), location: 0),
+                            .init(color: .black.opacity(0.7), location: 0.3),
+                            .init(color: .black.opacity(0.88), location: 0.55),
+                            .init(color: .black.opacity(0.94), location: 1)
+                        ], startPoint: .top, endPoint: .bottom)
+                        .frame(height: barHeight + Self.barFade)
+                        .allowsHitTesting(false)
+                    }
+                    .background(
+                        GeometryReader { g in
+                            Color.clear.preference(key: BarHeightKey.self, value: g.size.height)
+                        }
+                    )
+            }
+            .onPreferenceChange(BarHeightKey.self) { barHeight = $0 }
         }
         .background(
             // Leere Stellen außerhalb des Rasters (Kopfbereich, Ränder): Klick und Rechtsklick
@@ -192,7 +211,7 @@ struct ShelfContent: View {
 
     // MARK: Kopfbereich
 
-    /// „BarDrop“ oder, mit „Namen anzeigen“ aus, einfach „Ablage“
+    /// Titel oben: „BarDrop“ oder „Ablage“ (Aussehen → Titel)
     private var title: String {
         settings.showTitle ? "BarDrop" : L("Shelf", "Ablage")
     }

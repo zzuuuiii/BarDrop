@@ -182,7 +182,7 @@ struct OpeningSettings: View {
                 PickerRow(L("Position along the edge", "Position am Rand"), selection: heightMode,
                           options: HeightMode.allCases.map { ($0, $0.title) })
                 if !settings.adaptivePosition {
-                    SliderRow(L("Height on screen", "Höhe am Rand"), value: $settings.verticalPosition, range: 0...1, step: 0.05,
+                    SliderRow(L("Spot along the edge", "Stelle am Rand"), value: $settings.verticalPosition, range: 0...1, step: 0.05,
                               format: SliderRow.percent)
                 }
                 PickerRow(L("Displays", "Bildschirme"), selection: $settings.displayMode,
@@ -190,16 +190,11 @@ struct OpeningSettings: View {
             }
 
             SettingsSection(L("When", "Wann")) {
-                PickerRow(L("Open shelf", "Ablage öffnen"), selection: $settings.openMode,
-                          options: OpenMode.allCases.map { ($0, $0.title) })
-                PickerRow(L("Delay", "Wartezeit"), selection: $settings.openDelay,
-                          options: OpenDelay.choices.map { ($0, OpenDelay.title($0)) })
-                    .disabled(settings.openMode != .automatic)
-                if settings.openMode == .automatic
-                    && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
-                    ToggleRow(L("Click the strip to open right away", "Klick auf den Streifen öffnet sofort"),
-                              isOn: $settings.clickToOpenEarly)
-                }
+                PickerRow(L("Open", "Öffnen"),
+                          info: L("With a wait, clicking the strip opens the shelf right away.",
+                                  "Mit Wartezeit öffnet ein Klick auf den Streifen die Ablage sofort."),
+                          selection: $settings.openChoice,
+                          options: OpenChoice.all.map { ($0, $0.title) })
                 ToggleRow(L("Larger hit area", "Größerer Trefferbereich"),
                           info: L("The strip and handle also respond when the pointer is slightly next to them. Helpful if you often just miss the strip.",
                                   "Streifen und Griff reagieren auch, wenn der Zeiger knapp daneben ist. Hilfreich, wenn du den Streifen oft knapp verfehlst."),
@@ -242,10 +237,8 @@ struct AppearanceSettings: View {
             SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
-                ToggleRow(L("Show name", "Namen anzeigen"),
-                          info: L("The open shelf is titled “BarDrop”, otherwise “Shelf”.",
-                                  "Oben in der offenen Ablage steht „BarDrop“, sonst „Ablage“."),
-                          isOn: $settings.showTitle)
+                PickerRow(L("Title", "Titel"), selection: $settings.showTitle,
+                          options: [(true, "BarDrop"), (false, L("Shelf", "Ablage"))])
                 PickerRow(L("Animation", "Animation"),
                           // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
                           info: AnimationStyle.reduceMotion
@@ -387,13 +380,16 @@ struct ItemSettings: View {
                 ToggleRow(L("Only copy when dragging out", "Beim Herausziehen nur kopieren"), isOn: $settings.dragOutCopyOnly)
             }
 
-            SettingsSection(L("Storage", "Speichern"),
-                            info: L("Without a copy, files from the Finder are only linked and are found again even after you move or rename them. Images from the web are always stored; WebP, AVIF and HEIC can be saved as PNG or JPEG.",
-                                    "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")) {
-                ToggleRow(L("Add new screenshots", "Neue Bildschirmfotos hinzufügen"),
+            SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {
+                ToggleRow(L("New screenshots", "Neue Bildschirmfotos"),
                           info: L("Screenshots you take appear in the shelf right away, wherever macOS saves them. Screenshots copied to the clipboard aren’t included.",
                                   "Aufgenommene Bildschirmfotos landen sofort in der Ablage, egal wo macOS sie speichert. Bildschirmfotos in die Zwischenablage gehören nicht dazu."),
                           isOn: $settings.addScreenshots)
+            }
+
+            SettingsSection(L("Storage", "Speichern"),
+                            info: L("Without a copy, files from the Finder are only linked and are found again even after you move or rename them. Images from the web are always stored; WebP, AVIF and HEIC can be saved as PNG or JPEG.",
+                                    "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")) {
                 ToggleRow(L("Always store a copy", "Immer eine Kopie anlegen"), isOn: $settings.copyAllFiles)
                 ToggleRow(L("Save web images as PNG or JPEG", "Bilder aus dem Web als PNG oder JPEG speichern"), isOn: $settings.convertWebImages)
             }
@@ -453,6 +449,9 @@ struct ActionSettings: View {
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
                           isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
+            }
+
+            SettingsSection(L("In the shelf", "In der Ablage")) {
                 ToggleRow(L("Pin by dragging", "Per Ziehen anheften"),
                           info: L("Drag a folder or app over the open shelf and drop it on “Pin” at the end of the action bar. Drag an action out of the shelf to remove it.",
                                   "Zieh einen Ordner oder eine App über die offene Ablage und lass sie auf „Anheften“ am Ende der Aktionsleiste los. Zieh eine Aktion aus der Ablage heraus, um sie zu entfernen."),

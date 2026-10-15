@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.22.0
+* Items run on under the action bar and fade softly behind it instead of being cut off; the last row can be scrolled fully above the bar
+* Opening: one choice “Open” (instantly, after 1 to 5 seconds, or only on click) instead of three settings; with a wait, clicking the strip always opens right away
+* Clearer names: “Spot along the edge” for the position slider, “Title” (BarDrop or Shelf) instead of a switch
+* Settings sorted: “Add automatically” for new screenshots under Items, “In the shelf” for pinning under Actions
+
 ## 1.21.2
 * The bottom edge of the item grid now fades out completely, without a visible edge at the end
 

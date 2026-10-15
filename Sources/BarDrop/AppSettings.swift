@@ -106,16 +106,28 @@ enum OpenMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// Eine Wahl unter „Öffnen“: nach einer Wartezeit oder nur per Klick.
+enum OpenChoice: Hashable {
+    case after(Double)
+    case click
+
+    static var all: [OpenChoice] { OpenDelay.choices.map { .after($0) } + [.click] }
+
+    var title: String {
+        switch self {
+        case .click: return L("Only on click", "Nur per Klick")
+        case .after(let delay):
+            if delay <= OpenDelay.instant { return L("Instantly", "Sofort") }
+            let s = Int(delay.rounded())
+            return s == 1 ? L("After 1 second", "Nach 1 Sekunde") : L("After \(s) seconds", "Nach \(s) Sekunden")
+        }
+    }
+}
+
 /// Verzögerung, bis die Ablage nach dem ersten Streifen ganz aufgeht.
 enum OpenDelay {
     static let instant = 0.3
     static let choices: [Double] = [instant, 1, 2, 3, 4, 5]
-
-    static func title(_ value: Double) -> String {
-        if value <= instant { return L("None", "Keine") }
-        let s = Int(value.rounded())
-        return s == 1 ? L("1 second", "1 Sekunde") : L("\(s) seconds", "\(s) Sekunden")
-    }
 }
 
 /// Wann die Ablage beim Ziehen von Objekten erscheint.
@@ -234,7 +246,6 @@ final class AppSettings: ObservableObject {
         static let showOutline = "showOutline"
         static let showTitle = "showTitle"
         static let openDelay = "openDelay"
-        static let clickToOpenEarly = "clickToOpenEarly"
         static let language = "language"
         static let generousHitArea = "generousHitArea"
         static let twoActionRows = "twoActionRows"
@@ -338,8 +349,6 @@ final class AppSettings: ObservableObject {
     @Published var showTitle: Bool { didSet { defaults.set(showTitle, forKey: Key.showTitle) } }
     /// So lange (Sekunden) muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht.
     @Published var openDelay: Double { didSet { defaults.set(openDelay, forKey: Key.openDelay) } }
-    /// Bei langer Verzögerung (ab 1 Sekunde) öffnet ein Klick auf den Streifen die Ablage sofort.
-    @Published var clickToOpenEarly: Bool { didSet { defaults.set(clickToOpenEarly, forKey: Key.clickToOpenEarly) } }
 
     /// Sprache der Oberfläche
     @Published var language: AppLanguage {
@@ -399,9 +408,23 @@ final class AppSettings: ObservableObject {
     static let clickToOpenMinDelay = 1.0
 
     /// Nimmt der Streifen bzw. Griff gerade einen Klick zum Öffnen an?
+    /// Mit Wartezeit öffnet ein Klick immer sofort.
     var hintAcceptsClick: Bool {
-        openMode == .click
-            || (clickToOpenEarly && openDelay >= Self.clickToOpenMinDelay - 0.01)
+        openMode == .click || openDelay >= Self.clickToOpenMinDelay - 0.01
+    }
+
+    /// „Öffnen“ in einer Auswahl: Wartezeit in Sekunden oder nur per Klick
+    var openChoice: OpenChoice {
+        get { openMode == .click ? .click : .after(openDelay) }
+        set {
+            switch newValue {
+            case .click:
+                openMode = .click
+            case .after(let delay):
+                openDelay = delay
+                openMode = .automatic
+            }
+        }
     }
     /// Reihenfolge der Objekte in der Ablage.
     @Published var sortOrder: SortOrder { didSet { defaults.set(sortOrder.rawValue, forKey: Key.sortOrder) } }
@@ -449,7 +472,6 @@ final class AppSettings: ObservableObject {
             Key.showOutline: true,
             Key.showTitle: true,
             Key.openDelay: OpenDelay.instant,
-            Key.clickToOpenEarly: true,
             Key.language: AppLanguage.english.rawValue,
             Key.generousHitArea: false,
             Key.twoActionRows: false,
@@ -501,7 +523,6 @@ final class AppSettings: ObservableObject {
         showOutline = defaults.bool(forKey: Key.showOutline)
         showTitle = defaults.bool(forKey: Key.showTitle)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
-        clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
         let storedLanguage = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
         language = storedLanguage
         AppLanguage.current = storedLanguage
@@ -524,6 +545,8 @@ final class AppSettings: ObservableObject {
         // Menüleiste gibt es nicht mehr. Alte Werte aufräumen.
         defaults.removeObject(forKey: "revealOnHover")
         defaults.removeObject(forKey: "showMenuBarIcon")
+        // „Klick öffnet sofort“ gibt es nicht mehr als Schalter: Mit Wartezeit gilt es immer
+        defaults.removeObject(forKey: "clickToOpenEarly")
 
         if let data = defaults.data(forKey: Key.quickActions),
            let decoded = try? JSONDecoder().decode([QuickAction].self, from: data) {
@@ -567,7 +590,6 @@ final class AppSettings: ObservableObject {
         animationStyle = .standard
         openMode = .automatic
         openDelay = OpenDelay.instant
-        clickToOpenEarly = true
         generousHitArea = false
         twoActionRows = false
         actionRowSplit = QuickAction.perRow

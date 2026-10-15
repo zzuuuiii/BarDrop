@@ -133,9 +133,15 @@ struct ShelfContent: View {
     /// Länge des Verlaufs über der Leiste: kurz, damit er nicht weit in die Kacheln reicht
     private static let barFade: CGFloat = 24
     /// Deckkraft entlang des Verlaufs (S-Kurve, smoothstep)
-    private static let fadeCurve: [(CGFloat, Double)] = stride(from: 0.0, through: 1.0, by: 0.125).map { t in
-        (CGFloat(t), t * t * (3 - 2 * t))
-    }
+    private static let fadeCurve: [(CGFloat, Double)] = {
+        var points: [(CGFloat, Double)] = []
+        for i in 0...8 {
+            let t: Double = Double(i) / 8
+            let alpha: Double = t * t * (3.0 - 2.0 * t)
+            points.append((CGFloat(t), alpha))
+        }
+        return points
+    }()
 
     private let columns = [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 8)]
 

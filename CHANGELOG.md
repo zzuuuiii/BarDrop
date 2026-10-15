@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.24.0
+* Open in full screen (Settings → Opening): when off, moving to the edge doesn’t open the shelf while an app is in full screen on that display; dragging files and the shortcut still work
+
 ## 1.23.1
 * Action bar fully opaque again; items only fade out above it
 * Keyboard: the three most used shortcuts shown, all others behind “All shortcuts”

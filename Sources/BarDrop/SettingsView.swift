@@ -210,6 +210,10 @@ struct OpeningSettings: View {
                           isOn: $settings.generousHitArea)
                 PickerRow(L("While dragging files", "Beim Ziehen von Dateien"), selection: $settings.dragReveal,
                           options: DragReveal.allCases.map { ($0, $0.title) })
+                ToggleRow(L("Open in full screen", "Im Vollbild öffnen"),
+                          info: L("When off, moving the pointer to the edge doesn’t open the shelf while an app is in full screen there. Dragging files and the shortcut still work.",
+                                  "Aus: Ist dort eine App im Vollbild, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter."),
+                          isOn: $settings.openInFullScreen)
             }
 
             SettingsSection(L("Not in these apps", "Nicht in diesen Apps"),

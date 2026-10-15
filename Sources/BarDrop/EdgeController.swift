@@ -50,6 +50,44 @@ final class EdgeController: NSObject {
     private var excludedObserver: AnyCancellable?
     /// Die App vorn ist ausgenommen: Der Rand öffnet die Ablage dann nicht
     private var frontmostExcluded = false
+    /// Bildschirme, auf denen die App vorn gerade im Vollbild ist (nur wenn das
+    /// Öffnen im Vollbild ausgeschaltet ist, sonst leer)
+    private var fullScreenFrames: [CGRect] = []
+    private var spaceObserver: NSObjectProtocol?
+    private var fullScreenObserver: AnyCancellable?
+
+    /// Fenster der App vorn, die einen ganzen Bildschirm bedecken. Nur Lage und Besitzer
+    /// der Fenster werden gelesen, dafür braucht es keine Bildschirmaufnahme-Erlaubnis.
+    /// Läuft nur beim App- oder Schreibtischwechsel, nicht im Takt.
+    private func updateFullScreen(enabled: Bool? = nil) {
+        let open = enabled ?? settings.openInFullScreen
+        guard !open, let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              pid != ProcessInfo.processInfo.processIdentifier,
+              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                       kCGNullWindowID) as? [[String: Any]] else {
+            fullScreenFrames = []
+            return
+        }
+        let screens = NSScreen.screens
+        let primaryHeight = screens.first?.frame.height ?? 0
+        var frames: [CGRect] = []
+        for window in windows {
+            guard (window[kCGWindowOwnerPID as String] as? pid_t) == pid,
+                  (window[kCGWindowLayer as String] as? Int) == 0,
+                  let dict = window[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: dict) else { continue }
+            // Fensterlage oben links gemessen, Bildschirme unten links
+            let rect = CGRect(x: bounds.minX, y: primaryHeight - bounds.maxY,
+                              width: bounds.width, height: bounds.height)
+            if let s = screens.first(where: { Self.covers(rect, $0.frame) }) { frames.append(s.frame) }
+        }
+        fullScreenFrames = frames
+    }
+
+    private static func covers(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) < 2 && abs(a.minY - b.minY) < 2
+            && abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
+    }
 
     private func updateFrontmostExcluded(_ excluded: [String]? = nil) {
         let list = excluded ?? settings.excludedApps
@@ -90,7 +128,20 @@ final class EdgeController: NSObject {
         // Ausgenommene Apps: merken, ob gerade eine davon vorn ist (nicht in jedem Takt fragen)
         appObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { [weak self] _ in self?.updateFrontmostExcluded() }
+        ) { [weak self] _ in
+            self?.updateFrontmostExcluded()
+            self?.updateFullScreen()
+        }
+        // Vollbild hat einen eigenen Schreibtisch: nach dem Wechsel (und der Animation) prüfen
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.updateFullScreen()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self?.updateFullScreen() }
+        }
+        fullScreenObserver = settings.$openInFullScreen
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] open in self?.updateFullScreen(enabled: open) }
         excludedObserver = settings.$excludedApps
             .receive(on: DispatchQueue.main)
             .sink { [weak self] list in self?.updateFrontmostExcluded(list) }
@@ -522,9 +573,10 @@ final class EdgeController: NSObject {
             width: m.width, height: m.height, fillet: m.fillet
         )
         let config = EdgeLogic.Config(dragReveal: settings.dragReveal,
-                                      // In ausgenommenen Apps öffnet nur das Hinfahren nicht;
+                                      // In ausgenommenen Apps und (auf Wunsch) im Vollbild öffnet nur das Hinfahren nicht;
                                       // Dateien hineinziehen und der Kurzbefehl gehen weiter
-                                      revealOnHover: !frontmostExcluded,
+                                      revealOnHover: !frontmostExcluded
+                                          && !fullScreenFrames.contains(screen.frame),
                                       openMode: settings.openMode,
                                       openDelay: settings.openDelay,
                                       generousHitArea: settings.generousHitArea)

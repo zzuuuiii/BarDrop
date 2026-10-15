@@ -24,7 +24,10 @@ jobs:
           xcodebuild -version
           swift --version
 
-      - name: Tests (Import, Speichern, Stapel)
+      - name: Texte, Version und Release-Notizen prüfen
+        run: python3 scripts/check_project.py
+
+      - name: Tests (Import, Speichern, Stapel, Ansichten)
         run: |
           set -o pipefail
           swift test 2>&1 | tee test.log || {
@@ -49,6 +52,24 @@ jobs:
             done
             exit 1
           }
+
+      - name: Starttest
+        # Die fertige App starten: Sie muss 15 Sekunden laufen, ohne abzustürzen
+        run: |
+          build/BarDrop.app/Contents/MacOS/BarDrop > launch.log 2>&1 &
+          PID=$!
+          sleep 15
+          if ! kill -0 "$PID" 2>/dev/null; then
+            wait "$PID"; CODE=$?
+            echo "::error::BarDrop hat sich nach dem Start beendet (Code $CODE)"
+            tail -40 launch.log
+            ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i bardrop | head -1 | while read -r report; do
+              head -60 ~/Library/Logs/DiagnosticReports/"$report"
+            done
+            exit 1
+          fi
+          kill "$PID"
+          echo "::notice::BarDrop lief 15 Sekunden ohne Absturz"
 
       - name: DMG als Build-Artefakt
         uses: actions/upload-artifact@v4

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.30.0-beta.1
+* Appearance → Size → Icon size: icons and previews in the shelf from 40 to 96 pt, now 64 pt by default (was 56)
+* With the larger hit area, a dragged file opens the shelf from a little farther away
+* Right-click menus no longer lose the highlight: the shelf pauses its checks while a menu is open
+
 ## 1.29.0
 Everything since 1.28.0:
 * Updates install by themselves in the background once BarDrop hasn’t been used for 15 minutes; Beta versions can be turned on in Settings → About BarDrop

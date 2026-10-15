@@ -134,7 +134,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
     /// damit das gezogene Bild wie die Kachel aussieht und nicht wie ein Standardsymbol.
     private static func dragIcon(for url: URL) -> NSImage {
         let box: CGFloat = 64
-        let source = Thumbnails.cached(url, size: 56) ?? quickImagePreview(url) ?? Thumbnails.icon(url)
+        let source = Thumbnails.cached(url, size: TileLabel<EmptyView>.iconSize) ?? quickImagePreview(url) ?? Thumbnails.icon(url)
         let size = source.size
         guard size.width > 0, size.height > 0 else { return source }
         let scale = min(box / size.width, box / size.height)

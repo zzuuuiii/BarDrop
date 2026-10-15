@@ -239,6 +239,8 @@ struct AppearanceSettings: View {
                           format: SliderRow.points)
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: 280...680, step: 10,
                           format: SliderRow.points)
+                SliderRow(L("Icon size", "Symbolgröße"), value: $settings.tileIconSize, range: 40...96, step: 4,
+                          format: SliderRow.points)
             }
 
             SettingsSection(L("Strip at the edge", "Streifen am Rand")) {

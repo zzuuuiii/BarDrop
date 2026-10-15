@@ -62,6 +62,12 @@ enum EdgeLogic {
 
         /// Zusätzlicher Spielraum quer zum Rand und entlang des Rands
         var hitSlack: (x: CGFloat, y: CGFloat) { generousHitArea ? (8, 24) : (0, 0) }
+        /// Beim Ziehen einer Datei: ab hier öffnet die Ablage ganz. Mit größerem
+        /// Trefferbereich etwas weiter vom Rand und höher, nicht übertrieben.
+        var dragExpand: (distance: CGFloat, span: CGFloat) {
+            generousHitArea ? (EdgeLogic.dragExpandDistance + 30, EdgeLogic.dragExpandSpan + 40)
+                            : (EdgeLogic.dragExpandDistance, EdgeLogic.dragExpandSpan)
+        }
     }
 
     struct Result: Equatable {
@@ -88,7 +94,7 @@ enum EdgeLogic {
             if s.ownDrag {
                 // Objekt aus der Ablage: Sie schließt, sobald es sie verlässt, öffnet sich
                 // aber wieder, wenn man damit an den Rand zurückkommt (zum Zurücklegen)
-                let backAtEdge = s.onScreen && !s.innerEdge && s.dx < dragExpandDistance && s.dy < dragExpandSpan
+                let backAtEdge = s.onScreen && !s.innerEdge && s.dx < c.dragExpand.distance && s.dy < c.dragExpand.span
                 result.target = s.overExpanded || state.manualOpen || backAtEdge ? .expanded : .hidden
                 // Zurück am Rand: derselbe leichte Impuls wie beim ersten Hineinziehen
                 if result.target == .expanded && state.level != .expanded { result.haptic = true }
@@ -97,7 +103,7 @@ enum EdgeLogic {
             } else if !s.onScreen || (s.innerEdge && !s.overExpanded && !state.manualOpen) {
                 // Drag auf anderem Bildschirm, oder auf dem Weg hinüber zum Bildschirm daneben
                 result.target = .hidden
-            } else if s.overExpanded || (s.dx < dragExpandDistance && s.dy < dragExpandSpan) {
+            } else if s.overExpanded || (s.dx < c.dragExpand.distance && s.dy < c.dragExpand.span) {
                 result.target = .expanded
                 // Die Datei hat die Ablage erreicht: ein leichter Impuls, sofort
                 if state.level != .expanded { result.haptic = true }

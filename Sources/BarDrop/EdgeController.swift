@@ -469,6 +469,10 @@ final class EdgeController: NSObject {
     // MARK: Takt
 
     @objc private func tick() {
+        // Solange ein Menü der Ablage offen ist, ruht der Takt: Er läuft auch während der
+        // Menüverfolgung und könnte sie stören (die Markierung springt dann verspätet).
+        // Die Ablage bleibt dabei ohnehin offen.
+        if ui.menuOpen { return }
         let now = Date()
         let loc = NSEvent.mouseLocation
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
@@ -599,7 +603,7 @@ final class EdgeController: NSObject {
         // Datei beim Loslassen in der App dahinter.
         // Nur im Bereich der Ablage selbst, damit Drops in Fenster daneben ungestört bleiben
         let catchesThrow = dragging && !ui.ownDragActive && settings.dragReveal != .off
-            && onScreen && !innerEdge && dx < EdgeLogic.dragExpandDistance
+            && onScreen && !innerEdge && dx < config.dragExpand.distance
             && expandedBody.insetBy(dx: 0, dy: -12).contains(loc)
         let accept = (ui.level == .expanded && (expandedBody.contains(loc) || locked))
             || (ui.level == .hint && settings.hintAcceptsClick && !dragging && hintBody.contains(loc))

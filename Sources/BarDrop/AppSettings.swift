@@ -208,6 +208,7 @@ enum ShelfDefaults {
     static let displayMode = DisplayMode.all
     static let width = 240.0
     static let height = 380.0
+    static let iconSize = 64.0
 }
 
 /// Persistente Einstellungen der App (UserDefaults).
@@ -256,6 +257,7 @@ final class AppSettings: ObservableObject {
         static let openInFullScreen = "openInFullScreen"
         static let showActionLabels = "showActionLabels"
         static let betaUpdates = "betaUpdates"
+        static let tileIconSize = "tileIconSize"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -370,6 +372,8 @@ final class AppSettings: ObservableObject {
     @Published var showActionLabels: Bool { didSet { defaults.set(showActionLabels, forKey: Key.showActionLabels) } }
     /// Auch Beta-Versionen installieren (Vorabversionen auf GitHub)
     @Published var betaUpdates: Bool { didSet { defaults.set(betaUpdates, forKey: Key.betaUpdates) } }
+    /// Größe der Symbole und Vorschauen in der Ablage (pt)
+    @Published var tileIconSize: Double { didSet { defaults.set(tileIconSize, forKey: Key.tileIconSize) } }
 
     /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
     /// fünf Aktionen hat.
@@ -482,6 +486,7 @@ final class AppSettings: ObservableObject {
             Key.openInFullScreen: true,
             Key.showActionLabels: true,
             Key.betaUpdates: false,
+            Key.tileIconSize: ShelfDefaults.iconSize,
             Key.actionRowSplit: QuickAction.perRow,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
@@ -551,6 +556,7 @@ final class AppSettings: ObservableObject {
         openInFullScreen = defaults.bool(forKey: Key.openInFullScreen)
         showActionLabels = defaults.bool(forKey: Key.showActionLabels)
         betaUpdates = defaults.bool(forKey: Key.betaUpdates)
+        tileIconSize = min(max(defaults.double(forKey: Key.tileIconSize), 40), 96)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -599,6 +605,7 @@ final class AppSettings: ObservableObject {
     func resetLook() {
         shelfWidth = ShelfDefaults.width
         shelfHeight = ShelfDefaults.height
+        tileIconSize = ShelfDefaults.iconSize
         peekThickness = PeekDefaults.thickness
         peekLength = PeekDefaults.length
         peekRoundness = PeekDefaults.roundness
@@ -641,7 +648,7 @@ final class AppSettings: ObservableObject {
     var peekSignature: String { "\(peekThickness)|\(peekLength)|\(peekRoundness)" }
 
     /// Größe der offenen Ablage
-    var sizeSignature: String { "\(shelfWidth)|\(shelfHeight)" }
+    var sizeSignature: String { "\(shelfWidth)|\(shelfHeight)|\(tileIconSize)" }
 
     /// Alles, was Lage oder Größe der Ablage beeinflusst.
     var layoutSignature: String {

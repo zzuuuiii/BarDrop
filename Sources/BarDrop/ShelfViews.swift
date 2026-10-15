@@ -143,7 +143,11 @@ struct ShelfContent: View {
         return points
     }()
 
-    private let columns = [GridItem(.adaptive(minimum: 78, maximum: 96), spacing: 8)]
+    /// Spalten passend zur Symbolgröße
+    private var columns: [GridItem] {
+        let icon = CGFloat(settings.tileIconSize)
+        return [GridItem(.adaptive(minimum: icon + 22, maximum: icon + 40), spacing: 8)]
+    }
 
     /// Geöffneter Stapel, solange er noch ein Stapel ist.
     private var stack: ShelfEntry? {
@@ -429,6 +433,9 @@ struct TileLabel<Preview: View>: View {
     var isDropTarget = false
     @ViewBuilder let preview: () -> Preview
 
+    /// Eingestellte Symbolgröße (Aussehen → Größe)
+    static var iconSize: CGFloat { CGFloat(AppSettings.shared.tileIconSize) }
+
     private var nameBackground: Color {
         guard isSelected else { return .clear }
         return Color(nsColor: isKey ? .selectedContentBackgroundColor : .unemphasizedSelectedContentBackgroundColor)
@@ -437,7 +444,7 @@ struct TileLabel<Preview: View>: View {
     var body: some View {
         VStack(spacing: 4) {
             preview()
-                .frame(width: 60, height: 60)
+                .frame(width: Self.iconSize + 4, height: Self.iconSize + 4)
                 .padding(4)
                 .background(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -454,7 +461,7 @@ struct TileLabel<Preview: View>: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 1)
                 .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(nameBackground))
-                .frame(maxWidth: 84, minHeight: 30, alignment: .top)
+                .frame(maxWidth: Self.iconSize + 28, minHeight: 30, alignment: .top)
         }
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity)
@@ -472,7 +479,7 @@ struct TileView: View {
             if entry.isStack {
                 StackPreview(files: Array(entry.files.prefix(3)))
             } else if let file = entry.files.first {
-                ThumbnailView(url: file.url, size: 56)
+                ThumbnailView(url: file.url, size: TileLabel<EmptyView>.iconSize)
             }
         }
         .overlay(
@@ -518,7 +525,7 @@ struct StackMemberTile: View {
 
     var body: some View {
         TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded) {
-            ThumbnailView(url: file.url, size: 56)
+            ThumbnailView(url: file.url, size: TileLabel<EmptyView>.iconSize)
         }
         .overlay(
             DragSource(
@@ -555,7 +562,7 @@ private struct StackPreview: View {
     var body: some View {
         ZStack {
             ForEach(Array(files.indices.reversed()), id: \.self) { index in
-                ThumbnailView(url: files[index].url, size: 46)
+                ThumbnailView(url: files[index].url, size: (TileLabel<EmptyView>.iconSize * 0.82).rounded())
                     .rotationEffect(angle(index))
                     .offset(x: offsetX(index), y: CGFloat(-2 * index))
             }

@@ -176,7 +176,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
 
     // MARK: Fenster
 
-    static let size = NSSize(width: 680, height: 540)
+    static let size = NSSize(width: 520, height: 580)
 
     /// Fenster wie die Einstellungen: durchscheinend, hohe Titelleiste, Ampel auf Höhe
     /// der Überschrift
@@ -297,41 +297,15 @@ struct OnboardingView: View {
     @ObservedObject private var settings = AppSettings.shared
     var openSettings: () -> Void
 
+    /// Eine Spalte, Schritt für Schritt: oben, worum es geht, in der Mitte die Karten
+    /// wie in den Einstellungen, unten die Punkte und ein Knopf zum Weitergehen
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-                .frame(width: 220)
-                .frame(maxHeight: .infinity)
-                .background(SettingsTheme.sidebar.opacity(SettingsTheme.backdropOpacity))
-            Rectangle()
-                .fill(SettingsTheme.divider)
-                .frame(width: 1)
-            detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(SettingsTheme.content.opacity(SettingsTheme.backdropOpacity))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        detail
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(SettingsTheme.content.opacity(SettingsTheme.backdropOpacity))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SettingsBackdrop().ignoresSafeArea())
         .ignoresSafeArea()
-    }
-
-    // MARK: Seitenleiste
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(L("Introduction", "Einführung"))
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary)
-                .padding(.leading, 8)
-                .padding(.bottom, 7)
-            ForEach(OnboardingModel.Step.allCases) { step in
-                StepRow(step: step, selected: model.step == step,
-                        done: model.completed.contains(step)) { model.go(to: step) }
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 13)
-        .padding(.top, 60)
     }
 
     // MARK: Inhalt
@@ -343,7 +317,8 @@ struct OnboardingView: View {
                 Text(model.step.title)
                     .font(.system(size: 17, weight: .semibold))
             }
-            .padding(.leading, 18)
+            // Neben der Ampel, wie die Überschrift in den Einstellungen
+            .padding(.leading, 84)
             .frame(height: 52)
             .padding(.bottom, 4)
 
@@ -489,6 +464,7 @@ struct OnboardingView: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
+            StepDots(current: model.step)
             Spacer()
             switch model.step {
             case .welcome:
@@ -515,40 +491,23 @@ struct OnboardingView: View {
     }
 }
 
-/// Eintrag der Seitenleiste wie in den Einstellungen, mit Häkchen für Geschafftes
-private struct StepRow: View {
-    let step: OnboardingModel.Step
-    let selected: Bool
-    let done: Bool
-    let action: () -> Void
-    @State private var hovering = false
+/// Wie weit man ist: ein Punkt je Schritt, der aktuelle länglich
+private struct StepDots: View {
+    let current: OnboardingModel.Step
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                StepIcon(symbol: step.symbol, tint: step.tint)
-                Text(step.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                if done {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white, .green)
-                        .transition(.scale.combined(with: .opacity))
-                }
+        HStack(spacing: 6) {
+            ForEach(OnboardingModel.Step.allCases) { step in
+                Capsule()
+                    .fill(step == current ? Color(nsColor: .controlAccentColor)
+                          : Color.secondary.opacity(step.rawValue < current.rawValue ? 0.55 : 0.25))
+                    .frame(width: step == current ? 16 : 6, height: 6)
             }
-            .padding(.horizontal, 9)
-            .frame(height: 42)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? SettingsTheme.selectedRow : Color.primary.opacity(hovering ? 0.04 : 0))
-            )
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: current)
+        .accessibilityElement()
+        .accessibilityLabel(L("Step \(current.rawValue + 1) of \(OnboardingModel.Step.allCases.count)",
+                              "Schritt \(current.rawValue + 1) von \(OnboardingModel.Step.allCases.count)"))
     }
 }
 

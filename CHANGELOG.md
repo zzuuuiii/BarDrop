@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.30.0-beta.4
+* Right-click menus of the shelf are drawn by BarDrop itself: the highlight follows the pointer without delay and they look like the lists in Settings
+* Convert is a submenu again that opens next to the menu while the menu stays visible
+* No extra tap when dropping a file; the click of the trackpad is enough
+* Lists in Settings stay in place while scrolling, and clicking the same button again closes them
+* Settings and the introduction are slightly more transparent
+* While changing the file icon size, the app icon lies in the shelf as a sample
+* The introduction goes step by step in one column without a sidebar
+
 ## 1.30.0-beta.3
 * The introduction is built like Settings: the steps in a sidebar that tick themselves off, the content in the same cards, buttons and switches; language and opening at login right on the first page, everything else BarDrop can do on the last
 * Choices in Settings open a list in the style of the cards instead of a system menu; the same goes for adding actions and apps

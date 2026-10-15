@@ -323,7 +323,7 @@ struct ShelfContent: View {
 
     @ViewBuilder
     private var mainGrid: some View {
-        if store.entries.isEmpty && !showPending {
+        if store.entries.isEmpty && !showPending && !ui.showSampleTile {
             emptyState
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
@@ -333,6 +333,7 @@ struct ShelfContent: View {
             LazyVGrid(columns: columns, spacing: 6) {
                 // Was gerade noch geladen wird (Bilder aus dem Web, große Dateien),
                 // steht sofort als Kachel da, an der Stelle, an der es landen wird
+                if ui.showSampleTile { sampleTile }
                 if showPending && settings.sortOrder == .newestFirst { pendingTiles }
                 ForEach(actions.orderedEntries) { entry in
                     TileView(entry: entry, ui: ui, actions: actions,
@@ -352,6 +353,19 @@ struct ShelfContent: View {
             .padding(.vertical, 6)
             .transition(Self.tileTransition)
         }
+    }
+
+    /// Beispiel beim Verstellen der Symbolgröße: das App-Symbol als gewöhnliche Datei
+    private var sampleTile: some View {
+        TileLabel(title: "BarDrop.app", isSelected: false, isKey: false,
+                  iconSize: CGFloat(settings.tileIconSize)) {
+            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
+                .resizable()
+                .interpolation(.high)
+                .frame(width: CGFloat(settings.tileIconSize), height: CGFloat(settings.tileIconSize))
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
     }
 
     /// Platzhalter für laufende Übernahmen, je eine Kachel

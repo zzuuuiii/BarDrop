@@ -326,30 +326,20 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
-    /// „Umwandeln“ öffnet ein eigenes Menü an derselben Stelle statt eines Untermenüs:
-    /// So liegt es wie das Kontextmenü über der Ablage und sieht genauso aus (ein
-    /// Untermenü lag daneben über anderen Fenstern und wirkte durch das Glas anders).
-    private func convertMenuItem(for urls: [URL]) -> NSMenuItem? {
+    /// „Umwandeln“ als Untermenü: Es öffnet sich neben dem Menü, das stehen bleibt.
+    private func convertMenuItem(for urls: [URL], anchor: NSView) -> NSMenuItem? {
         let groups = Converter.targets(for: urls).filter { !$0.isEmpty }
         guard !groups.isEmpty else { return nil }
-        return ClosureMenuItem(L("Convert", "Umwandeln")) { [weak self] in
-            let location = NSEvent.mouseLocation
-            DispatchQueue.main.async { self?.showConvertMenu(urls, groups: groups, at: location) }
-        }
-    }
-
-    private func showConvertMenu(_ urls: [URL], groups: [[Converter.Target]], at location: NSPoint) {
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem.sectionHeader(title: L("Convert to", "Umwandeln in")))
+        let submenu = NSMenu()
         for (index, group) in groups.enumerated() {
-            if index > 0 { menu.addItem(.separator()) }
+            if index > 0 { submenu.addItem(.separator()) }
             for target in group {
-                menu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
+                submenu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
             }
         }
-        ui.menuOpen = true
-        menu.popUp(positioning: nil, at: location, in: nil)
-        ui.menuOpen = false
+        let item = NSMenuItem(title: L("Convert", "Umwandeln"), action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
     }
 
     private func convert(_ urls: [URL], to target: Converter.Target) {
@@ -536,7 +526,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             // erst nach dem Schließen des Menüs zeigen, damit der Picker an der Kachel sitzt
             DispatchQueue.main.async { self?.share(urls, from: anchor) }
         })
-        if let convert = convertMenuItem(for: urls) { menu.addItem(convert) }
+        if let convert = convertMenuItem(for: urls, anchor: anchor) { menu.addItem(convert) }
     }
 
     /// Kontextmenü für eine Kachel. Gilt für die ganze Auswahl, wenn die Kachel dazugehört.

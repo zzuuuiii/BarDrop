@@ -23,16 +23,10 @@ enum Haptics {
         }
     }
 
-    /// Impuls beim Ablegen. Bewusst derselbe leichte, einzelne Impuls wie beim
-    /// Erreichen der Ablage: Die stärkere Stufe des Aktuators fühlt sich wie ein
-    /// doppeltes Klicken an.
-    ///
-    /// Kam gerade erst ein Impuls (die Datei hat die Ablage eben erreicht, z. B. bei einem
-    /// schnellen Wurf), entfällt dieser: Zwei Impulse kurz hintereinander wirken doppelt.
-    static func drop() {
-        guard Date().timeIntervalSince(lastTap) > 0.4 else { return }
-        tap()
-    }
+    /// Beim Ablegen bewusst kein Impuls: Das Loslassen auf dem Trackpad klickt schon
+    /// selbst, ein zusätzlicher Impuls direkt danach fühlt sich doppelt an. Bleibt als
+    /// Stelle für alle Ablageorte erhalten.
+    static func drop() {}
 }
 
 /// Direkter Zugriff auf den Trackpad-Aktuator über das private Framework

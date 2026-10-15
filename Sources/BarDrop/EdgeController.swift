@@ -337,6 +337,8 @@ final class EdgeController: NSObject {
 
     // MARK: Zustände
 
+    private lazy var lastTileIconSize = settings.tileIconSize
+
     /// Zuletzt sichtbar oder benutzt (für stille Updates)
     private(set) var lastActivity = Date()
 
@@ -495,6 +497,12 @@ final class EdgeController: NSObject {
             // Größe sieht. Sonst (Rand, Höhe, Lage) den Griff an der neuen Stelle.
             if settings.sizeSignature != lastSizeSignature {
                 lastSizeSignature = settings.sizeSignature
+                // Symbolgröße der Dateien verstellt: eine Beispieldatei zeigen, damit man
+                // die Wirkung sieht, auch wenn die Ablage leer ist
+                if settings.tileIconSize != lastTileIconSize {
+                    lastTileIconSize = settings.tileIconSize
+                    if !ui.showSampleTile { ui.showSampleTile = true }
+                }
                 previewUntil = now.addingTimeInterval(1.5)
                 previewLevel = .expanded
             } else {
@@ -556,7 +564,10 @@ final class EdgeController: NSObject {
             if ui.level == .hint { setLevel(.expanded) }
         }
 
-        if let until = previewUntil, until <= now { previewUntil = nil }
+        if let until = previewUntil, until <= now {
+            previewUntil = nil
+            if ui.showSampleTile { ui.showSampleTile = false }
+        }
 
         // Rand zu einem Bildschirm daneben, der selbst eine Ablage hat: Dort gehört sie nicht hin.
         // Darf nur dieser Bildschirm eine Ablage haben, bleibt sie wie bisher an diesem Rand.

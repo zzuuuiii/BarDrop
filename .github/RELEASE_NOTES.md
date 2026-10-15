@@ -1,15 +1,17 @@
-* The introduction is built like Settings: steps in a sidebar that tick themselves off, content in the same cards and buttons
-* Choices in Settings open a list in the style of the cards instead of a system menu
-* Actions → Icon size for the action bar; both icon sizes change live in the shelf
-* For copies, Show in Finder and Copy Path use the original file
-* Convert opens its own menu in the same place, so it looks like the right-click menu
-* No more double tap on switches and modifier keys; right-click menus follow the pointer more reliably
+* Right-click menus of the shelf follow the pointer without delay and look like the lists in Settings
+* Convert opens next to the menu while the menu stays visible
+* No extra tap when dropping a file
+* Lists in Settings stay in place while scrolling; clicking the button again closes them
+* Settings and the introduction are slightly more transparent
+* A sample file shows the icon size while you change it
+* The introduction goes step by step without a sidebar
 
 <!-- de -->
 
-* Die Einführung ist aufgebaut wie die Einstellungen: Schritte in einer Seitenleiste, die sich selbst abhaken, Inhalt in denselben Karten und Knöpfen
-* Auswahlen in den Einstellungen öffnen eine Liste im Stil der Karten statt eines Systemmenüs
-* Aktionen → Symbolgröße für die Aktionsleiste; beide Symbolgrößen ändern sich live in der Ablage
-* Bei Kopien zeigen „Im Finder zeigen“ und „Pfad kopieren“ das Original
-* Umwandeln öffnet ein eigenes Menü an derselben Stelle und sieht so aus wie das Rechtsklick-Menü
-* Kein doppelter Impuls mehr bei Umschaltern und Sondertasten; Rechtsklick-Menüs folgen dem Zeiger zuverlässiger
+* Rechtsklick-Menüs der Ablage folgen dem Zeiger ohne Verzögerung und sehen aus wie die Listen in den Einstellungen
+* Umwandeln öffnet sich neben dem Menü, das Menü bleibt dabei stehen
+* Kein zusätzlicher Impuls mehr beim Ablegen einer Datei
+* Listen in den Einstellungen bleiben beim Scrollen stehen; ein erneuter Klick auf den Knopf schließt sie
+* Einstellungen und Einführung sind etwas durchsichtiger
+* Beim Verstellen der Symbolgröße liegt eine Beispieldatei in der Ablage
+* Die Einführung geht Schritt für Schritt vor, ohne Seitenleiste

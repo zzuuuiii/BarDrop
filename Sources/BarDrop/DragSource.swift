@@ -69,12 +69,14 @@ final class DragSourceNSView: NSView, NSDraggingSource {
     private func showMenu(with event: NSEvent) {
         onMouseDown([])
         guard let menu = menuProvider(self) else { return }
+        guard let window else { return }
         ui?.menuOpen = true
-        // Menüs einer App im Hintergrund folgen dem Zeiger teils verzögert: vorher aktivieren
-        if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }
-        window?.makeKey()
-        NSMenu.popUpContextMenu(menu, with: event, for: self)
-        ui?.menuOpen = false
+        if !NSApp.isActive { NSApp.activate(ignoringOtherApps: true) }   // für Escape und Hervorhebung
+        window.makeKey()
+        // Eigenes Menü statt des Systemmenüs: folgt dem Zeiger ohne Verzögerung und
+        // zeigt Untermenüs daneben im selben Aussehen
+        let point = window.convertPoint(toScreen: event.locationInWindow)
+        ChoicePopup.present(menu, at: point, parent: window) { [weak self] in self?.ui?.menuOpen = false }
     }
 
     override func mouseDragged(with event: NSEvent) {

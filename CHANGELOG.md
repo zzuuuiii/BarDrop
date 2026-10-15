@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.29.0-beta.4
+* Right-click menus without icons, as Apple does it again since macOS 27; only Share and Settings keep theirs
+* Dragging out: the name is highlighted like in the Finder, tight around the text with only slightly rounded corners
+
 ## 1.29.0-beta.3
 * Dragging out works like in the Finder for every item: files BarDrop stored itself (copies, web images, converted files) now go out as a fresh copy of the file instead of a file promise, so the Finder and other apps show the usual drag and drop
 * About BarDrop: software update in its own row, the version reads “1.29.0 Beta 3” and is never cut off

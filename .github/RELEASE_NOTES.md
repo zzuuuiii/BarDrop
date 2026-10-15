@@ -1,7 +1,7 @@
-* Dragging out works like in the Finder for every item, also for copies, web images and converted files
-* About BarDrop: software update in its own row, the version is never cut off
+* Right-click menus without icons, as Apple does it again since macOS 27; only Share and Settings keep theirs
+* Dragging out: the name is highlighted like in the Finder, with only slightly rounded corners
 
 <!-- de -->
 
-* Herausziehen verhält sich bei allen Objekten wie im Finder, auch bei Kopien, Bildern aus dem Web und umgewandelten Dateien
-* Über BarDrop: Softwareupdate in einer eigenen Zeile, die Version wird nicht mehr abgeschnitten
+* Rechtsklick-Menüs ohne Symbole, wie Apple es seit macOS 27 wieder macht; nur Teilen und Einstellungen behalten ihres
+* Herausziehen: Der Name ist markiert wie im Finder, knapp um den Text und nur leicht gerundet

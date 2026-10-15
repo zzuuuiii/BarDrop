@@ -339,7 +339,6 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             }
         }
         let item = NSMenuItem(title: L("Convert", "Umwandeln"), action: nil, keyEquivalent: "")
-        item.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
         item.submenu = submenu
         return item
     }
@@ -499,15 +498,15 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     // MARK: Menüs
 
     private func addFileItems(to menu: NSMenu, urls: [URL], anchor: NSView, open: @escaping () -> Void) {
-        menu.addItem(ClosureMenuItem(L("Open", "Öffnen"), symbol: "arrow.up.forward.app", key: "o", handler: open))
-        menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), symbol: "folder", key: "r") {
+        menu.addItem(ClosureMenuItem(L("Open", "Öffnen"), key: "o", handler: open))
+        menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), key: "r") {
             NSWorkspace.shared.activateFileViewerSelecting(urls)
         })
-        menu.addItem(ClosureMenuItem(L("Copy", "Kopieren"), symbol: "doc.on.doc", key: "c") { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Copy", "Kopieren"), key: "c") { [weak self] in
             ShelfActions.copyFiles(urls)
             self?.announceCopy(urls.count, pathsOnly: false)
         })
-        menu.addItem(ClosureMenuItem(L("Copy Path", "Pfad kopieren"), symbol: "link", key: "c", modifiers: [.command, .option]) { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Copy Path", "Pfad kopieren"), key: "c", modifiers: [.command, .option]) { [weak self] in
             ShelfActions.copyPaths(urls)
             self?.announceCopy(urls.count, pathsOnly: true)
         })
@@ -529,21 +528,21 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
         if multiple {
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem(L("Group as Stack", "Als Stapel zusammenfassen"), symbol: "square.stack") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Group as Stack", "Als Stapel zusammenfassen")) { [weak self] in
                 self?.mergeSelection(targets)
             })
         } else if entry.isStack {
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem(L("Open Stack", "Stapel öffnen"), symbol: "square.stack") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Open Stack", "Stapel öffnen")) { [weak self] in
                 self?.openStack(entry)
             })
-            menu.addItem(ClosureMenuItem(L("Ungroup Stack", "Stapel auflösen"), symbol: "square.stack.3d.down.right") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Ungroup Stack", "Stapel auflösen")) { [weak self] in
                 self?.store.unstack(entry.id)
             })
         }
         menu.addItem(.separator())
         let title = multiple ? L("Remove \(targets.count) Items", "\(targets.count) Objekte entfernen") : L("Remove", "Entfernen")
-        menu.addItem(ClosureMenuItem(title, symbol: "xmark.circle", key: "\u{8}") { [weak self] in self?.remove(targets) })
+        menu.addItem(ClosureMenuItem(title, key: "\u{8}") { [weak self] in self?.remove(targets) })
         return menu
     }
 
@@ -554,12 +553,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let menu = NSMenu()
         addFileItems(to: menu, urls: urls, anchor: anchor) { urls.forEach { NSWorkspace.shared.open($0) } }
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Take \(files.count) Items Out of Stack", "\(files.count) Objekte aus Stapel lösen") : L("Take Out of Stack", "Aus Stapel lösen"),
-                                     symbol: "arrow.up.right.square") { [weak self] in
+        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Take \(files.count) Items Out of Stack", "\(files.count) Objekte aus Stapel lösen") : L("Take Out of Stack", "Aus Stapel lösen")) { [weak self] in
             self?.detachMembers(files)
         })
-        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Remove \(files.count) Items", "\(files.count) Objekte entfernen") : L("Remove", "Entfernen"),
-                                     symbol: "xmark.circle", key: "\u{8}") { [weak self] in
+        menu.addItem(ClosureMenuItem(files.count > 1 ? L("Remove \(files.count) Items", "\(files.count) Objekte entfernen") : L("Remove", "Entfernen"), key: "\u{8}") { [weak self] in
             self?.removeMembers(files)
         })
         return menu
@@ -568,20 +565,20 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Kontextmenü für die leere Fläche der Ablage.
     func backgroundMenu() -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(ClosureMenuItem(L("Paste from Clipboard", "Aus der Zwischenablage einfügen"), symbol: "doc.on.clipboard", key: "v") { [weak self] in
+        menu.addItem(ClosureMenuItem(L("Paste from Clipboard", "Aus der Zwischenablage einfügen"), key: "v") { [weak self] in
             self?.store.pasteFromClipboard()
         })
         if store.undoManager.canUndo {
-            menu.addItem(ClosureMenuItem(L("Undo", "Widerrufen"), symbol: "arrow.uturn.backward", key: "z") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Undo", "Widerrufen"), key: "z") { [weak self] in
                 self?.undo()
             })
         }
         if !store.entries.isEmpty {
-            menu.addItem(ClosureMenuItem(L("Select All", "Alle auswählen"), symbol: "checkmark.circle", key: "a") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Select All", "Alle auswählen"), key: "a") { [weak self] in
                 self?.selectAllCurrent()
             })
             menu.addItem(.separator())
-            menu.addItem(ClosureMenuItem(L("Remove All Items", "Alle Objekte entfernen"), symbol: "xmark.circle") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Remove All Items", "Alle Objekte entfernen")) { [weak self] in
                 guard let self else { return }
                 let count = self.store.entries.reduce(0) { $0 + $1.files.count }
                 // Erst nach dem Schließen des Menüs fragen
@@ -592,14 +589,14 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
         menu.addItem(.separator())
         if case .available(let version) = Updater.shared.state {
-            menu.addItem(ClosureMenuItem(L("Update to \(version)", "Auf \(version) aktualisieren"), symbol: "arrow.down.circle") {
+            menu.addItem(ClosureMenuItem(L("Update to \(version)", "Auf \(version) aktualisieren")) {
                 DispatchQueue.main.async { Updater.shared.install() }
             })
         }
         menu.addItem(ClosureMenuItem(L("Settings", "Einstellungen"), symbol: "gearshape", key: ",") { [weak self] in
             self?.openSettings()
         })
-        menu.addItem(ClosureMenuItem(L("Quit BarDrop", "BarDrop beenden"), symbol: "power", key: "q") {
+        menu.addItem(ClosureMenuItem(L("Quit BarDrop", "BarDrop beenden"), key: "q") {
             NSApp.terminate(nil)
         })
         return menu

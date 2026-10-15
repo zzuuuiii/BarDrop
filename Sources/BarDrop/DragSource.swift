@@ -158,7 +158,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         return NSImage(cgImage: image, size: NSSize(width: image.width / 2, height: image.height / 2))
     }
 
-    /// Dateiname wie beim Ziehen im Finder: weiße Schrift in einer Kapsel in der Akzentfarbe.
+    /// Dateiname wie beim Ziehen im Finder: weiße Schrift auf der Markierungsfarbe.
     private static func labelImage(_ text: String) -> NSImage {
         let shown = text.count > 28 ? String(text.prefix(13)) + "…" + String(text.suffix(13)) : text
         let attributes: [NSAttributedString.Key: Any] = [
@@ -167,12 +167,13 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         ]
         let string = NSAttributedString(string: shown, attributes: attributes)
         let textSize = string.size()
-        let size = NSSize(width: ceil(textSize.width) + 12, height: ceil(textSize.height) + 4)
+        // Wie die Markierung eines Namens im Finder: knapp um den Text, nur leicht gerundet
+        let size = NSSize(width: ceil(textSize.width) + 8, height: ceil(textSize.height) + 2)
         let image = NSImage(size: size)
         image.lockFocus()
-        NSColor.controlAccentColor.setFill()
-        NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: size.height / 2, yRadius: size.height / 2).fill()
-        string.draw(at: NSPoint(x: 6, y: 2))
+        NSColor.selectedContentBackgroundColor.setFill()
+        NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: 4, yRadius: 4).fill()
+        string.draw(at: NSPoint(x: 4, y: 1))
         image.unlockFocus()
         return image
     }

@@ -227,8 +227,8 @@ struct AboutSettings: View {
     private var updateNote: String {
         switch updater.state {
         case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
-        case .available(let v): return L("Version \(v) is available. BarDrop is replaced and restarts; the shelf keeps its items.",
-                                         "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Ablage bleibt erhalten.")
+        case .available(let v): return L("Version \(v) is available. BarDrop will be replaced and restart; your items stay in the shelf.",
+                                         "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Objekte bleiben in der Ablage.")
         case .failed(let message): return message
         default: return L("New versions come from GitHub and are verified before they’re installed.",
                           "Neue Versionen kommen von GitHub und werden vor der Installation geprüft.")
@@ -290,8 +290,8 @@ struct AboutSettings: View {
             }
 
             SettingsSection {
-                SettingsRow(L("Introduction", "Einführung"), subtitle: L("The three steps from the first launch again", "Die drei Schritte vom ersten Start noch einmal")) {
-                    Button(L("Show introduction", "Einführung zeigen"), action: showOnboarding)
+                SettingsRow(L("Introduction", "Einführung"), subtitle: L("The steps and tips from the first launch", "Die Schritte und Tipps vom ersten Start")) {
+                    Button(L("Show Introduction", "Einführung zeigen"), action: showOnboarding)
                         .buttonStyle(KlackButtonStyle())
                 }
             }
@@ -310,10 +310,12 @@ struct AboutSettings: View {
                 Text(L("Installing", "Wird installiert")).foregroundStyle(.secondary)
             }
         case .available(let v):
-            Button(L("Update to \(v)", "Auf \(v) aktualisieren")) { updater.install() }
+            // Kurz, damit es neben Symbol und Version passt; die Version steht darunter
+            Button(L("Update", "Aktualisieren")) { updater.install() }
+                .help(L("Update to \(v)", "Auf \(v) aktualisieren"))
                 .buttonStyle(KlackButtonStyle(prominent: true))
         default:
-            Button(L("Check for updates", "Nach Updates suchen")) { updater.check(interactive: true) }
+            Button(L("Check for Updates", "Nach Updates suchen")) { updater.check(interactive: true) }
                 .buttonStyle(KlackButtonStyle())
         }
     }

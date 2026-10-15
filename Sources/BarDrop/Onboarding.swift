@@ -343,11 +343,11 @@ struct OnboardingView: View {
         switch model.step {
         case .welcome: return L("Welcome to BarDrop", "Willkommen bei BarDrop")
         case .drop: return model.stepDone ? L("Dropped", "Abgelegt") : L("Drop something", "Leg etwas ab")
-        case .retrieve: return model.stepDone ? L("Exactly", "Genau so") : L("Get it back", "Hol es zurück")
+        case .retrieve: return model.stepDone ? L("There it is", "Da ist sie") : L("Get it back", "Hol es zurück")
         case .shortcut: return model.stepDone ? L("Perfect", "Perfekt") : L("From anywhere", "Von überall")
         case .actions: return L("Send it on", "Direkt weitergeben")
         case .organize: return L("Keep it tidy", "Ordnung halten")
-        case .customize: return L("Make it yours", "Ganz nach deinem Geschmack")
+        case .customize: return L("Make it yours", "Ganz wie du willst")
         case .done: return L("All set", "Alles bereit")
         }
     }
@@ -366,8 +366,8 @@ struct OnboardingView: View {
                     "Zieh das Bild an den \(edgeWord) Bildschirmrand. Sobald sich die Ablage öffnet, lass es los.")
         case .retrieve:
             if model.stepDone {
-                return L("That’s how you get everything back out: just drag it out of the shelf.",
-                         "So holst du alles wieder heraus: einfach aus der Ablage ziehen.")
+                return L("To use something, just drag it out of the shelf into any app.",
+                         "Zum Verwenden ziehst du es einfach aus der Ablage in jede beliebige App.")
             }
             let open = s.openMode == .click ? L("and click the handle", "und klick auf den Griff")
                                             : L("and wait a moment", "und warte einen Moment")
@@ -382,11 +382,11 @@ struct OnboardingView: View {
             return L("Drag items onto an action at the bottom of the shelf to send them with AirDrop, attach them to an email or move them to a folder. Or select them and click the action.",
                      "Zieh Objekte auf eine Aktion unten in der Ablage, um sie per AirDrop zu senden, an eine E-Mail zu hängen oder in einen Ordner zu verschieben. Oder wähl sie aus und klick auf die Aktion.")
         case .organize:
-            return L("Press Space to preview an item. Select several and right-click to group them as a stack. Removed something by mistake? ⌘Z brings it back.",
-                     "Mit der Leertaste siehst du ein Objekt in der Übersicht. Wähl mehrere aus und gruppier sie per Rechtsklick zu einem Stapel. Versehentlich entfernt? ⌘Z holt es zurück.")
+            return L("Press Space to preview an item with Quick Look. Select several and right-click to group them as a stack. Removed something by mistake? ⌘Z brings it back.",
+                     "Mit der Leertaste zeigt die Übersicht ein Objekt groß an. Wähl mehrere aus und fass sie per Rechtsklick zu einem Stapel zusammen. Versehentlich entfernt? ⌘Z holt es zurück.")
         case .customize:
-            return L("Screen edge, size, delay, the look of the strip, your actions and the language: all in Settings. Right-click an empty spot in the shelf to get there.",
-                     "Bildschirmrand, Größe, Wartezeit, das Aussehen des Streifens, deine Aktionen und die Sprache: alles in den Einstellungen. Du erreichst sie per Rechtsklick auf eine leere Stelle der Ablage.")
+            return L("Screen edge, size, delay, the look of the strip, your actions and the language are all in Settings. To get there, right-click an empty spot in the shelf.",
+                     "Bildschirmrand, Größe, Wartezeit, das Aussehen des Streifens, deine Aktionen und die Sprache findest du in den Einstellungen. Dorthin kommst du per Rechtsklick auf eine leere Stelle der Ablage.")
         case .done:
             return L("BarDrop is waiting at the edge. You can watch this introduction again anytime in Settings → About BarDrop.",
                      "BarDrop wartet am Rand. Diese Einführung kannst du jederzeit unter Einstellungen → Über BarDrop noch einmal ansehen.")
@@ -413,6 +413,10 @@ struct OnboardingView: View {
             Text(heading)
                 .font(OB.title)
                 .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: 380)
             Text(message)
                 .font(OB.body)
                 .foregroundStyle(OB.secondary)
@@ -907,9 +911,9 @@ private struct ActionsHero: View {
 private struct OrganizeHero: View {
     var body: some View {
         VStack(spacing: 0) {
-            row(keys: [L("space", "Leertaste")], text: L("Quick Look", "Übersicht"))
+            row(keys: [L("Space", "Leertaste")], text: L("Quick Look", "Übersicht"))
             Divider().padding(.leading, 14)
-            row(keys: [L("right-click", "Rechtsklick")], text: L("Group as Stack", "Als Stapel zusammenfassen"))
+            row(keys: [L("Right-click", "Rechtsklick")], text: L("Group as stack", "Als Stapel zusammenfassen"))
             Divider().padding(.leading, 14)
             row(keys: ["⌘", "Z"], text: L("Undo", "Widerrufen"))
             Divider().padding(.leading, 14)

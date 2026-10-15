@@ -116,8 +116,8 @@ final class Updater: ObservableObject {
     private func offer(_ version: String, interactive: Bool) {
         let alert = NSAlert()
         alert.messageText = L("BarDrop \(version) is available", "BarDrop \(version) ist verfügbar")
-        alert.informativeText = L("You have \(currentVersion). BarDrop is replaced and then restarts; the shelf keeps its items.",
-                                  "Installiert ist \(currentVersion). BarDrop wird ersetzt und startet danach neu, der Inhalt der Ablage bleibt erhalten.")
+        alert.informativeText = L("You have version \(currentVersion). BarDrop will be replaced and restart; your items stay in the shelf.",
+                                  "Installiert ist Version \(currentVersion). BarDrop wird ersetzt und startet neu, die Objekte bleiben in der Ablage.")
         alert.addButton(withTitle: L("Install", "Installieren"))
         alert.addButton(withTitle: L("Later", "Später"))
         if !interactive { alert.addButton(withTitle: L("Skip This Version", "Diese Version überspringen")) }
@@ -140,7 +140,7 @@ final class Updater: ObservableObject {
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app" else { return }
         if target.path.contains("/AppTranslocation/") || target.path.hasPrefix("/Volumes/") {
-            showMessage(L("Move to Applications first", "Erst in „Programme“ bewegen"),
+            showMessage(L("Move BarDrop to Applications first", "BarDrop zuerst in „Programme“ bewegen"),
                         L("BarDrop is running straight from the download. Move BarDrop to the Applications folder first and open it from there.",
                           "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort."))
             return

@@ -17,8 +17,6 @@ struct GeneralSettings: View {
                                     "BarDrop hat kein Symbol in der Menüleiste. Ein Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden, BarDrop erneut öffnen zeigt ebenfalls die Einstellungen."),
                             note: loginError, noteColor: .red) {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $launchAtLogin)
-                PickerRow(L("Language", "Sprache"), selection: $settings.language,
-                          options: AppLanguage.allCases.map { ($0, $0.title) })
             }
             .onChange(of: launchAtLogin) { _, enabled in
                 do {
@@ -32,6 +30,11 @@ struct GeneralSettings: View {
                 }
             }
 
+            SettingsSection {
+                PickerRow(L("Language", "Sprache"), selection: $settings.language,
+                          options: AppLanguage.allCases.map { ($0, $0.title) })
+            }
+
             SettingsSection(L("Opening", "Öffnen"),
                             info: L("Move the pointer to the edge and a thin strip appears. Keep it there for the delay and the shelf opens. With “On click” a slightly larger handle appears instead, and a click opens the shelf. When you drag a file to the edge, the shelf always opens by itself.",
                                     "Fährt der Zeiger an den Rand, erscheint zuerst ein schmaler Streifen. Bleibt er dort für die eingestellte Wartezeit, öffnet sich die Ablage. Bei „Per Klick“ erscheint stattdessen ein etwas größerer Griff, ein Klick darauf öffnet die Ablage. Ziehst du eine Datei an den Rand, öffnet sie sich immer von selbst.")) {
@@ -42,7 +45,7 @@ struct GeneralSettings: View {
                     .disabled(settings.openMode != .automatic)
                 if settings.openMode == .automatic
                     && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
-                    ToggleRow(L("Click strip to open right away", "Klick auf den Streifen öffnet sofort"),
+                    ToggleRow(L("Click the strip to open right away", "Klick auf den Streifen öffnet sofort"),
                               info: L("With a delay of one second or more you don’t have to wait: clicking the black strip opens the shelf immediately. Without a click it opens after the delay as usual.",
                                       "Bei einer Wartezeit ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der Wartezeit."),
                               isOn: $settings.clickToOpenEarly)
@@ -57,15 +60,15 @@ struct GeneralSettings: View {
 
             SettingsSection(L("Feedback", "Rückmeldung")) {
                 ToggleRow(L("Haptic feedback", "Haptisches Feedback"),
-                          info: L("A subtle tap on the trackpad when the strip appears, when you drop something, over actions and when a slider snaps.",
-                                  "Ein dezenter Impuls auf dem Trackpad, wenn der Streifen erscheint, beim Ablegen, über Aktionen und wenn ein Regler einrastet."),
+                          info: L("A subtle tap on the trackpad when the strip appears, when you drop something, when you drag over an action and when a slider or row snaps into place.",
+                                  "Ein dezenter Impuls auf dem Trackpad, wenn der Streifen erscheint, beim Ablegen, beim Ziehen über eine Aktion und wenn ein Regler oder eine Zeile einrastet."),
                           isOn: $settings.hapticsEnabled)
             }
 
             SettingsSection(L("Reset", "Zurücksetzen")) {
                 SettingsRow(L("All settings", "Alle Einstellungen"),
-                            info: L("Resets every setting to how BarDrop shipped, including the shortcut, the action bar and “Open at login”. The language and the items in the shelf stay as they are.",
-                                    "Setzt alle Einstellungen auf den Auslieferungszustand, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Sprache und Objekte in der Ablage bleiben, wie sie sind.")) {
+                            info: L("Puts every setting back to its default, including the shortcut, the action bar and “Open at login”. The language and the items in the shelf stay as they are.",
+                                    "Setzt alle Einstellungen auf den Standard zurück, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Sprache und Objekte in der Ablage bleiben, wie sie sind.")) {
                     Button(L("Reset", "Zurücksetzen")) { confirmReset() }
                         .buttonStyle(KlackButtonStyle(destructive: true))
                 }
@@ -76,8 +79,8 @@ struct GeneralSettings: View {
     private func confirmReset() {
         let alert = NSAlert()
         alert.messageText = L("Reset all settings?", "Alle Einstellungen zurücksetzen?")
-        alert.informativeText = L("All settings, including the shortcut and the action bar, go back to how BarDrop shipped. The items in the shelf are kept. This can’t be undone.",
-                                  "Alle Einstellungen, auch Kurzbefehl und Aktionsleiste, werden auf den Auslieferungszustand gesetzt. Die Objekte in der Ablage bleiben erhalten. Das lässt sich nicht widerrufen.")
+        alert.informativeText = L("All settings, including the shortcut and the action bar, go back to their defaults. The language and the items in the shelf are kept. This can’t be undone.",
+                                  "Alle Einstellungen, auch Kurzbefehl und Aktionsleiste, werden auf den Standard zurückgesetzt. Sprache und Objekte in der Ablage bleiben erhalten. Das lässt sich nicht widerrufen.")
         alert.alertStyle = .warning
         alert.addButton(withTitle: L("Reset", "Zurücksetzen"))
         alert.addButton(withTitle: L("Cancel", "Abbrechen"))
@@ -349,8 +352,8 @@ struct ItemSettings: View {
 
     /// Erklärung passend zur gewählten Option
     private var afterUseNote: String {
-        let move = L(" Without “Only copy”, destinations like the Finder may also move files; the shelf finds them again afterwards.",
-                     " Ohne „Nur kopieren“ dürfen Ziele wie der Finder Dateien auch verschieben; die Ablage findet sie danach wieder.")
+        let move = L(" Without “Only copy when dragging out”, destinations like the Finder may also move files; the shelf finds them again afterwards.",
+                     " Ohne „Beim Herausziehen nur kopieren“ dürfen Ziele wie der Finder Dateien auch verschieben; die Ablage findet sie danach wieder.")
         switch afterUse.wrappedValue {
         case .keep:
             return L("Items stay in the shelf until you remove them.",

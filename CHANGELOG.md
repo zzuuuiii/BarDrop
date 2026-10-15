@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.17.1
+* Two-row action bar: each row is centered and uses the full width instead of being squeezed to the left
+* The update button just says “Update” so it fits next to the icon
+* Introduction: headings no longer get cut off
+* All texts reviewed in English and German; clearer wording for the delay (“None”, “1 second”), the drag hint (“Show strip right away”), resetting and updating
+* Language has its own card in General
+
 ## 1.17.0
 * Reordering actions rebuilt: the order stays fixed while you drag, every row has a computed place, the dragged row follows the pointer and the others glide aside; saved only when you let go
 * Two rows: drag an action into the top or bottom row, up to five per row; a full row passes its last action on

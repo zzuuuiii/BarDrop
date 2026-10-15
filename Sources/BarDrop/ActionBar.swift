@@ -192,31 +192,28 @@ struct QuickActionBar: View {
                 let top = Array(all.prefix(split))
                 let bottom = Array(all.dropFirst(split).prefix(QuickAction.perRow))
                 if top.isEmpty || bottom.isEmpty {
-                    let only = top.isEmpty ? bottom : top
-                    row(only, slots: only.count)
+                    row(top.isEmpty ? bottom : top)
                 } else {
-                    VStack(spacing: 2) {
-                        row(top, slots: QuickAction.perRow)
-                        row(bottom, slots: QuickAction.perRow)
+                    VStack(spacing: 4) {
+                        row(top)
+                        row(bottom)
                     }
                 }
             } else {
-                let items = Array(all.prefix(QuickAction.limit(twoRows: false)))
-                row(items, slots: items.count)
+                row(Array(all.prefix(QuickAction.limit(twoRows: false))))
             }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
     }
 
-    private func row(_ items: [QuickAction], slots: Int) -> some View {
+    /// Eine Reihe: die Aktionen teilen sich die ganze Breite, jede mittig in ihrem Teil.
+    private func row(_ items: [QuickAction]) -> some View {
         HStack(spacing: 2) {
             ForEach(items) { action in
                 QuickActionButton(action: action, ui: ui, store: store, actions: actions)
             }
-            ForEach(0..<max(0, slots - items.count), id: \.self) { _ in
-                Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
-            }
         }
+        .frame(maxWidth: .infinity)
     }
 }

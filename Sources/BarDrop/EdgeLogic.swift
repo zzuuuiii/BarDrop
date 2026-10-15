@@ -97,7 +97,7 @@ enum EdgeLogic {
             } else if s.dx < dragHintDistance && s.dy < dragHintSpan {
                 result.target = .hint
             } else {
-                // „Sofort andeuten“: schmaler Streifen schon beim Start des Ziehens
+                // „Streifen sofort zeigen“: schmaler Streifen schon beim Start des Ziehens
                 result.target = c.dragReveal == .immediately ? .peek : .hidden
             }
         } else if state.manualOpen {

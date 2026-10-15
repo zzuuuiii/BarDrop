@@ -112,9 +112,9 @@ enum OpenDelay {
     static let choices: [Double] = [instant, 1, 2, 3, 4, 5]
 
     static func title(_ value: Double) -> String {
-        if value <= instant { return L("Instantly", "Sofort") }
+        if value <= instant { return L("None", "Keine") }
         let s = Int(value.rounded())
-        return s == 1 ? L("After 1 second", "Nach 1 Sekunde") : L("After \(s) seconds", "Nach \(s) Sekunden")
+        return s == 1 ? L("1 second", "1 Sekunde") : L("\(s) seconds", "\(s) Sekunden")
     }
 }
 
@@ -125,7 +125,7 @@ enum DragReveal: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .immediately: return L("Hint right away", "Sofort andeuten")
+        case .immediately: return L("Show strip right away", "Streifen sofort zeigen")
         case .nearEdge: return L("Only near the edge", "Erst in Randnähe")
         case .off: return L("Never", "Nie")
         }

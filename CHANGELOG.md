@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.18.0
+* Introduction: you now drag the image from the shelf back into the window
+* Dropped items appear right away, also web images that arrive after a download
+* ⌘,, ⌘W and ⌘Q work in Settings and the introduction
+* Undo: restored items no longer get removed again by automatic cleanup; a beep when there is nothing left to restore
+* Function keys are shown correctly as shortcut
+* What’s new shows English notes for older versions too
+* Updates are only installed with a verified checksum
+* Faster with files on network drives; icons refresh when the shelf opens
+* Shorter README
+
 ## 1.17.1
 * Two-row action bar: each row is centered and uses the full width instead of being squeezed to the left
 * The update button just says “Update” so it fits next to the icon

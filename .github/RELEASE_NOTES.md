@@ -1,9 +1,7 @@
-* After removing with ⌫ the next item is selected (at the end the one before), so you can keep going
-* ⌘X cuts like Ctrl+X on Windows: the items go to the clipboard and out of the shelf; ⌘Z brings them back
-* “Path copied” now also appears in English
+* New installations start with the light outline on again; existing settings stay as they are
+* Introduction matches the app: getting the image back follows “Open shelf”, the tips mention pinning and automatic stacks, and that opening BarDrop again shows Settings
 
 <!-- de -->
 
-* Nach dem Entfernen mit ⌫ ist das nächste Objekt ausgewählt (am Ende das davor), sodass du gleich weitermachen kannst
-* ⌘X schneidet aus wie Strg+X unter Windows: Die Objekte kommen in die Zwischenablage und aus der Ablage; ⌘Z holt sie zurück
-* „Pfad kopiert“ erscheint jetzt auch auf Englisch
+* Neue Installationen beginnen wieder mit hellem Rahmen; bestehende Einstellungen bleiben, wie sie sind
+* Die Einführung passt zur App: Das Zurückholen richtet sich nach „Ablage öffnen“, die Tipps erklären Anheften und automatische Stapel und dass erneutes Öffnen von BarDrop die Einstellungen zeigt

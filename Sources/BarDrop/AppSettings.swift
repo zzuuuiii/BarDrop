@@ -475,7 +475,7 @@ final class AppSettings: ObservableObject {
             Key.copyAllFiles: true,
             Key.dragOutCopyOnly: false,
             Key.sortOrder: SortOrder.newestFirst.rawValue,
-            Key.showOutline: false,
+            Key.showOutline: true,
             Key.showTitle: true,
             Key.openDelay: OpenDelay.instant,
             Key.language: AppLanguage.english.rawValue,
@@ -527,6 +527,14 @@ final class AppSettings: ObservableObject {
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
         dragOutCopyOnly = defaults.bool(forKey: Key.dragOutCopyOnly)
+        // 1.25 hatte „ohne Rahmen“ als Standard. Wer BarDrop schon benutzt und den Rahmen
+        // nie selbst umgestellt hat, behält den Zustand, den er gerade sieht; neue
+        // Installationen beginnen mit Rahmen.
+        // (object(forKey:) sähe auch den registrierten Standard, deshalb im eigenen Bereich nachsehen)
+        let ownValues = Bundle.main.bundleIdentifier.flatMap { defaults.persistentDomain(forName: $0) } ?? [:]
+        if ownValues[Key.showOutline] == nil, defaults.bool(forKey: Key.didLaunchBefore) {
+            defaults.set(false, forKey: Key.showOutline)
+        }
         showOutline = defaults.bool(forKey: Key.showOutline)
         showTitle = defaults.bool(forKey: Key.showTitle)
         // Auf eine der wählbaren Wartezeiten runden (ältere Versionen hatten andere)
@@ -608,7 +616,7 @@ final class AppSettings: ObservableObject {
         addScreenshots = false
         excludedApps = []
         openInFullScreen = true
-        showOutline = false
+        showOutline = true
         showTitle = true
         removeAfterDragOut = true
         stackMultiple = true

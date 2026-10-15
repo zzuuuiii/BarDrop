@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.26.1
+* New installations start with the light outline on again; existing settings stay as they are
+* Introduction matches the app: the step for getting the image back follows “Open shelf” (instantly, after a wait, or on click), the tips mention Trash and pinning instead of Mail, automatic stacks, and that opening BarDrop again shows Settings
+
 ## 1.26.0
 * After removing with ⌫ the next item is selected (at the end the one before), so you can keep going
 * ⌘X cuts like Ctrl+X on Windows: the items go to the clipboard and out of the shelf; ⌘Z brings them back

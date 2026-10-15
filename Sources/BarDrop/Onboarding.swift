@@ -360,27 +360,45 @@ struct OnboardingView: View {
                     "Zieh das Bild an den \(edgeWord) Bildschirmrand. Sobald sich die Ablage öffnet, lass es los.")
         case .retrieve:
             if model.stepDone {
+                let gone = s.removeAfterDragOut
+                    ? L(" Afterwards it leaves the shelf.", " Danach verschwindet es aus der Ablage.") : ""
                 return L("That’s how you use anything in the shelf: drag it out into any app, like Mail, the Finder or a browser.",
-                         "So verwendest du alles aus der Ablage: einfach herausziehen, in jede App, etwa Mail, den Finder oder einen Browser.")
+                         "So verwendest du alles aus der Ablage: einfach herausziehen, in jede App, etwa Mail, den Finder oder einen Browser.") + gone
             }
-            let open = s.openMode == .click ? L("and click the handle", "und klick auf den Griff")
-                                            : L("and wait a moment", "und warte einen Moment")
-            return L("Move the pointer to the \(edgeWord) edge\(middle) \(open). When the shelf opens, drag the image back here.",
-                     "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle) \(open). Wenn sich die Ablage öffnet, zieh das Bild hierher zurück.")
+            // Passend zur Einstellung „Ablage öffnen“
+            let open: String
+            if s.openMode == .click {
+                open = L(" and click the strip", " und klick auf den Streifen")
+            } else if s.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
+                open = L(" and wait a moment or click the strip", " und warte kurz oder klick auf den Streifen")
+            } else {
+                open = ""
+            }
+            return L("Move the pointer to the \(edgeWord) edge\(middle)\(open). When the shelf opens, drag the image back here.",
+                     "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle)\(open). Wenn sich die Ablage öffnet, zieh das Bild hierher zurück.")
         case .shortcut:
             return model.stepDone
                 ? L("The same shortcut closes the shelf again.", "Derselbe Kurzbefehl schließt die Ablage wieder.")
                 : L("Press \(s.hotKeyDescription) to open the shelf anytime, even without a mouse.",
                     "Drück \(s.hotKeyDescription), um die Ablage jederzeit zu öffnen, auch ohne Maus.")
         case .actions:
-            return L("Drag items onto an action at the bottom of the shelf to send them with AirDrop, attach them to an email or move them to a folder. Or select them and click the action.",
-                     "Zieh Objekte auf eine Aktion unten in der Ablage, um sie per AirDrop zu senden, an eine E-Mail zu hängen oder in einen Ordner zu verschieben. Oder wähl sie aus und klick auf die Aktion.")
+            let pin = s.pinFromShelf
+                ? L(" To add a folder or app, drag it over the shelf onto “Pin”.",
+                    " Einen Ordner oder eine App fügst du hinzu, indem du sie über die Ablage auf „Anheften“ ziehst.") : ""
+            return L("Drag items onto an action at the bottom of the shelf, for example to send them with AirDrop or move them to a folder. Or select them and click the action.",
+                     "Zieh Objekte auf eine Aktion unten in der Ablage, etwa um sie per AirDrop zu senden oder in einen Ordner zu verschieben. Oder wähl sie aus und klick auf die Aktion.") + pin
         case .organize:
-            return L("Press Space to preview an item with Quick Look. Select several and right-click to group them as a stack. Removed something by mistake? ⌘Z brings it back.",
-                     "Mit der Leertaste zeigt die Übersicht ein Objekt groß an. Wähl mehrere aus und fass sie per Rechtsklick zu einem Stapel zusammen. Versehentlich entfernt? ⌘Z holt es zurück.")
+            let stack = s.stackMultiple
+                ? L(" Drop several at once and they become a stack.",
+                    " Legst du mehrere auf einmal ab, landen sie in einem Stapel.")
+                : L(" Select several and right-click to group them as a stack.",
+                    " Wähl mehrere aus und fass sie per Rechtsklick zu einem Stapel zusammen.")
+            return L("Press Space to preview an item with Quick Look.", "Drück die Leertaste, um ein Objekt in der Übersicht groß anzusehen.")
+                + stack
+                + L(" Removed something by mistake? ⌘Z brings it back.", " Versehentlich entfernt? ⌘Z holt es zurück.")
         case .customize:
-            return L("Right-click an empty spot in the shelf and choose Settings, or press ⌘, while the shelf is open. This is where you find everything.",
-                     "Rechtsklick auf eine leere Stelle der Ablage und „Einstellungen“ wählen, oder ⌘, drücken, während die Ablage offen ist. Dort findest du alles.")
+            return L("Right-click an empty spot in the shelf and choose Settings, press ⌘, while the shelf is open, or simply open BarDrop again. That’s where you find everything.",
+                     "Klick mit der rechten Maustaste auf eine leere Stelle der Ablage und wähl „Einstellungen“, drück ⌘, bei offener Ablage oder öffne BarDrop einfach noch einmal. Dort findest du alles.")
         case .done:
             return L("BarDrop is waiting at the edge. You can watch this introduction again anytime in Settings → About BarDrop.",
                      "BarDrop wartet am Rand. Diese Einführung kannst du jederzeit unter Einstellungen → Über BarDrop noch einmal ansehen.")

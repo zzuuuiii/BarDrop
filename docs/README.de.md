@@ -61,6 +61,7 @@ Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar
 * Links oder rechts, feste Höhe oder dort, wo der Zeiger den Rand erreicht (ganzer Rand, mittlere Hälfte oder mittleres Drittel)
 * Öffnet sofort oder nach 1 bis 5 Sekunden am Rand, per Klick oder per Kurzbefehl; ein Klick auf den Streifen überspringt die Wartezeit
 * Auf Wunsch größerer Trefferbereich, falls du den Streifen knapp verfehlst
+* Apps ausnehmen, in denen der Rand die Ablage nicht öffnen soll, zum Beispiel Spiele
 * Auch schnell an den Rand geworfene Dateien werden sicher aufgenommen
 * Feiner heller Rahmen, damit sie auch auf dunklem Hintergrund zu sehen ist
 * Auf allen Bildschirmen oder nur auf dem integrierten bzw. den externen

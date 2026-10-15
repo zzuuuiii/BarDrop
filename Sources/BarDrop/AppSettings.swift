@@ -252,6 +252,7 @@ final class AppSettings: ObservableObject {
         static let actionRowSplit = "actionRowSplit"
         static let pinFromShelf = "pinFromShelf"
         static let addScreenshots = "addScreenshots"
+        static let excludedApps = "excludedApps"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -368,6 +369,8 @@ final class AppSettings: ObservableObject {
     @Published var pinFromShelf: Bool { didSet { defaults.set(pinFromShelf, forKey: Key.pinFromShelf) } }
     /// Neue Bildschirmfotos landen automatisch in der Ablage
     @Published var addScreenshots: Bool { didSet { defaults.set(addScreenshots, forKey: Key.addScreenshots) } }
+    /// Apps (Bundle-IDs), in denen der Rand die Ablage nicht öffnet, solange sie vorn sind
+    @Published var excludedApps: [String] { didSet { defaults.set(excludedApps, forKey: Key.excludedApps) } }
 
     /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
     /// fünf Aktionen hat.
@@ -531,6 +534,7 @@ final class AppSettings: ObservableObject {
         actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)
         pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
+        excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -595,6 +599,7 @@ final class AppSettings: ObservableObject {
         actionRowSplit = QuickAction.perRow
         pinFromShelf = false
         addScreenshots = false
+        excludedApps = []
         showOutline = true
         showTitle = true
         removeAfterDragOut = true

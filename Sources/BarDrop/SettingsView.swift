@@ -202,6 +202,19 @@ struct OpeningSettings: View {
                 PickerRow(L("While dragging files", "Beim Ziehen von Dateien"), selection: $settings.dragReveal,
                           options: DragReveal.allCases.map { ($0, $0.title) })
             }
+
+            SettingsSection(L("Not in these apps", "Nicht in diesen Apps"),
+                            info: L("While one of these apps is in front, moving the pointer to the edge doesn’t open the shelf. Dragging files there and the shortcut still work.",
+                                    "Ist eine dieser Apps vorn, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter.")) {
+                ForEach(settings.excludedApps, id: \.self) { id in
+                    ExcludedAppRow(bundleID: id) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                            settings.excludedApps.removeAll { $0 == id }
+                        }
+                    }
+                }
+                AddExcludedAppRow(settings: settings)
+            }
         }
     }
 }
@@ -924,5 +937,133 @@ private struct AddActionRow: View {
         .disabled(full)
         .onHover { hovering = $0 }
         .readFrame($frame)
+    }
+}
+
+// MARK: Ausgenommene Apps
+
+/// Eine ausgenommene App: Symbol, Name, Entfernen beim Darüberfahren.
+private struct ExcludedAppRow: View {
+    let bundleID: String
+    let onRemove: () -> Void
+    @State private var hovering = false
+
+    private var appURL: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) }
+
+    private var name: String {
+        guard let url = appURL else { return bundleID }
+        return (FileManager.default.displayName(atPath: url.path) as NSString).deletingPathExtension
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Group {
+                if let url = appURL {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                        .resizable()
+                        .interpolation(.high)
+                } else {
+                    Image(systemName: "app.dashed")
+                        .font(.system(size: 18))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(width: 24, height: 24)
+            Text(name)
+                .font(.system(size: 13.5))
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button(action: onRemove) {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.secondary)
+                    .frame(width: 26, height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(L("Remove", "Entfernen"))
+            .opacity(hovering ? 1 : 0)
+            .allowsHitTesting(hovering)
+        }
+        .padding(.horizontal, SettingsTheme.rowPadding)
+        .frame(height: 44)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .contextMenu {
+            Button(L("Remove", "Entfernen"), action: onRemove)
+        }
+    }
+}
+
+/// Letzte Zeile der Liste: App hinzufügen, aus den laufenden Apps oder per Auswahl.
+private struct AddExcludedAppRow: View {
+    @ObservedObject var settings: AppSettings
+    @State private var frame: CGRect = .zero
+
+    var body: some View {
+        Button(action: showMenu) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color(nsColor: .controlAccentColor))
+                    .frame(width: 24)
+                Text(L("Add App", "App hinzufügen"))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(Color(nsColor: .controlAccentColor))
+                Spacer()
+            }
+            .padding(.horizontal, SettingsTheme.rowPadding)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .readFrame($frame)
+    }
+
+    private func showMenu() {
+        let menu = NSMenu()
+        let own = Bundle.main.bundleIdentifier
+        let running = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { app -> (id: String, name: String, icon: NSImage?)? in
+                guard let id = app.bundleIdentifier, id != own, !settings.excludedApps.contains(id) else { return nil }
+                return (id, app.localizedName ?? id, app.icon)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        for app in running {
+            let item = ClosureMenuItem(app.name) { add(app.id) }
+            if let icon = app.icon?.copy() as? NSImage {
+                icon.size = NSSize(width: 16, height: 16)
+                item.image = icon
+            }
+            menu.addItem(item)
+        }
+        if !running.isEmpty { menu.addItem(.separator()) }
+        menu.addItem(ClosureMenuItem(L("Choose Another App", "Andere App wählen")) { choose() })
+        MenuPresenter.show(menu, below: frame)
+    }
+
+    private func add(_ id: String) {
+        guard !settings.excludedApps.contains(id) else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            settings.excludedApps.append(id)
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = L("Add", "Hinzufügen")
+        panel.message = L("Apps in which the edge doesn’t open the shelf",
+                          "Apps, in denen der Rand die Ablage nicht öffnet")
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            if let id = Bundle(url: url)?.bundleIdentifier { add(id) }
+        }
     }
 }

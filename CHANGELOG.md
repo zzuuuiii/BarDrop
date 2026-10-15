@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.23.0
+* Not in these apps (Settings → Opening): while one of the listed apps is in front, moving to the edge doesn’t open the shelf; dragging files and the shortcut still work
+
 ## 1.22.0
 * Items run on under the action bar and fade softly behind it instead of being cut off; the last row can be scrolled fully above the bar
 * Opening: one choice “Open” (instantly, after 1 to 5 seconds, or only on click) instead of three settings; with a wait, clicking the strip always opens right away

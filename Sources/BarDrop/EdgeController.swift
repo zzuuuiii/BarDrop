@@ -46,6 +46,16 @@ final class EdgeController: NSObject {
     private var layoutDirty = false
     private var settingsObserver: AnyCancellable?
     private var contentObserver: AnyCancellable?
+    private var appObserver: NSObjectProtocol?
+    private var excludedObserver: AnyCancellable?
+    /// Die App vorn ist ausgenommen: Der Rand öffnet die Ablage dann nicht
+    private var frontmostExcluded = false
+
+    private func updateFrontmostExcluded(_ excluded: [String]? = nil) {
+        let list = excluded ?? settings.excludedApps
+        let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        frontmostExcluded = id.map(list.contains) ?? false
+    }
     /// Fokus zurückgeben, sobald ein eigener Drag beendet ist.
     private var pendingResignFocus = false
 
@@ -77,6 +87,13 @@ final class EdgeController: NSObject {
         panel.orderFrontRegardless()
 
         installMonitors()
+        // Ausgenommene Apps: merken, ob gerade eine davon vorn ist (nicht in jedem Takt fragen)
+        appObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.updateFrontmostExcluded() }
+        excludedObserver = settings.$excludedApps
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] list in self?.updateFrontmostExcluded(list) }
         wake()
         settingsObserver = settings.objectWillChange.sink { [weak self] _ in
             self?.layoutDirty = true
@@ -505,7 +522,9 @@ final class EdgeController: NSObject {
             width: m.width, height: m.height, fillet: m.fillet
         )
         let config = EdgeLogic.Config(dragReveal: settings.dragReveal,
-                                      revealOnHover: true,
+                                      // In ausgenommenen Apps öffnet nur das Hinfahren nicht;
+                                      // Dateien hineinziehen und der Kurzbefehl gehen weiter
+                                      revealOnHover: !frontmostExcluded,
                                       openMode: settings.openMode,
                                       openDelay: settings.openDelay,
                                       generousHitArea: settings.generousHitArea)

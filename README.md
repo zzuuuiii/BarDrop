@@ -61,6 +61,7 @@ After that, BarDrop installs new versions itself when you agree (can be turned o
 * Left or right edge, at a fixed height or wherever the pointer reaches the edge (whole edge, middle half or middle third)
 * Opens instantly or after 1 to 5 seconds at the edge, on click or with a keyboard shortcut; a click on the strip skips the wait
 * Optional larger hit area for when you just miss the strip
+* Exclude apps in which the edge shouldn’t open the shelf, for example games
 * Files flung quickly at the edge are still caught
 * Thin light outline so it stays visible on dark backgrounds
 * On all displays, or only the built-in or external ones

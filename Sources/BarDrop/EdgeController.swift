@@ -122,10 +122,10 @@ final class EdgeController: NSObject {
             // Neuer Ausgangsstand: Ändert sich das Drag-Pasteboard danach, wird etwas gezogen
             dragBaseline = dragPasteboard.changeCount
         case .leftMouseDragged:
-            guard dragPasteboard.changeCount != dragBaseline, hasDroppableContent() else { return }
-            // Läuft der Takt schon, sofort auswerten: Bei einem schnellen Wurf an den Rand
-            // zählt jedes Ereignis, damit das Fenster den Drop rechtzeitig annimmt.
-            if tickTimer == nil { wake() } else { tick() }
+            // Nur wecken; ausgewertet wird im Takt. Zieh-Ereignisse anderer Apps werden
+            // nur beobachtet, nie verzögert oder verändert.
+            guard tickTimer == nil, dragPasteboard.changeCount != dragBaseline, hasDroppableContent() else { return }
+            wake()
         case .mouseMoved:
             guard tickTimer == nil, isNearEdge(NSEvent.mouseLocation) else { return }
             wake()
@@ -524,8 +524,10 @@ final class EdgeController: NSObject {
         // Mit Schwung an den Rand geworfene Dateien: Das Fenster nimmt den Drop schon an,
         // bevor die Ablage ganz offen ist, auch knapp neben der Form. Sonst landet die
         // Datei beim Loslassen in der App dahinter.
+        // Nur im Bereich der Ablage selbst, damit Drops in Fenster daneben ungestört bleiben
         let catchesThrow = dragging && !ui.ownDragActive && settings.dragReveal != .off
-            && onScreen && !innerEdge && dx < EdgeLogic.dragExpandDistance && panel.frame.contains(loc)
+            && onScreen && !innerEdge && dx < EdgeLogic.dragExpandDistance
+            && expandedBody.insetBy(dx: 0, dy: -12).contains(loc)
         let accept = (ui.level == .expanded && (expandedBody.contains(loc) || locked))
             || (ui.level == .hint && settings.hintAcceptsClick && !dragging && hintBody.contains(loc))
             || catchesThrow

@@ -33,25 +33,6 @@ struct GeneralSettings: View {
                           options: AppLanguage.allCases.map { ($0, $0.title) })
             }
 
-            SettingsSection(L("Opening", "Öffnen")) {
-                PickerRow(L("Open shelf", "Ablage öffnen"), selection: $settings.openMode,
-                          options: OpenMode.allCases.map { ($0, $0.title) })
-                PickerRow(L("Delay", "Wartezeit"), selection: $settings.openDelay,
-                          options: OpenDelay.choices.map { ($0, OpenDelay.title($0)) })
-                    .disabled(settings.openMode != .automatic)
-                if settings.openMode == .automatic
-                    && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
-                    ToggleRow(L("Click the strip to open right away", "Klick auf den Streifen öffnet sofort"),
-                              isOn: $settings.clickToOpenEarly)
-                }
-                ToggleRow(L("Larger hit area", "Größerer Trefferbereich"),
-                          info: L("The strip and handle also respond when the pointer is slightly next to them. Helpful if you often just miss the strip.",
-                                  "Streifen und Griff reagieren auch, wenn der Zeiger knapp daneben ist. Hilfreich, wenn du den Streifen oft knapp verfehlst."),
-                          isOn: $settings.generousHitArea)
-                PickerRow(L("While dragging files", "Beim Ziehen von Dateien"), selection: $settings.dragReveal,
-                          options: DragReveal.allCases.map { ($0, $0.title) })
-            }
-
             SettingsSection(L("Feedback", "Rückmeldung")) {
                 ToggleRow(L("Haptic feedback", "Haptisches Feedback"),
                           isOn: $settings.hapticsEnabled)
@@ -145,7 +126,7 @@ private struct ShortcutRow: View {
     }
 }
 
-// MARK: Ablage
+// MARK: Öffnen
 
 /// Wo am Rand die Ablage erscheint (fasst „adaptiv“ und „mittleres Drittel“ zusammen)
 private enum HeightMode: String, CaseIterable, Identifiable {
@@ -161,7 +142,8 @@ private enum HeightMode: String, CaseIterable, Identifiable {
     }
 }
 
-struct ShelfSettings: View {
+/// Öffnen: wo die Ablage am Rand sitzt und wann sie aufgeht.
+struct OpeningSettings: View {
     @ObservedObject var settings: AppSettings
 
     private var heightMode: Binding<HeightMode> {
@@ -187,22 +169,61 @@ struct ShelfSettings: View {
                     .padding(.vertical, 14)
             }
 
-            SettingsSection(L("Position", "Position"),
+            SettingsSection(L("Where", "Wo"),
                             info: L("“Follows pointer” makes the shelf appear wherever the pointer reaches the edge. Limited to the middle, the rest of the edge stays free, for example for hot corners.",
                                     "„Am Zeiger“ lässt die Ablage dort erscheinen, wo der Zeiger den Rand erreicht. Auf die Mitte beschränkt, bleibt der übrige Rand frei, etwa für aktive Ecken.")) {
+                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
+                                 help: L("Reset position", "Position zurücksetzen")) {
+                    settings.resetPosition()
+                }
+            } content: {
                 PickerRow(L("Screen edge", "Bildschirmrand"), selection: $settings.edge,
                           options: ScreenEdge.allCases.map { ($0, $0.title) })
-                PickerRow(L("Displays", "Bildschirme"), selection: $settings.displayMode,
-                          options: DisplayMode.allCases.map { ($0, $0.title) })
                 PickerRow(L("Position along the edge", "Position am Rand"), selection: heightMode,
                           options: HeightMode.allCases.map { ($0, $0.title) })
                 if !settings.adaptivePosition {
                     SliderRow(L("Height on screen", "Höhe am Rand"), value: $settings.verticalPosition, range: 0...1, step: 0.05,
                               format: SliderRow.percent)
                 }
+                PickerRow(L("Displays", "Bildschirme"), selection: $settings.displayMode,
+                          options: DisplayMode.allCases.map { ($0, $0.title) })
             }
 
+            SettingsSection(L("When", "Wann")) {
+                PickerRow(L("Open shelf", "Ablage öffnen"), selection: $settings.openMode,
+                          options: OpenMode.allCases.map { ($0, $0.title) })
+                PickerRow(L("Delay", "Wartezeit"), selection: $settings.openDelay,
+                          options: OpenDelay.choices.map { ($0, OpenDelay.title($0)) })
+                    .disabled(settings.openMode != .automatic)
+                if settings.openMode == .automatic
+                    && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
+                    ToggleRow(L("Click the strip to open right away", "Klick auf den Streifen öffnet sofort"),
+                              isOn: $settings.clickToOpenEarly)
+                }
+                ToggleRow(L("Larger hit area", "Größerer Trefferbereich"),
+                          info: L("The strip and handle also respond when the pointer is slightly next to them. Helpful if you often just miss the strip.",
+                                  "Streifen und Griff reagieren auch, wenn der Zeiger knapp daneben ist. Hilfreich, wenn du den Streifen oft knapp verfehlst."),
+                          isOn: $settings.generousHitArea)
+                PickerRow(L("While dragging files", "Beim Ziehen von Dateien"), selection: $settings.dragReveal,
+                          options: DragReveal.allCases.map { ($0, $0.title) })
+            }
+        }
+    }
+}
+
+// MARK: Aussehen
+
+struct AppearanceSettings: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        SettingsPage {
             SettingsSection(L("Size", "Größe")) {
+                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
+                                 help: L("Reset size and strip", "Größe und Streifen zurücksetzen")) {
+                    settings.resetLook()
+                }
+            } content: {
                 SliderRow(L("Width", "Breite"), value: $settings.shelfWidth, range: 240...400, step: 10,
                           format: SliderRow.points)
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: 280...680, step: 10,
@@ -210,11 +231,6 @@ struct ShelfSettings: View {
             }
 
             SettingsSection(L("Strip at the edge", "Streifen am Rand")) {
-                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
-                                 help: L("Reset position, size and strip", "Position, Größe und Streifen zurücksetzen")) {
-                    settings.resetShelfLayout()
-                }
-            } content: {
                 SliderRow(L("Thickness", "Dicke"), value: $settings.peekThickness, range: 3...20, step: 1,
                           format: SliderRow.points)
                 SliderRow(L("Length", "Länge"), value: $settings.peekLength, range: 60...200, step: 4,
@@ -223,7 +239,7 @@ struct ShelfSettings: View {
                           format: SliderRow.percent)
             }
 
-            SettingsSection(L("Appearance", "Aussehen")) {
+            SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
                 PickerRow(L("Animation", "Animation"),

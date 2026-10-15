@@ -37,10 +37,12 @@ final class TrackpadActuator {
     private typealias CreateFn = @convention(c) (UInt64) -> Unmanaged<CFTypeRef>?
     private typealias OpenFn = @convention(c) (CFTypeRef) -> Int32
     private typealias ActuateFn = @convention(c) (CFTypeRef, Int32, UInt32, Float, Float) -> Int32
+    private typealias CloseFn = @convention(c) (CFTypeRef) -> Int32
 
     private var create: CreateFn?
     private var open: OpenFn?
     private var actuateFn: ActuateFn?
+    private var close: CloseFn?
     private var actuators: [CFTypeRef] = []
     private var lastRefresh = Date.distantPast
 
@@ -50,12 +52,15 @@ final class TrackpadActuator {
         if let sym = dlsym(handle, "MTActuatorCreateFromDeviceID") { create = unsafeBitCast(sym, to: CreateFn.self) }
         if let sym = dlsym(handle, "MTActuatorOpen") { open = unsafeBitCast(sym, to: OpenFn.self) }
         if let sym = dlsym(handle, "MTActuatorActuate") { actuateFn = unsafeBitCast(sym, to: ActuateFn.self) }
+        if let sym = dlsym(handle, "MTActuatorClose") { close = unsafeBitCast(sym, to: CloseFn.self) }
         refresh()
     }
 
     /// Sucht alle Multitouch-Geräte (eingebautes Trackpad, Magic Trackpad) und öffnet ihre Aktuatoren.
     private func refresh() {
         lastRefresh = Date()
+        // Alte Verbindungen zum Trackpad sauber schließen, bevor neue geöffnet werden
+        if let close { actuators.forEach { _ = close($0) } }
         actuators.removeAll()
         guard let create, let open else { return }
 
@@ -88,7 +93,7 @@ final class TrackpadActuator {
         for actuator in actuators where actuateFn(actuator, strength.rawValue, 0, 0, 0) == 0 {
             success = true
         }
-        if !success && !actuators.isEmpty && Date().timeIntervalSince(lastRefresh) > 5 {
+        if !success && !actuators.isEmpty && Date().timeIntervalSince(lastRefresh) > 30 {
             refresh()   // z. B. nach Ruhezustand neu öffnen
         }
         return success

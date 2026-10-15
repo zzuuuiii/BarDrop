@@ -37,13 +37,14 @@ enum SettingsWindowFactory {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, shelf, items, actions, keyboard, about
+    case general, opening, appearance, items, actions, keyboard, about
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .general: return L("General", "Allgemein")
-        case .shelf: return L("Shelf", "Ablage")
+        case .opening: return L("Opening", "Öffnen")
+        case .appearance: return L("Appearance", "Aussehen")
         case .items: return L("Items", "Objekte")
         case .actions: return L("Actions", "Aktionen")
         case .keyboard: return L("Keyboard", "Tastatur")
@@ -54,7 +55,8 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: return "gearshape.fill"
-        case .shelf: return "sidebar.right"
+        case .opening: return "sidebar.right"
+        case .appearance: return "paintbrush.fill"
         case .items: return "tray.full.fill"
         case .actions: return "square.grid.2x2.fill"
         case .keyboard: return "command"
@@ -65,7 +67,8 @@ enum SettingsPane: String, CaseIterable, Identifiable {
     var tint: Color {
         switch self {
         case .general: return Color(white: 0.55)
-        case .shelf: return Color(red: 0.2, green: 0.47, blue: 1)
+        case .opening: return Color(red: 0.2, green: 0.47, blue: 1)
+        case .appearance: return Color(red: 0.92, green: 0.3, blue: 0.55)
         case .items: return Color(red: 1, green: 0.58, blue: 0.1)
         case .actions: return Color(red: 0.2, green: 0.78, blue: 0.4)
         case .keyboard: return Color(red: 0.55, green: 0.35, blue: 0.95)
@@ -126,7 +129,8 @@ struct SettingsRoot: View {
             VStack(alignment: .leading, spacing: 0) {
                 row(.general)
                 header(L("Settings", "Einstellungen"))
-                row(.shelf)
+                row(.opening)
+                row(.appearance)
                 row(.items)
                 row(.actions)
                 row(.keyboard)
@@ -174,7 +178,8 @@ struct SettingsRoot: View {
     private var content: some View {
         switch pane {
         case .general: GeneralSettings(settings: settings)
-        case .shelf: ShelfSettings(settings: settings)
+        case .opening: OpeningSettings(settings: settings)
+        case .appearance: AppearanceSettings(settings: settings)
         case .items: ItemSettings(settings: settings, store: store)
         case .actions: ActionSettings(settings: settings)
         case .keyboard: KeyboardSettings(settings: settings)

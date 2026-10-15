@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.19.0
+* Settings sorted by what you want to do: Opening (where and when the shelf opens) and Appearance (size, strip, style) instead of Shelf, with opening options moved out of General
+* Introduction: dots show your progress; the settings tip shows the real tabs with their icons
+* Safer around drag and drop: BarDrop only watches drags of other apps, catches fast drops only right where the shelf is, and closes its trackpad connections cleanly
+
 ## 1.18.1
 * After launch the strip shows briefly at the edge, so you can see BarDrop is running
 * The introduction only counts as seen once it’s closed; if anything goes wrong it appears again on the next launch

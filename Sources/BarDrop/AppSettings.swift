@@ -493,14 +493,24 @@ final class AppSettings: ObservableObject {
         }
     }
 
-    /// Alles im Tab „Ablage“ auf den Standard setzen.
+    /// Lage und Größe der Ablage auf den Standard setzen.
     func resetShelfLayout() {
+        resetPosition()
+        resetLook()
+    }
+
+    /// „Öffnen → Wo“: Rand, Position, Bildschirme
+    func resetPosition() {
         edge = ShelfDefaults.edge
         verticalPosition = ShelfDefaults.verticalPosition
         adaptivePosition = ShelfDefaults.adaptivePosition
         adaptiveMiddleThird = ShelfDefaults.adaptiveMiddleThird
         adaptiveZoneHalf = ShelfDefaults.adaptiveZoneHalf
         displayMode = ShelfDefaults.displayMode
+    }
+
+    /// „Aussehen“: Größe und Streifen
+    func resetLook() {
         shelfWidth = ShelfDefaults.width
         shelfHeight = ShelfDefaults.height
         peekThickness = PeekDefaults.thickness

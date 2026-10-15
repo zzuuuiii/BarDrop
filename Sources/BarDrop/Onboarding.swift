@@ -39,6 +39,10 @@ final class OnboardingModel: ObservableObject {
 
     private var order: [Step] { [.welcome] + practiceSteps + tipSteps + [.done] }
 
+    /// Für die Punkte oben: Anzahl der Seiten und die aktuelle
+    var pageCount: Int { order.count }
+    var pageIndex: Int { order.firstIndex(of: step) ?? 0 }
+
     /// Tipps überspringen: direkt zum Ende
     func skipToDone() {
         withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
@@ -186,7 +190,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
 
     // MARK: Fenster
 
-    static let size = NSSize(width: 480, height: 580)
+    static let size = NSSize(width: 480, height: 620)
 
     private func makeWindow() -> NSWindow {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: Self.size),
@@ -375,8 +379,8 @@ struct OnboardingView: View {
             return L("Press Space to preview an item with Quick Look. Select several and right-click to group them as a stack. Removed something by mistake? ⌘Z brings it back.",
                      "Mit der Leertaste zeigt die Übersicht ein Objekt groß an. Wähl mehrere aus und fass sie per Rechtsklick zu einem Stapel zusammen. Versehentlich entfernt? ⌘Z holt es zurück.")
         case .customize:
-            return L("Screen edge, size, delay, the look of the strip, your actions and the language are all in Settings. To get there, right-click an empty spot in the shelf.",
-                     "Bildschirmrand, Größe, Wartezeit, das Aussehen des Streifens, deine Aktionen und die Sprache findest du in den Einstellungen. Dorthin kommst du per Rechtsklick auf eine leere Stelle der Ablage.")
+            return L("Right-click an empty spot in the shelf and choose Settings, or press ⌘, while the shelf is open. This is where you find everything.",
+                     "Rechtsklick auf eine leere Stelle der Ablage und „Einstellungen“ wählen, oder ⌘, drücken, während die Ablage offen ist. Dort findest du alles.")
         case .done:
             return L("BarDrop is waiting at the edge. You can watch this introduction again anytime in Settings → About BarDrop.",
                      "BarDrop wartet am Rand. Diese Einführung kannst du jederzeit unter Einstellungen → Über BarDrop noch einmal ansehen.")
@@ -396,6 +400,8 @@ struct OnboardingView: View {
 
     private var texts: some View {
         VStack(spacing: 10) {
+            ProgressDots(count: model.pageCount, current: model.pageIndex)
+                .padding(.bottom, 2)
             Text(stepLabel ?? " ")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.secondary)
@@ -985,40 +991,42 @@ private struct OrganizeHero: View {
     }
 }
 
-/// Was sich einstellen lässt, mit Symbolen wie in den Einstellungen.
+/// Die Reiter der Einstellungen, mit denselben Symbolen und Farben wie dort, und was
+/// man in jedem findet.
 private struct CustomizeHero: View {
     private struct Item: Identifiable {
         let id: Int
-        let symbol: String
-        let color: Color
-        let title: String
+        let pane: SettingsPane
+        let detail: String
     }
 
     private var items: [Item] {
         [
-            Item(id: 0, symbol: "sidebar.right", color: Color(red: 0.2, green: 0.47, blue: 1), title: L("Edge and size", "Rand und Größe")),
-            Item(id: 1, symbol: "timer", color: Color(red: 1, green: 0.58, blue: 0.1), title: L("Delay", "Wartezeit")),
-            Item(id: 2, symbol: "square.grid.2x2.fill", color: Color(red: 0.2, green: 0.78, blue: 0.4), title: L("Actions", "Aktionen")),
-            Item(id: 3, symbol: "globe", color: Color(red: 0.55, green: 0.35, blue: 0.95), title: L("Language", "Sprache"))
+            Item(id: 0, pane: .opening, detail: L("Edge, position, delay", "Rand, Position, Wartezeit")),
+            Item(id: 1, pane: .appearance, detail: L("Size, strip, outline", "Größe, Streifen, Rahmen")),
+            Item(id: 2, pane: .actions, detail: L("AirDrop, folders, apps", "AirDrop, Ordner, Apps")),
+            Item(id: 3, pane: .general, detail: L("Language, startup", "Sprache, Start"))
         ]
     }
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.fixed(150), spacing: 12), GridItem(.fixed(150), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: [GridItem(.fixed(160), spacing: 10), GridItem(.fixed(160), spacing: 10)], spacing: 10) {
             ForEach(items) { item in
                 HStack(spacing: 10) {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(item.color.gradient)
-                        .overlay(Image(systemName: item.symbol)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(.white))
-                        .frame(width: 28, height: 28)
-                    Text(item.title)
-                        .font(.system(size: 13, weight: .medium))
+                    PaneIcon(pane: item.pane, size: 28)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(item.pane.title)
+                            .font(.system(size: 13, weight: .semibold))
+                        Text(item.detail)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
                     Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 12)
-                .frame(height: 54)
+                .padding(.horizontal, 10)
+                .frame(height: 56)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(Color(nsColor: .controlBackgroundColor))
@@ -1030,6 +1038,25 @@ private struct CustomizeHero: View {
                 .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             }
         }
-        .frame(width: 320)
+        .frame(width: 330)
+    }
+}
+
+/// Punkte, die zeigen, wie weit man in der Einführung ist.
+private struct ProgressDots: View {
+    let count: Int
+    let current: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<count, id: \.self) { i in
+                Capsule()
+                    .fill(i == current ? Color.accentColor : Color.secondary.opacity(i < current ? 0.55 : 0.25))
+                    .frame(width: i == current ? 16 : 6, height: 6)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: current)
+        .accessibilityElement()
+        .accessibilityLabel(L("Page \(current + 1) of \(count)", "Seite \(current + 1) von \(count)"))
     }
 }

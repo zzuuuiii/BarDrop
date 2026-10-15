@@ -152,6 +152,16 @@ struct ShelfContent: View {
                     .overlay(alignment: .topLeading) { bandOverlay }
                     .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
                 }
+                // Unten weich auslaufen statt hart abgeschnitten: Kacheln, die unter der
+                // Aktionsleiste weitergehen, scheinen auf den letzten Punkten leicht durch
+                .mask(
+                    VStack(spacing: 0) {
+                        Color.black
+                        LinearGradient(colors: [.black, .black.opacity(0.15)],
+                                       startPoint: .top, endPoint: .bottom)
+                            .frame(height: 16)
+                    }
+                )
             }
 
             QuickActionBar(settings: settings, ui: ui, store: store, actions: actions)

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.21.1
+* Items fade out softly at the bottom edge above the action bar instead of being cut off
+
 ## 1.21.0
 * With “Always store a copy”, files from the Finder show up right away and are copied in the background; once a copy is done it takes the original’s place
 * With “Show name” off the shelf is titled “Shelf”

@@ -4,7 +4,7 @@ import AppKit
 /// (oder auswählen und anklicken) führt sie aus.
 struct QuickAction: Codable, Identifiable, Hashable {
     enum Kind: String, Codable, CaseIterable {
-        case airdrop, share, mail, messages, folder, app
+        case airdrop, share, mail, messages, folder, app, trash
     }
 
     var id = UUID()
@@ -20,6 +20,7 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .share: return L("Share", "Teilen")
         case .mail: return "Mail"
         case .messages: return L("Messages", "Nachrichten")
+        case .trash: return L("Trash", "Papierkorb")
         case .folder, .app:
             guard let path else { return kind == .folder ? L("Folder", "Ordner") : "App" }
             let name = FileManager.default.displayName(atPath: path)
@@ -34,6 +35,7 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .share: return L("Share with any app", "Mit einer beliebigen App teilen")
         case .mail: return L("Send as email attachment", "Als E-Mail-Anhang senden")
         case .messages: return L("Send with Messages", "Per Nachrichten senden")
+        case .trash: return L("Move to Trash", "In den Papierkorb legen")
         case .folder: return L("Move to “\(title)”", "In „\(title)“ verschieben")
         case .app: return L("Open with \(title)", "Mit \(title) öffnen")
         }
@@ -51,6 +53,9 @@ struct QuickAction: Codable, Identifiable, Hashable {
             return Self.appIcon("com.apple.mail")
         case .messages:
             return Self.appIcon("com.apple.MobileSMS")
+        case .trash:
+            // Das Papierkorb-Symbol des Systems
+            return NSWorkspace.shared.icon(forFile: (NSHomeDirectory() as NSString).appendingPathComponent(".Trash"))
         case .folder, .app:
             guard let path, FileManager.default.fileExists(atPath: path) else { return nil }
             return NSWorkspace.shared.icon(forFile: path)
@@ -63,6 +68,7 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .share: return "square.and.arrow.up"
         case .mail: return "envelope.fill"
         case .messages: return "message.fill"
+        case .trash: return "trash.fill"
         case .folder: return "folder.fill"
         case .app: return "app.fill"
         }

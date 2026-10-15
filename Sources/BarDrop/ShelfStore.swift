@@ -398,6 +398,15 @@ final class ShelfStore: ObservableObject {
         takeOut(Set(ids), undoable: true, deleteOwnedAfter: delay)
     }
 
+    /// Nimmt Dateien aus der Ablage, die es an ihrem Ort nicht mehr gibt (z. B. nach dem
+    /// Papierkorb). Nicht widerrufbar, denn zurückholen lassen sie sich nur im Finder.
+    func forgetFiles(at urls: [URL]) {
+        let keys = Set(urls.map(\.standardizedFileURL))
+        guard !keys.isEmpty else { return }
+        let ids = entries.flatMap(\.files).filter { keys.contains($0.url.standardizedFileURL) }.map(\.id)
+        takeOut(Set(ids), undoable: false)
+    }
+
     // MARK: Entfernen und Widerrufen
 
     /// Gemeinsamer Weg für alles, was aus der Ablage genommen wird.

@@ -154,17 +154,24 @@ final class ShelfDropHandler {
     }
 
     func entered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        guard !isOwn(sender) else { return [] }
-        setTargeted(true)
-        return .copy
+        // Kein Hinweis „Hier ablegen“ für eigene Objekte: Beim Herausziehen beginnt der
+        // Zug ja über der Ablage
+        if !isOwn(sender) { setTargeted(true) }
+        // Eigenes Objekt zurück in die Ablage: einfach zurücklegen
+        return isOwn(sender) ? .generic : .copy
     }
 
     func updated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        isOwn(sender) ? [] : .copy
+        isOwn(sender) ? .generic : .copy
     }
 
     func perform(_ sender: NSDraggingInfo) -> Bool {
-        guard !isOwn(sender) else { return false }
+        if isOwn(sender) {
+            // Zurückgelegt: Das Objekt bleibt, wo es war, und wird nicht entfernt
+            ui.lastDropWasInternal = true
+            setTargeted(false)
+            return true
+        }
         store.ingest(from: sender.draggingPasteboard)
         Haptics.drop()
         setTargeted(false)

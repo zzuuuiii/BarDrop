@@ -3,6 +3,9 @@
 ## 1.19.0
 * Settings sorted by what you want to do: Opening (where and when the shelf opens) and Appearance (size, strip, style) instead of Shelf, with opening options moved out of General
 * Introduction: dots show your progress; the settings tip shows the real tabs with their icons
+* Trash as an optional quick action (add it under Actions)
+* Changed your mind while dragging something out? Bring it back to the edge, the shelf opens again and you can put it back
+* Settings window only moves by its title bar, so dragging actions or sliders no longer drags the whole window
 * Safer around drag and drop: BarDrop only watches drags of other apps, catches fast drops only right where the shelf is, and closes its trackpad connections cleanly
 
 ## 1.18.1

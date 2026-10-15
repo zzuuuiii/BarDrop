@@ -219,7 +219,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
             setArmed(true)
         }
         if armed { return .copy }
-        return isOwn(sender) ? [] : .copy      // von außen: ganz normal in die Ablage
+        return isOwn(sender) ? .generic : .copy   // eigenes Objekt: zurücklegen; von außen: in die Ablage
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
@@ -230,8 +230,10 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         defer { resetDropState() }
         if armed {
             if isOwn(sender) { onOwnDrop() } else { onExternalDrop(sender.draggingPasteboard) }
+        } else if isOwn(sender) {
+            // Zurück auf die Ablage gelegt: bleibt, wo es war
+            ui?.lastDropWasInternal = true
         } else {
-            guard !isOwn(sender) else { return false }
             onShelfDrop(sender.draggingPasteboard)
         }
         Haptics.drop()

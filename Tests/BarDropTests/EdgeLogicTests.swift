@@ -249,4 +249,14 @@ final class EdgeLogicTests: XCTestCase {
         XCTAssertEqual(EdgeLogic.decide(&generous, sample(dx: 9), .init(generousHitArea: true)).target, .peek,
                        "Mit größerem Bereich erscheint der Streifen auch knapp daneben")
     }
+
+    // MARK: Zurücklegen nach dem Herausziehen
+
+    func testOwnDragReopensShelfWhenBackAtTheEdge() {
+        var s = state(.hidden)
+        XCTAssertEqual(EdgeLogic.decide(&s, sample(dx: 600, dragging: true, own: true), .init()).target, .hidden,
+                       "Weit weg vom Rand bleibt die Ablage zu")
+        XCTAssertEqual(EdgeLogic.decide(&s, sample(dx: 20, dy: 30, dragging: true, own: true), .init()).target, .expanded,
+                       "Zurück am Rand öffnet sie sich wieder zum Zurücklegen")
+    }
 }

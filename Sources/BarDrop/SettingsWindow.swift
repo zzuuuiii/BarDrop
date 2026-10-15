@@ -20,7 +20,9 @@ enum SettingsWindowFactory {
         window.toolbarStyle = .unified
         window.titlebarSeparatorStyle = .none
         window.title = "BarDrop"
-        window.isMovableByWindowBackground = true
+        // Nur an der Titelleiste verschiebbar: Sonst bewegt das Ziehen an Reglern
+        // oder Aktionszeilen das ganze Fenster mit
+        window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = true

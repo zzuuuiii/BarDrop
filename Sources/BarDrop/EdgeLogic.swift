@@ -85,7 +85,12 @@ enum EdgeLogic {
         if s.locked {
             result.target = .expanded
         } else if s.dragging {
-            if s.ownDrag || c.dragReveal == .off {
+            if s.ownDrag {
+                // Objekt aus der Ablage: Sie schließt, sobald es sie verlässt, öffnet sich
+                // aber wieder, wenn man damit an den Rand zurückkommt (zum Zurücklegen)
+                let backAtEdge = s.onScreen && !s.innerEdge && s.dx < dragExpandDistance && s.dy < dragExpandSpan
+                result.target = s.overExpanded || state.manualOpen || backAtEdge ? .expanded : .hidden
+            } else if c.dragReveal == .off {
                 result.target = s.overExpanded || state.manualOpen ? .expanded : .hidden
             } else if !s.onScreen || (s.innerEdge && !s.overExpanded && !state.manualOpen) {
                 // Drag auf anderem Bildschirm, oder auf dem Weg hinüber zum Bildschirm daneben

@@ -309,6 +309,18 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         case .folder:
             guard let folder = action.url else { return }
             move(urls, to: folder) { [weak self] moved in self?.finishAction(moved) }
+        case .trash:
+            // Wie im Finder: in den Papierkorb, von dort lässt es sich zurücklegen.
+            // Danach immer aus der Ablage, denn die Dateien sind dort nicht mehr.
+            NSWorkspace.shared.recycle(urls) { [weak self] trashed, error in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if error != nil { NSSound.beep() }
+                    self.ui.selection = []
+                    self.store.forgetFiles(at: Array(trashed.keys))
+                    self.store.pruneMissingFiles()
+                }
+            }
         }
     }
 

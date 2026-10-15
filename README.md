@@ -79,7 +79,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 **Action bar**
 * AirDrop, Mail, Messages, Share, Trash, any folder or app
 * Drag items onto it, or select them and click
-* One row with up to six actions or two rows with up to ten
+* Two rows with up to five actions each
 * Optionally pin a folder or app by dragging it onto the shelf, and remove an action by dragging it out
 
 **Settings**

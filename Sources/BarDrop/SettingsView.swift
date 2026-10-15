@@ -68,7 +68,6 @@ struct GeneralSettings: View {
 struct KeyboardSettings: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
-    @State private var showAll = false
 
     var body: some View {
         SettingsPage {
@@ -82,52 +81,60 @@ struct KeyboardSettings: View {
                     .padding(8)
             }
 
-            // Nur das Wichtigste offen, alles Weitere eingeklappt
+            // Oben, was man ständig braucht; darunter der Rest
             SettingsSection(L("In the open shelf", "In der offenen Ablage")) {
-                ShortcutRow(L("Quick Look", "Übersicht"), L("Space", "Leertaste"))
-                ShortcutRow(L("Remove selection", "Auswahl entfernen"), "⌫")
-                ShortcutRow(L("Undo", "Widerrufen"), "⌘Z")
-                Button {
-                    withAnimation(.easeOut(duration: 0.2)) { showAll.toggle() }
-                } label: {
-                    SettingsRow(showAll ? L("Fewer shortcuts", "Weniger Kurzbefehle") : L("All shortcuts", "Alle Kurzbefehle")) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(showAll ? 90 : 0))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                if showAll {
-                    ShortcutRow(L("Open", "Öffnen"), L("↩ or ⌘O", "↩ oder ⌘O"))
-                    ShortcutRow(L("Show in Finder", "Im Finder zeigen"), "⌘R")
-                    ShortcutRow(L("Move or extend selection", "Auswahl bewegen oder erweitern"), L("Arrow keys, ⇧", "Pfeiltasten, ⇧"))
-                    ShortcutRow(L("Select all", "Alle auswählen"), "⌘A")
-                    ShortcutRow(L("Cut, copy, copy path", "Ausschneiden, kopieren, Pfad kopieren"), "⌘X  ⌘C  ⌥⌘C")
-                    ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), "⌘V")
-                    ShortcutRow(L("Redo", "Wiederholen"), "⇧⌘Z")
-                    ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), "esc  ⌘↑")
-                    ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), "esc")
-                    ShortcutRow(L("Settings, quit", "Einstellungen, beenden"), "⌘,  ⌘Q")
-                }
+                ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
+                ShortcutRow(L("Open", "Öffnen"), ["↩"])
+                ShortcutRow(L("Remove selection", "Auswahl entfernen"), ["⌫"])
+                ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
+                ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
+                ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), ["⌘", "V"])
+            }
+
+            SettingsSection(L("More", "Weitere")) {
+                ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
+                ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
+                ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
+                ShortcutRow(L("Select all", "Alle auswählen"), ["⌘", "A"])
+                ShortcutRow(L("Move selection", "Auswahl bewegen"), ["←", "→", "↑", "↓"])
+                ShortcutRow(L("Extend selection", "Auswahl erweitern"), ["⇧", "←"])
+                ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
+                ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), ["⌘", "↑"])
+                ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), ["esc"])
+                ShortcutRow(L("Settings", "Einstellungen"), ["⌘", ","])
+                ShortcutRow(L("Quit BarDrop", "BarDrop beenden"), ["⌘", "Q"])
             }
         }
     }
 }
 
+/// Eine Zeile mit Tasten als kleine Kappen, wie die Tasten oben beim Kurzbefehl
 private struct ShortcutRow: View {
     let title: String
-    let keys: String
-    init(_ title: String, _ keys: String) {
+    let keys: [String]
+    init(_ title: String, _ keys: [String]) {
         self.title = title
         self.keys = keys
     }
     var body: some View {
         SettingsRow(title) {
-            Text(keys)
-                .font(.system(size: 13, design: .rounded))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
+                    Text(key)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 22, minHeight: 22)
+                        .padding(.horizontal, key.count > 1 ? 5 : 0)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(Color.black.opacity(0.22))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .strokeBorder(SettingsTheme.separator, lineWidth: 1)
+                        )
+                }
+            }
         }
     }
 }
@@ -455,8 +462,6 @@ struct ActionSettings: View {
             .zIndex(1)
 
             SettingsSection(L("Layout", "Darstellung")) {
-                ToggleRow(L("Two rows", "Zwei Reihen"),
-                          isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
                 ToggleRow(L("Show names", "Namen anzeigen"), isOn: $settings.showActionLabels)
             }
 

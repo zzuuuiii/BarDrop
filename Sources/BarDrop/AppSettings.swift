@@ -548,7 +548,8 @@ final class AppSettings: ObservableObject {
         language = storedLanguage
         AppLanguage.current = storedLanguage
         generousHitArea = defaults.bool(forKey: Key.generousHitArea)
-        twoActionRows = defaults.bool(forKey: Key.twoActionRows)
+        // Zwei Reihen gibt es immer: Eine leere untere Reihe ist einfach nicht zu sehen
+        twoActionRows = true
         actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)
         pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
@@ -621,7 +622,7 @@ final class AppSettings: ObservableObject {
         openMode = .automatic
         openDelay = OpenDelay.instant
         generousHitArea = true
-        twoActionRows = false
+        twoActionRows = true
         actionRowSplit = QuickAction.perRow
         pinFromShelf = true
         addScreenshots = false
@@ -652,6 +653,6 @@ final class AppSettings: ObservableObject {
 
     /// Alles, was Lage oder Größe der Ablage beeinflusst.
     var layoutSignature: String {
-        "\(edge.rawValue)|\(verticalPosition)|\(adaptivePosition)|\(adaptiveMiddleThird)|\(adaptiveZoneHalf)|\(displayMode.rawValue)|\(shelfWidth)|\(shelfHeight)"
+        "\(tileIconSize)|\(edge.rawValue)|\(verticalPosition)|\(adaptivePosition)|\(adaptiveMiddleThird)|\(adaptiveZoneHalf)|\(displayMode.rawValue)|\(shelfWidth)|\(shelfHeight)"
     }
 }

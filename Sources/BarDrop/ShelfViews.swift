@@ -115,6 +115,9 @@ struct ShelfContent: View {
     @State private var selectionBeforeBand: Set<UUID> = []
     /// Höhe der Aktionsleiste: so viel Platz bleibt unter den Kacheln frei
     @State private var barHeight: CGFloat = 0
+    /// Platzhalter erst nach einem Augenblick zeigen: Dateien aus dem Finder sind sofort
+    /// da, für sie soll nichts aufblitzen
+    @State private var showPending = false
     /// Hinter der Aktionsleiste ganz deckend, darüber ein kurzer Übergang. Sanft beginnend
     /// und sanft endend (S-Kurve), damit weder oben noch am Übergang eine Linie zu sehen ist.
     private var barBackdrop: some View {
@@ -221,6 +224,15 @@ struct ShelfContent: View {
             )
         )
         .overlay(dropHighlight)
+        .onChange(of: store.pendingImports) { _, count in
+            if count == 0 {
+                showPending = false
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    if store.pendingImports > 0 { showPending = true }
+                }
+            }
+        }
         .onChange(of: store.entries) { _, _ in
             // Stapel aufgelöst oder entfernt: zurück zur Ablage
             if ui.openStack != nil && stack == nil { ui.openStack = nil }
@@ -311,7 +323,7 @@ struct ShelfContent: View {
 
     @ViewBuilder
     private var mainGrid: some View {
-        if store.entries.isEmpty {
+        if store.entries.isEmpty && !showPending {
             emptyState
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
@@ -319,6 +331,9 @@ struct ShelfContent: View {
                 .transition(Self.tileTransition)
         } else {
             LazyVGrid(columns: columns, spacing: 6) {
+                // Was gerade noch geladen wird (Bilder aus dem Web, große Dateien),
+                // steht sofort als Kachel da, an der Stelle, an der es landen wird
+                if showPending && settings.sortOrder == .newestFirst { pendingTiles }
                 ForEach(actions.orderedEntries) { entry in
                     TileView(entry: entry, ui: ui, actions: actions,
                              isSelected: ui.selection.contains(entry.id))
@@ -330,10 +345,23 @@ struct ShelfContent: View {
                         )
                         .transition(Self.tileTransition)
                 }
+                if showPending && settings.sortOrder == .oldestFirst { pendingTiles }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .transition(Self.tileTransition)
+        }
+    }
+
+    /// Platzhalter für laufende Übernahmen, je eine Kachel
+    @ViewBuilder
+    private var pendingTiles: some View {
+        ForEach(0..<max(store.pendingImports, 0), id: \.self) { _ in
+            TileLabel(title: L("Loading", "Wird geladen"), isSelected: false, isKey: false) {
+                ProgressView()
+                    .controlSize(.small)
+            }
+            .allowsHitTesting(false)
         }
     }
 

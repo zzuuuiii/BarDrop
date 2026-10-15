@@ -243,10 +243,70 @@ struct PickerRow<Value: Hashable>: View {
         self.options = options
     }
 
+    /// Wenige, kurze Möglichkeiten stehen direkt in der Zeile (wie ein Umschalter),
+    /// längere Listen öffnen ein Menü
+    private var inline: Bool {
+        options.count <= 3 && options.reduce(0) { $0 + $1.1.count } <= 26
+    }
+
     var body: some View {
         SettingsRow(title, info: info) {
-            PopupValue(selection: $selection, options: options)
+            if inline {
+                SegmentedValue(selection: $selection, options: options)
+            } else {
+                PopupValue(selection: $selection, options: options)
+            }
         }
+    }
+}
+
+/// Umschalter mit wenigen Möglichkeiten: dunkle Mulde wie bei den Tasten, die gewählte
+/// Möglichkeit als heller Knopf, der weich hinübergleitet; mit leichtem Impuls.
+struct SegmentedValue<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(Value, String)]
+    @Environment(\.isEnabled) private var isEnabled
+    @Namespace private var knob
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                let selected = option.0 == selection
+                Button {
+                    guard !selected else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { selection = option.0 }
+                    Haptics.tap()
+                } label: {
+                    Text(option.1)
+                        .font(.system(size: 12.5, weight: selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 10)
+                        .frame(height: 24)
+                        .background {
+                            if selected {
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(SettingsTheme.switchOff)
+                                    .shadow(color: .black.opacity(0.25), radius: 1.5, y: 1)
+                                    .matchedGeometryEffect(id: "knob", in: knob)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.black.opacity(0.18))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(SettingsTheme.separator, lineWidth: 1)
+        )
+        .opacity(isEnabled ? 1 : 0.45)
     }
 }
 

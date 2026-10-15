@@ -177,7 +177,8 @@ final class ContentImporter {
                     // Eigene Dateien des Nutzers unverändert kopieren, fremde sauber neu schreiben
                     let copied = self.copyIntoStorage(url, foreign: !userFile)
                     lock.lock()
-                    results[index] = copied.map { ShelfFile(url: $0, owned: true) }
+                    // Kopie einer Datei des Nutzers merkt sich ihr Original
+                    results[index] = copied.map { userFile ? ShelfFile(copy: $0, of: url) : ShelfFile(url: $0, owned: true) }
                     lock.unlock()
                     group.leave()
                 }
@@ -288,6 +289,25 @@ final class ContentImporter {
     // MARK: Bilddaten, Links, Text
 
     private func importSnapshot(_ s: PasteboardSnapshot, completion: @escaping ([ShelfFile]) -> Void) {
+        // Ohne „Als PNG oder JPEG speichern“ soll das Bild so bleiben, wie es im Web liegt.
+        // Liegt im Pasteboard nur eine vom Browser gezeichnete Fassung (TIFF, Bildobjekt),
+        // zuerst das Original von seiner Adresse laden; die Zeichnung nur als Rückfall.
+        let renderedOnly = s.image?.1 == "tiff" || (s.image == nil && s.objectImage != nil)
+        if !convertImages, renderedOnly, let source = s.imageSource {
+            download(source) { [weak self] url in
+                guard let self else { return }
+                if let url {
+                    self.finish([ShelfFile(url: url, owned: true)], completion)
+                } else if let (data, ext) = s.image ?? s.objectImage,
+                          let fallback = self.writeImage(data, ext: ext, name: s.suggestedImageName) {
+                    self.finish([ShelfFile(url: fallback, owned: true)], completion)
+                } else {
+                    self.finish([], completion)
+                }
+            }
+            return
+        }
+
         // 3. Bilddaten direkt aus dem Pasteboard, sonst ein Bildobjekt (PDF, BMP …)
         if let (data, ext) = s.image ?? s.objectImage,
            let url = writeImage(data, ext: ext, name: s.suggestedImageName) {

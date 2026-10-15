@@ -8,11 +8,11 @@ import Carbon
 
 /// Einführung beim ersten Start. Zuerst drei Schritte zum Mitmachen: etwas ablegen,
 /// es zurückholen, den Kurzbefehl drücken. Jeder erkennt von selbst, wenn er geschafft
-/// ist. Danach drei kurze Tipps zu Aktionen, Ordnung und Einstellungen. Am Ende
-/// verschwindet sie samt Beispieldatei und taucht nur auf Wunsch wieder auf.
+/// ist. Danach eine Seite mit allem, was BarDrop sonst noch kann. Am Ende verschwindet
+/// sie samt Beispieldatei und taucht nur auf Wunsch wieder auf.
 final class OnboardingModel: ObservableObject {
     enum Step: Int {
-        case welcome, drop, retrieve, shortcut, actions, organize, customize, done
+        case welcome, drop, retrieve, shortcut, features, done
     }
 
     @Published private(set) var step: Step = .welcome
@@ -34,22 +34,11 @@ final class OnboardingModel: ObservableObject {
 
     /// Schritte zum Mitmachen.
     var practiceSteps: [Step] { [.drop, .retrieve, .shortcut] }
-    /// Tipps zum Lesen, ohne Aufgabe
-    var tipSteps: [Step] { [.actions, .organize, .customize] }
-
-    private var order: [Step] { [.welcome] + practiceSteps + tipSteps + [.done] }
+    private var order: [Step] { [.welcome] + practiceSteps + [.features, .done] }
 
     /// Für die Punkte oben: Anzahl der Seiten und die aktuelle
     var pageCount: Int { order.count }
     var pageIndex: Int { order.firstIndex(of: step) ?? 0 }
-
-    /// Tipps überspringen: direkt zum Ende
-    func skipToDone() {
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) {
-            stepDone = false
-            step = .done
-        }
-    }
 
     func advance() {
         guard let i = order.firstIndex(of: step), i + 1 < order.count else {
@@ -269,13 +258,23 @@ struct OnboardingView: View {
             background
 
             VStack(spacing: 0) {
-                hero
-                    .frame(height: 230)
-                    .padding(.top, 56)
+                if model.step == .features {
+                    VStack(spacing: 18) {
+                        ProgressDots(count: model.pageCount, current: model.pageIndex)
+                        FeaturesPage(settings: model.settings)
+                    }
+                        .padding(.top, 44)
+                        .padding(.horizontal, 44)
+                        .transition(.opacity)
+                } else {
+                    hero
+                        .frame(height: 230)
+                        .padding(.top, 56)
 
-                texts
-                    .padding(.top, 26)
-                    .padding(.horizontal, 56)
+                    texts
+                        .padding(.top, 26)
+                        .padding(.horizontal, 56)
+                }
 
                 Spacer(minLength: 12)
 
@@ -315,12 +314,8 @@ struct OnboardingView: View {
                 }
             case .shortcut:
                 KeyCaps(settings: model.settings, pressed: model.stepDone)
-            case .actions:
-                ActionsHero(settings: model.settings)
-            case .organize:
-                OrganizeHero()
-            case .customize:
-                CustomizeHero()
+            case .features:
+                EmptyView()
             case .done:
                 CheckBadge(large: true)
             }
@@ -335,24 +330,22 @@ struct OnboardingView: View {
 
     private var heading: String {
         switch model.step {
-        case .welcome: return L("Welcome to BarDrop", "Willkommen bei BarDrop")
-        case .drop: return model.stepDone ? L("Dropped", "Abgelegt") : L("Drop something", "Leg etwas ab")
+        case .welcome: return "BarDrop"
+        case .drop: return model.stepDone ? L("In the shelf", "In der Ablage") : L("Drop something", "Leg etwas ab")
         case .retrieve: return model.stepDone ? L("Got it back", "Zurückgeholt") : L("Get it back", "Hol es zurück")
-        case .shortcut: return model.stepDone ? L("Perfect", "Perfekt") : L("From anywhere", "Von überall")
-        case .actions: return L("Send it on", "Direkt weitergeben")
-        case .organize: return L("Keep it tidy", "Ordnung halten")
-        case .customize: return L("Make it yours", "Ganz wie du willst")
+        case .shortcut: return model.stepDone ? L("Done", "Geschafft") : L("With a shortcut", "Per Kurzbefehl")
+        case .features: return L("What else BarDrop can do", "Was BarDrop noch kann")
         case .done: return L("All set", "Alles bereit")
         }
     }
 
     private var message: String {
         let s = model.settings
-        let middle = s.adaptiveZoneFraction != nil ? L(" around the middle", ", etwa auf halber Höhe,") : ""
+        let nearMiddle = s.adaptiveZoneFraction != nil
         switch model.step {
         case .welcome:
-            return L("A shelf that waits invisibly at the edge of your screen. Try it in three short steps, then get a few tips.",
-                     "Eine Ablage, die unsichtbar am Bildschirmrand wartet. Probier es in drei kurzen Schritten aus, danach gibt es ein paar Tipps.")
+            return L("A place for files at the edge of your screen. Drag something there and it stays at hand until you need it. Try it out in three short steps.",
+                     "Ein Platz für Dateien am Rand deines Bildschirms. Zieh etwas dorthin, und es bleibt griffbereit, bis du es brauchst. Probier es in drei kurzen Schritten aus.")
         case .drop:
             return model.stepDone
                 ? L("The image is now in the shelf.", "Das Bild liegt jetzt in der Ablage.")
@@ -374,6 +367,8 @@ struct OnboardingView: View {
             } else {
                 open = ""
             }
+            // „etwa auf halber Höhe“ als Einschub: das Komma danach nur, wenn noch etwas folgt
+            let middle = nearMiddle ? L(" around the middle", open.isEmpty ? ", etwa auf halber Höhe" : ", etwa auf halber Höhe,") : ""
             return L("Move the pointer to the \(edgeWord) edge\(middle)\(open). When the shelf opens, drag the image back here.",
                      "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle)\(open). Wenn sich die Ablage öffnet, zieh das Bild hierher zurück.")
         case .shortcut:
@@ -381,49 +376,18 @@ struct OnboardingView: View {
                 ? L("The same shortcut closes the shelf again.", "Derselbe Kurzbefehl schließt die Ablage wieder.")
                 : L("Press \(s.hotKeyDescription) to open the shelf anytime, even without a mouse.",
                     "Drück \(s.hotKeyDescription), um die Ablage jederzeit zu öffnen, auch ohne Maus.")
-        case .actions:
-            let pin = s.pinFromShelf
-                ? L(" To add a folder or app, drag it over the shelf onto “Pin”.",
-                    " Einen Ordner oder eine App fügst du hinzu, indem du sie über die Ablage auf „Anheften“ ziehst.") : ""
-            return L("Drag items onto an action at the bottom of the shelf, for example to send them with AirDrop or move them to a folder. Or select them and click the action.",
-                     "Zieh Objekte auf eine Aktion unten in der Ablage, etwa um sie per AirDrop zu senden oder in einen Ordner zu verschieben. Oder wähl sie aus und klick auf die Aktion.") + pin
-        case .organize:
-            let stack = s.stackMultiple
-                ? L(" Drop several at once and they become a stack.",
-                    " Legst du mehrere auf einmal ab, landen sie in einem Stapel.")
-                : L(" Select several and right-click to group them as a stack.",
-                    " Wähl mehrere aus und fass sie per Rechtsklick zu einem Stapel zusammen.")
-            return L("Press Space to preview an item with Quick Look.", "Drück die Leertaste, um ein Objekt in der Übersicht groß anzusehen.")
-                + stack
-                + L(" Removed something by mistake? ⌘Z brings it back.", " Versehentlich entfernt? ⌘Z holt es zurück.")
-        case .customize:
-            return L("Right-click an empty spot in the shelf and choose Settings, press ⌘, while the shelf is open, or simply open BarDrop again. That’s where you find everything.",
-                     "Klick mit der rechten Maustaste auf eine leere Stelle der Ablage und wähl „Einstellungen“, drück ⌘, bei offener Ablage oder öffne BarDrop einfach noch einmal. Dort findest du alles.")
+        case .features:
+            return ""
         case .done:
-            return L("BarDrop is waiting at the edge. You can watch this introduction again anytime in Settings → About BarDrop.",
-                     "BarDrop wartet am Rand. Diese Einführung kannst du jederzeit unter Einstellungen → Über BarDrop noch einmal ansehen.")
+            return L("BarDrop is waiting at the edge. You can find this introduction again in Settings → About BarDrop.",
+                     "BarDrop wartet am Rand. Diese Einführung findest du jederzeit unter Einstellungen → Über BarDrop.")
         }
-    }
-
-    /// „Schritt 1 von 3“ bzw. „Tipp 1 von 3“ über der Überschrift.
-    private var stepLabel: String? {
-        if let i = model.practiceSteps.firstIndex(of: model.step) {
-            return L("Step \(i + 1) of \(model.practiceSteps.count)", "Schritt \(i + 1) von \(model.practiceSteps.count)")
-        }
-        if let i = model.tipSteps.firstIndex(of: model.step) {
-            return L("Tip \(i + 1) of \(model.tipSteps.count)", "Tipp \(i + 1) von \(model.tipSteps.count)")
-        }
-        return nil
     }
 
     private var texts: some View {
         VStack(spacing: 10) {
             ProgressDots(count: model.pageCount, current: model.pageIndex)
                 .padding(.bottom, 2)
-            Text(stepLabel ?? " ")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .opacity(stepLabel == nil ? 0 : 1)
             Text(heading)
                 .font(OB.title)
                 .foregroundStyle(.primary)
@@ -484,9 +448,11 @@ struct OnboardingView: View {
             case .welcome:
                 PrimaryButton(title: L("Let’s go", "Los geht’s")) { model.advance() }
                 secondary(L("Skip", "Überspringen")) { model.onFinish(false) }
-            case .actions, .organize, .customize:
+            case .features:
                 PrimaryButton(title: L("Continue", "Weiter")) { model.advance() }
-                secondary(L("Skip tips", "Tipps überspringen")) { model.skipToDone() }
+                // Platzhalter in Höhe der Zweitaktion, damit nichts springt
+                secondary(" ") {}
+                    .hidden()
             case .done:
                 PrimaryButton(title: L("Done", "Fertig")) { model.advance() }
                 secondary(L("Open Settings", "Einstellungen öffnen")) {
@@ -522,15 +488,6 @@ private struct PrimaryButton: View {
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
-    }
-}
-
-private struct PressableStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -866,197 +823,80 @@ private struct KeyCap: View {
     }
 }
 
-// MARK: Bilder der Tipps
+// MARK: Was BarDrop noch kann
 
-/// Kleine Ablage mit Aktionsleiste: Ein Objekt gleitet auf die erste Aktion.
-private struct ActionsHero: View {
+/// Übersicht der Funktionen wie in Apples „Neu in …“-Fenstern: farbiges Symbol,
+/// kurzer Titel, ein Satz. Zeigt nur, was gerade eingeschaltet ist.
+private struct FeaturesPage: View {
     let settings: AppSettings
 
-    private var actions: [QuickAction] {
-        let list = settings.quickActions.isEmpty ? QuickAction.defaults : settings.quickActions
-        return Array(list.prefix(4))
+    private struct Feature: Identifiable {
+        let id: String
+        let symbol: String
+        let tint: Color
+        let title: String
+        let text: String
     }
 
-    var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: AnimationStyle.reduceMotion)) { context in
-            let t = AnimationStyle.reduceMotion ? 1.4 : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3.2)
-            scene(t: t)
-        }
-        .frame(width: 260, height: 210)
-    }
-
-    private func ramp(_ t: Double, _ a: Double, _ b: Double) -> CGFloat {
-        let x = min(max((t - a) / (b - a), 0), 1)
-        return CGFloat(x * x * (3 - 2 * x))
-    }
-
-    private func scene(t: Double) -> some View {
-        // Objekt hebt sich, gleitet zur Aktion, die Aktion leuchtet, Objekt verschwindet
-        let move = ramp(t, 0.5, 1.4)
-        let over = ramp(t, 1.25, 1.45) * (1 - ramp(t, 2.2, 2.5))
-        let fade = 1 - ramp(t, 1.6, 1.9)
-        let back = ramp(t, 2.7, 3.1)
-        let actionWidth: CGFloat = 220 / CGFloat(max(actions.count, 1))
-        let targetX = -110 + actionWidth / 2
-        let tileX = -62 + (targetX + 62) * move
-        let tileY = -34 + (62 + 34) * move
-        // Nach dem Ablegen: Objekt taucht an seinem Platz wieder auf, die Schleife beginnt neu
-        let reset = t >= 2.6
-
-        return ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(Color.black)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.25), radius: 14, y: 8)
-
-            // Kacheln
-            HStack(spacing: 14) {
-                ForEach(0..<3, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.white.opacity(i == 0 ? 0 : 0.16))
-                        .frame(width: 42, height: 42)
-                }
-            }
-            .offset(y: -34)
-
-            // Aktionsleiste
-            HStack(spacing: 0) {
-                ForEach(Array(actions.enumerated()), id: \.offset) { i, action in
-                    VStack(spacing: 4) {
-                        QuickActionIcon(action: action, size: 28)
-                            .scaleEffect(i == 0 ? 1 + 0.12 * over : 1)
-                        Text(action.title)
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                    }
-                    .frame(width: actionWidth)
-                    .padding(.vertical, 5)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color.white.opacity(i == 0 ? 0.14 * over : 0))
-                    )
-                }
-            }
-            .frame(width: 220)
-            .offset(y: 62)
-
-            // Das gezogene Objekt
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.62, blue: 1), Color(red: 0.2, green: 0.4, blue: 0.95)],
-                                     startPoint: .top, endPoint: .bottom))
-                .overlay(Image(systemName: "photo").font(.system(size: 16, weight: .semibold)).foregroundStyle(.white))
-                .frame(width: 42, height: 42)
-                .scaleEffect(reset ? 1 : 1 + 0.32 * (move - move * move) - 0.4 * (1 - fade))
-                .shadow(color: .black.opacity(reset ? 0 : 0.4 * move), radius: 6, y: 3)
-                .offset(x: reset ? -62 : tileX, y: reset ? -34 : tileY)
-                .opacity(Double(reset ? back : fade))
-        }
-        .frame(width: 260, height: 190)
-    }
-}
-
-/// Übersicht der wichtigsten Handgriffe.
-private struct OrganizeHero: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            row(keys: [L("Space", "Leertaste")], text: L("Quick Look", "Übersicht"))
-            Divider().padding(.leading, 14)
-            row(keys: [L("Right-click", "Rechtsklick")], text: L("Group as stack", "Als Stapel zusammenfassen"))
-            Divider().padding(.leading, 14)
-            row(keys: ["⌘", "Z"], text: L("Undo", "Widerrufen"))
-            Divider().padding(.leading, 14)
-            row(keys: ["⌘", "A"], text: L("Select all", "Alle auswählen"))
-        }
-        .frame(width: 320)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
-    }
-
-    private func row(keys: [String], text: String) -> some View {
-        HStack(spacing: 6) {
-            ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
-                Text(key)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .padding(.horizontal, 8)
-                    .frame(minWidth: 26, minHeight: 24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color.primary.opacity(0.07))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-                    )
-            }
-            Spacer()
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 46)
-    }
-}
-
-/// Die Reiter der Einstellungen, mit denselben Symbolen und Farben wie dort, und was
-/// man in jedem findet.
-private struct CustomizeHero: View {
-    private struct Item: Identifiable {
-        let id: Int
-        let pane: SettingsPane
-        let detail: String
-    }
-
-    private var items: [Item] {
-        [
-            Item(id: 0, pane: .opening, detail: L("Edge, position, delay", "Rand, Position, Wartezeit")),
-            Item(id: 1, pane: .appearance, detail: L("Size, strip, outline", "Größe, Streifen, Rahmen")),
-            Item(id: 2, pane: .actions, detail: L("AirDrop, folders, apps", "AirDrop, Ordner, Apps")),
-            Item(id: 3, pane: .general, detail: L("Language, startup", "Sprache, Start"))
+    private var features: [Feature] {
+        var list = [
+            Feature(id: "actions", symbol: "paperplane.fill", tint: Color(red: 0.2, green: 0.55, blue: 1.0),
+                    title: L("Send it on", "Gleich weitergeben"),
+                    text: L("Drag items onto AirDrop, a folder or the Trash at the bottom of the shelf.",
+                            "Zieh Objekte unten in der Ablage auf AirDrop, einen Ordner oder den Papierkorb."))
         ]
+        if settings.pinFromShelf {
+            list.append(Feature(id: "pin", symbol: "pin.fill", tint: Color(red: 0.95, green: 0.6, blue: 0.1),
+                                title: L("Pin your folders", "Eigene Ordner anheften"),
+                                text: L("Drag a folder or app onto the shelf and drop it on “Pin”.",
+                                        "Zieh einen Ordner oder eine App auf die Ablage und lass sie auf „Anheften“ los.")))
+        }
+        list += [
+            Feature(id: "convert", symbol: "arrow.triangle.2.circlepath", tint: Color(red: 0.3, green: 0.75, blue: 0.4),
+                    title: L("Convert", "Umwandeln"),
+                    text: L("Right-click to turn images into JPEG or PDF, resize them and more.",
+                            "Per Rechtsklick Bilder in JPEG oder PDF umwandeln, verkleinern und mehr.")),
+            Feature(id: "look", symbol: "eye.fill", tint: Color(red: 0.55, green: 0.4, blue: 0.95),
+                    title: L("Take a look", "Kurz reinschauen"),
+                    text: L("Space shows a preview. Removed something by mistake? ⌘Z brings it back.",
+                            "Die Leertaste zeigt eine Vorschau. Versehentlich entfernt? ⌘Z holt es zurück.")),
+            Feature(id: "settings", symbol: "gearshape.fill", tint: Color(white: 0.55),
+                    title: L("Make it yours", "Nach deinem Geschmack"),
+                    text: L("Right-click the shelf or open BarDrop again to change where and how it opens.",
+                            "Rechtsklick auf die Ablage oder BarDrop erneut öffnen, um Ort und Verhalten anzupassen."))
+        ]
+        return list
     }
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.fixed(160), spacing: 10), GridItem(.fixed(160), spacing: 10)], spacing: 10) {
-            ForEach(items) { item in
-                HStack(spacing: 10) {
-                    PaneIcon(pane: item.pane, size: 28)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(item.pane.title)
-                            .font(.system(size: 13, weight: .semibold))
-                        Text(item.detail)
-                            .font(.system(size: 10.5))
+        VStack(alignment: .leading, spacing: 18) {
+            Text(L("What else BarDrop can do", "Was BarDrop noch kann"))
+                .font(OB.title)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+                .padding(.bottom, 8)
+            ForEach(features) { feature in
+                HStack(alignment: .top, spacing: 14) {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(LinearGradient(colors: [feature.tint.opacity(0.85), feature.tint],
+                                             startPoint: .top, endPoint: .bottom))
+                        .overlay(
+                            Image(systemName: feature.symbol)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(.white)
+                        )
+                        .frame(width: 36, height: 36)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(feature.title)
+                            .font(.system(size: 14, weight: .semibold))
+                        Text(feature.text)
+                            .font(.system(size: 13))
                             .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 0)
                 }
-                .padding(.horizontal, 10)
-                .frame(height: 56)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color(nsColor: .controlBackgroundColor))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.1), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             }
         }
-        .frame(width: 330)
     }
 }
 

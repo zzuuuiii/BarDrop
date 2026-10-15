@@ -79,7 +79,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 **Aktionsleiste**
 * AirDrop, Mail, Nachrichten, Teilen, Papierkorb, beliebige Ordner und Apps
 * Objekte darauf ziehen oder auswählen und anklicken
-* Eine Reihe mit bis zu sechs oder zwei Reihen mit bis zu zehn Aktionen
+* Zwei Reihen mit je bis zu fünf Aktionen
 * Auf Wunsch Ordner und Apps per Ziehen auf die Ablage anheften und Aktionen durch Herausziehen entfernen
 
 **Einstellungen**

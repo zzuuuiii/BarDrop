@@ -70,6 +70,20 @@ final class ViewSmokeTests: XCTestCase {
         }
     }
 
+    func testIntroductionPagesRender() {
+        let model = OnboardingModel(settings: AppSettings.shared, sampleURL: nil)
+        var pages = 0
+        model.onFinish = { _ in }
+        while pages < 10 {
+            render(OnboardingView(model: model, openSettings: {}),
+                   size: OnboardingController.size, "Einführung \(model.step)")
+            if model.step == .done { break }
+            model.advance()
+            pages += 1
+        }
+        XCTAssertEqual(model.step, .done)
+    }
+
     func testOpenShelfRenders() throws {
         let settings = AppSettings.shared
         let store = ShelfStore(baseDirectory: base)

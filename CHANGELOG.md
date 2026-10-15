@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.30.0-beta.2
+* New introduction: a calmer welcome, the three steps to try, and one page with everything else BarDrop can do
+* Short choices sit right in the row as a switch (for example edge, sort order, title, animation, language); longer lists still open a menu
+* Keyboard: the shortcuts you need all the time first, the rest under “More”, with keys shown as small key caps; a light tap when you change the shortcut
+* Two rows are always available; the switch is gone, an empty bottom row simply isn’t shown
+* Web images keep their original format when “Save web images as PNG or JPEG” is off
+* Items that are still loading show up right away as a tile with a spinner
+* Show in Finder shows the original file, also when the shelf holds a copy
+* Changing the icon size shows the open shelf live at the edge
+* Introduction: fixed a stray comma in the “get it back” step
+
 ## 1.30.0-beta.1
 * Appearance → Size → Icon size: icons and previews in the shelf from 40 to 96 pt, now 64 pt by default (was 56)
 * With the larger hit area, a dragged file opens the shelf from a little farther away

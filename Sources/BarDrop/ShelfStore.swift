@@ -11,11 +11,31 @@ struct ShelfFile: Codable, Hashable, Identifiable {
     /// Lesezeichen auf Dateien des Nutzers (nach boring.notch): Wird die Datei
     /// verschoben oder umbenannt, findet BarDrop sie darüber wieder.
     var bookmark: Data?
+    /// Bei einer Kopie: Lesezeichen auf die Originaldatei („Im Finder zeigen“ zeigt sie)
+    var originBookmark: Data?
 
     init(url: URL, owned: Bool) {
         self.url = url
         self.owned = owned
         if !owned { bookmark = ShelfFile.makeBookmark(url) }
+    }
+
+    /// Kopie einer Datei des Nutzers, die sich ihr Original merkt
+    init(copy url: URL, of original: URL) {
+        self.init(url: url, owned: true)
+        originBookmark = ShelfFile.makeBookmark(original)
+    }
+
+    /// Das Original einer Kopie, sofern es noch existiert und nicht im Papierkorb liegt
+    func originURL() -> URL? {
+        guard let originBookmark else { return nil }
+        var stale = false
+        guard let url = try? URL(resolvingBookmarkData: originBookmark, options: [.withoutUI, .withoutMounting],
+                                 relativeTo: nil, bookmarkDataIsStale: &stale) else { return nil }
+        let path = url.path
+        guard FileManager.default.fileExists(atPath: path),
+              !path.contains("/.Trash/"), !path.contains("/.Trashes/") else { return nil }
+        return url
     }
 
     static func makeBookmark(_ url: URL) -> Data? {
@@ -187,7 +207,7 @@ final class ShelfStore: ObservableObject {
         var updated = entries
         for e in updated.indices {
             guard let f = updated[e].files.firstIndex(where: { $0.id == id }) else { continue }
-            var file = ShelfFile(url: copy, owned: true)
+            var file = ShelfFile(copy: copy, of: updated[e].files[f].url)
             file.id = id     // Auswahl und Kachel bleiben dieselben
             // Die Kachel ist schon zu sehen: beim Austausch nicht erneut einblenden
             Thumbnails.shownOnce.insert(copy.path)

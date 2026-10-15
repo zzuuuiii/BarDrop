@@ -418,6 +418,7 @@ struct HotKeyEditor: View {
             return
         }
         settings.hotKeyModifiers = new
+        Haptics.tap()   // wie eine echte Taste: ein leichter Impuls
     }
 
     private func startRecording() {
@@ -429,6 +430,7 @@ struct HotKeyEditor: View {
             }
             settings.hotKeyCode = Int(event.keyCode)
             settings.hotKeyLabel = Self.label(for: event)
+            Haptics.tap()
             stopRecording()
             return nil
         }

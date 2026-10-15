@@ -152,7 +152,7 @@ extension ShelfActions {
     func revealCurrentSelection() {
         let urls = currentSelectionURLs
         guard !urls.isEmpty else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(urls)
+        reveal(urls)
     }
 
     /// ⌘C bzw. ⌥⌘C: Auswahl kopieren, ohne Auswahl alles in der Ansicht.

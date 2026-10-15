@@ -98,7 +98,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     }
 
     func reveal(_ entries: [ShelfEntry]) {
-        NSWorkspace.shared.activateFileViewerSelecting(entries.flatMap(\.urls))
+        reveal(entries.flatMap(\.urls))
     }
 
     func copy(_ entries: [ShelfEntry]) {
@@ -495,12 +495,22 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
+    /// Im Finder zeigen: bei Kopien das Original, sofern es noch da ist
+    func reveal(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        let files = store.entries.flatMap(\.files)
+        let targets = urls.map { url in
+            files.first { $0.url == url }?.originURL() ?? url
+        }
+        NSWorkspace.shared.activateFileViewerSelecting(targets)
+    }
+
     // MARK: Menüs
 
     private func addFileItems(to menu: NSMenu, urls: [URL], anchor: NSView, open: @escaping () -> Void) {
         menu.addItem(ClosureMenuItem(L("Open", "Öffnen"), key: "o", handler: open))
-        menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), key: "r") {
-            NSWorkspace.shared.activateFileViewerSelecting(urls)
+        menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), key: "r") { [weak self] in
+            self?.reveal(urls)
         })
         menu.addItem(ClosureMenuItem(L("Copy", "Kopieren"), key: "c") { [weak self] in
             ShelfActions.copyFiles(urls)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.21.0
+* With “Always store a copy”, files from the Finder show up right away and are copied in the background; once a copy is done it takes the original’s place
+* With “Show name” off the shelf is titled “Shelf”
+* Reordering actions: the dragged action stays inside the list and above everything else
+
 ## 1.20.1
 * The shelf is titled “BarDrop”; the name can be hidden (Settings → Appearance → Show name)
 * Dropped items show up right away instead of sometimes only after reopening the shelf: new tiles no longer fade in

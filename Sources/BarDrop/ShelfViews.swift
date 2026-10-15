@@ -178,6 +178,11 @@ struct ShelfContent: View {
 
     // MARK: Kopfbereich
 
+    /// „BarDrop“ oder, mit „Namen anzeigen“ aus, einfach „Ablage“
+    private var title: String {
+        settings.showTitle ? "BarDrop" : L("Shelf", "Ablage")
+    }
+
     @ViewBuilder
     private var header: some View {
         HStack(alignment: .center, spacing: 8) {
@@ -188,13 +193,10 @@ struct ShelfContent: View {
                     HStack(spacing: 3) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .semibold))
-                        if settings.showTitle {
-                            Text("BarDrop")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
+                        Text(title)
+                            .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundStyle(.white.opacity(0.92))
-                    .frame(minWidth: 24, minHeight: 24, alignment: .leading)   // auch ohne Namen gut zu treffen
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -204,12 +206,10 @@ struct ShelfContent: View {
                 status(selected > 0 ? L("\(selected) of \(stack.files.count) selected", "\(selected) von \(stack.files.count) ausgewählt")
                                     : L("\(stack.files.count) items in stack", "\(stack.files.count) Objekte im Stapel"))
             } else {
-                if settings.showTitle {
-                    Text("BarDrop")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.92))
-                        .allowsHitTesting(false)
-                }
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.92))
+                    .allowsHitTesting(false)
                 Spacer(minLength: 8)
                 let count = store.entries.reduce(0) { $0 + $1.files.count }
                 let selected = actions.selectedEntries.reduce(0) { $0 + $1.files.count }

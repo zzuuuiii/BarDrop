@@ -18,6 +18,9 @@ final class ContentImporter {
     var convertImages: Bool
     /// Auch Dateien des Nutzers kopieren statt nur zu referenzieren (Einstellung „Immer eine Kopie anlegen“)
     var alwaysCopy = false
+    /// Kopie einer sofort gezeigten Datei ist fertig (Hauptthread): ID des Platzhalters
+    /// und die Kopie, nil wenn das Kopieren scheiterte (dann bleibt der Verweis aufs Original)
+    var onCopyFinished: (UUID, URL?) -> Void = { _, _ in }
 
     /// Datei-Versprechen werden hier erfüllt.
     private let promiseQueue: OperationQueue = {
@@ -45,7 +48,11 @@ final class ContentImporter {
     // MARK: Einstieg
 
     /// Liest das Pasteboard aus und liefert die entstandenen Dateien (immer auf dem Hauptthread).
-    func importContent(of pb: NSPasteboard, completion: @escaping ([ShelfFile]) -> Void) {
+    /// `showWhileCopying`: Dateien des Nutzers, die kopiert werden, sofort als Verweis liefern
+    /// und erst nach dem Kopieren austauschen (`onCopyFinished`). Nur für das bloße Ablegen,
+    /// nicht wenn danach eine Aktion mit den Dateien arbeitet.
+    func importContent(of pb: NSPasteboard, showWhileCopying: Bool = false,
+                       completion: @escaping ([ShelfFile]) -> Void) {
         let fileURLs = (pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
         let promises = (pb.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil) as? [NSFilePromiseReceiver]) ?? []
 
@@ -74,6 +81,12 @@ final class ContentImporter {
 
         // 2. Dateiadressen
         if !fileURLs.isEmpty {
+            // Große Dateien aus dem Finder mit „Immer eine Kopie anlegen“: gleich zeigen,
+            // im Hintergrund kopieren
+            if showWhileCopying, alwaysCopy, onlyUserFiles {
+                importShowingWhileCopying(fileURLs, completion: completion)
+                return
+            }
             importFiles(fileURLs, completion: completion)
             return
         }
@@ -112,6 +125,22 @@ final class ContentImporter {
         if path.hasPrefix("/Volumes/") || path.hasPrefix("/Users/Shared/") { return true }
         if path.hasPrefix("/Applications/") || path.hasPrefix("/System/Applications/") { return true }
         return false
+    }
+
+    /// Dateien des Nutzers sofort als Verweis liefern und im Hintergrund kopieren.
+    /// Ist eine Kopie fertig, tauscht die Ablage den Verweis gegen sie aus.
+    private func importShowingWhileCopying(_ urls: [URL], completion: @escaping ([ShelfFile]) -> Void) {
+        let placeholders = urls.map { ShelfFile(url: $0, owned: false) }
+        finish(placeholders, completion)
+        for (url, placeholder) in zip(urls, placeholders) {
+            CloudFiles.whenDownloaded(url) { [weak self] _ in
+                guard let self else { return }
+                self.copyQueue.addOperation {
+                    let copied = self.copyIntoStorage(url, foreign: false)
+                    DispatchQueue.main.async { self.onCopyFinished(placeholder.id, copied) }
+                }
+            }
+        }
     }
 
     /// Dateiadressen übernehmen: Dateien des Nutzers referenzieren, alles andere im

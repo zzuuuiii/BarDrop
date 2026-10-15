@@ -174,6 +174,31 @@ final class ShelfStore: ObservableObject {
         try? FileManager.default.createDirectory(at: itemsDir, withIntermediateDirectories: true)
         importer = ContentImporter(storage: itemsDir, convertImages: AppSettings.shared.convertWebImages)
         load()
+        importer.onCopyFinished = { [weak self] id, copy in self?.copyFinished(id, copy) }
+    }
+
+    /// Eine schon gezeigte Datei ist fertig kopiert: Verweis gegen die Kopie tauschen.
+    /// Liegt sie nicht mehr in der Ablage, wird die Kopie wieder gelöscht.
+    private func copyFinished(_ id: UUID, _ copy: URL?) {
+        guard let copy else {
+            Log.importing.error("Kopie fehlgeschlagen, Datei bleibt als Verweis")
+            return
+        }
+        var updated = entries
+        for e in updated.indices {
+            guard let f = updated[e].files.firstIndex(where: { $0.id == id }) else { continue }
+            var file = ShelfFile(url: copy, owned: true)
+            file.id = id     // Auswahl und Kachel bleiben dieselben
+            updated[e].files[f] = file
+            insertWithoutAnimation { $0 = updated }
+            return
+        }
+        let fm = FileManager.default
+        try? fm.removeItem(at: copy)
+        let dir = copy.deletingLastPathComponent()
+        if dir.path.hasPrefix(itemsDir.path), (try? fm.contentsOfDirectory(atPath: dir.path))?.isEmpty == true {
+            try? fm.removeItem(at: dir)
+        }
     }
 
     // MARK: Persistenz
@@ -577,7 +602,10 @@ final class ShelfStore: ObservableObject {
         importer.convertImages = AppSettings.shared.convertWebImages
         importer.alwaysCopy = AppSettings.shared.copyAllFiles
         pendingImports += 1
-        importer.importContent(of: pb) { [weak self] files in
+        // Bloßes Ablegen: Dateien gleich zeigen, auch wenn sie noch kopiert werden.
+        // Arbeitet danach eine Aktion mit ihnen, braucht sie die fertigen Kopien.
+        let showWhileCopying = target == nil && completion == nil
+        importer.importContent(of: pb, showWhileCopying: showWhileCopying) { [weak self] files in
             guard let self else { return }
             self.pendingImports = max(0, self.pendingImports - 1)
             guard !files.isEmpty else {

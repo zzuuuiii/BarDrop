@@ -243,6 +243,8 @@ struct AppearanceSettings: View {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
                 ToggleRow(L("Show name", "Namen anzeigen"),
+                          info: L("The open shelf is titled “BarDrop”, otherwise “Shelf”.",
+                                  "Oben in der offenen Ablage steht „BarDrop“, sonst „Ablage“."),
                           isOn: $settings.showTitle)
                 PickerRow(L("Animation", "Animation"),
                           // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
@@ -439,12 +441,14 @@ struct ActionSettings: View {
 
                 ActionListEditor(settings: settings, selection: $selection,
                                  onRemove: remove, onMove: move)
+                    .zIndex(1)   // gezogene Zeile liegt über allem darunter
 
                 AddActionRow(count: settings.quickActions.count, limit: limit, frame: $addButtonFrame) {
                     showAddMenu()
                 }
                 .padding(.top, 4)
             }
+            .zIndex(1)
 
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
@@ -778,8 +782,12 @@ private struct ActionListEditor: View {
                     dragging = action.id
                     dragStartY = y(of: action.id, in: committed)
                 }
-                dragTranslation = g.translation.height
-                let top = dragStartY + dragTranslation
+                // Nur innerhalb der Liste: von der ersten bis zur letzten Zeile
+                // (mit zwei Reihen bis zum letzten Platz der unteren Reihe)
+                let minTop = twoRows ? Self.labelHeight : 0
+                let maxTop = max(minTop, totalHeight(shown) - Self.rowHeight)
+                let top = min(max(dragStartY + g.translation.height, minTop), maxTop)
+                dragTranslation = top - dragStartY
                 let next = propose(for: action.id, top: top)
                 if next != shown {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { proposal = next }

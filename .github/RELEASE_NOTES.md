@@ -1,7 +1,9 @@
-* The shelf is titled “BarDrop”; the name can be hidden (Settings → Appearance → Show name)
-* Dropped items show up right away instead of sometimes only after reopening the shelf
+* With “Always store a copy”, files from the Finder show up right away and are copied in the background
+* With “Show name” off the shelf is titled “Shelf”
+* Reordering actions: the dragged action stays inside the list and above everything else
 
 <!-- de -->
 
-* Die Ablage heißt oben „BarDrop“; der Name lässt sich ausblenden (Einstellungen → Aussehen → Namen anzeigen)
-* Abgelegte Objekte erscheinen sofort und nicht mehr manchmal erst beim nächsten Öffnen
+* Mit „Immer eine Kopie anlegen“ erscheinen Dateien aus dem Finder sofort und werden im Hintergrund kopiert
+* Mit „Namen anzeigen“ aus steht oben „Ablage“
+* Aktionen umordnen: Die gezogene Aktion bleibt innerhalb der Liste und liegt über allem anderen

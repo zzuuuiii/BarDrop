@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 APP="BarDrop"
-VERSION="$(cat VERSION | tr -d '[:space:]')"
+VERSION="$(cat Resources/VERSION | tr -d '[:space:]')"
 BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
 OUT="build"
 

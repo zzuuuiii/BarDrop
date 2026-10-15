@@ -62,15 +62,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          VERSION="$(cat VERSION | tr -d '[:space:]')"
+          VERSION="$(cat Resources/VERSION | tr -d '[:space:]')"
           TAG="v$VERSION"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" build/BarDrop.dmg --clobber
-            gh release edit "$TAG" --notes-file RELEASE_NOTES.md
+            gh release edit "$TAG" --notes-file .github/RELEASE_NOTES.md
           else
             gh release create "$TAG" build/BarDrop.dmg \
               --title "BarDrop $VERSION" \
-              --notes-file RELEASE_NOTES.md \
+              --notes-file .github/RELEASE_NOTES.md \
               --target "$GITHUB_SHA" \
               --latest
           fi

@@ -9,7 +9,6 @@
 * What’s new shows English notes for older versions too
 * Updates are only installed with a verified checksum
 * Faster with files on network drives; icons refresh when the shelf opens
-* Shorter README
 
 ## 1.17.1
 * Two-row action bar: each row is centered and uses the full width instead of being squeezed to the left

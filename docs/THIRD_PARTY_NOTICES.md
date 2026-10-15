@@ -1,11 +1,11 @@
 # Third-party notices
 
-BarDrop is licensed under the [GNU General Public License v3.0](LICENSE). Some parts are based on, or taken and adapted from, the following open-source projects. These places are marked in the source code with “nach boring.notch” or “nach perch” (German for “based on”).
+BarDrop is licensed under the [GNU General Public License v3.0](../LICENSE). Some parts are based on, or taken and adapted from, the following open-source projects. These places are marked in the source code with “nach boring.notch” or “nach perch” (German for “based on”).
 
 ## boring.notch
 
 * Project: https://github.com/TheBoredTeam/boring.notch
-* License: GNU General Public License v3.0 (same license as BarDrop, text in [LICENSE](LICENSE))
+* License: GNU General Public License v3.0 (same license as BarDrop, text in [LICENSE](../LICENSE))
 * Used for: taking in images from the web, bookmarks for moved files, saving the shelf, thumbnails, detecting drags
 
 ## perch

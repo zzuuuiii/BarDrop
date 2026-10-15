@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.25.1
+* Open in full screen: also recognized on displays with a notch, where full screen apps leave the strip next to the camera free; checked again a little later after switching to full screen
+* A light tap when you bring an item you dragged out back to the edge and the shelf opens again
+* No more double tap when dropping: if the file reached the shelf just before, the drop tap is skipped
+* With “Always store a copy”, a tile no longer fades in again when the copy is done
+* Dragging an action out removes it as soon as it’s outside the black shelf, not only outside its shadow
+* Older delay values snap to the nearest choice under “Open shelf”
+
 ## 1.25.0
 * The fade above the action bar starts and ends softly, so no line is visible where it turns opaque; it still reaches only 24 points into the items
 * Dropped files no longer flash a white blank document first: tiles show the icon of the file type and wait a moment for the preview

@@ -56,7 +56,9 @@ final class ActionDropNSView: NSView, NSDraggingSource {
         let point = convert(a, from: nil)
         dragging.setDraggingFrame(NSRect(x: point.x - size / 2, y: point.y - size / 2, width: size, height: size),
                                   contents: dragOut.image())
-        dragStartFrame = window.frame
+        // An der schwarzen Form messen, nicht am Fenster (das ist wegen des Schattens größer)
+        let body = ui?.expandedBody ?? .zero
+        dragStartFrame = body.isEmpty ? window.frame : body
         // Wie beim Herausziehen von Objekten: Die Ablage bleibt, solange der Drag läuft
         ui?.ownDragActive = true
         let session = beginDraggingSession(with: [dragging], event: down, source: self)

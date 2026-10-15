@@ -1,11 +1,15 @@
-* The fade above the action bar starts and ends softly, so no line is visible where it turns opaque
-* Dropped files no longer flash a white blank document first: tiles show the icon of the file type and wait a moment for the preview
-* Settings open on the display where the shelf is
-* New defaults: actions AirDrop, Downloads and Trash; always store a copy; larger hit area; pin by dragging; no outline; shelf height 380 pt; strip 7 × 80 pt with 65 % edge curve. Settings you changed yourself stay as they are
+* Open in full screen: also recognized on displays with a notch; checked again a little later after switching to full screen
+* A light tap when you bring an item you dragged out back to the edge and the shelf opens again
+* No more double tap when dropping
+* With “Always store a copy”, a tile no longer fades in again when the copy is done
+* Dragging an action out removes it as soon as it’s outside the black shelf
+* Older delay values snap to the nearest choice under “Open shelf”
 
 <!-- de -->
 
-* Der Verlauf über der Aktionsleiste beginnt und endet weich, ohne sichtbare Linie am Übergang
-* Abgelegte Dateien zeigen nicht mehr kurz ein weißes Blatt: Kacheln zeigen das Symbol des Dateityps und warten einen Moment auf die Vorschau
-* Die Einstellungen öffnen auf dem Bildschirm, an dem die Ablage ist
-* Neue Standardwerte: Aktionen AirDrop, Downloads und Papierkorb; immer eine Kopie anlegen; größerer Trefferbereich; per Ziehen anheften; kein Rahmen; Höhe 380 pt; Streifen 7 × 80 pt mit 65 % Rundung. Selbst geänderte Einstellungen bleiben, wie sie sind
+* Im Vollbild öffnen: Vollbild wird jetzt auch auf Bildschirmen mit Notch erkannt und nach dem Wechsel etwas später noch einmal geprüft
+* Ein leichter Impuls, wenn du ein herausgezogenes Objekt zurück an den Rand bringst und die Ablage wieder aufgeht
+* Kein doppelter Impuls mehr beim Ablegen
+* Mit „Immer eine Kopie anlegen“ blendet sich eine Kachel nicht erneut ein, wenn die Kopie fertig ist
+* Eine Aktion herausziehen entfernt sie, sobald sie außerhalb der schwarzen Ablage ist
+* Ältere Wartezeiten werden auf den nächsten Wert unter „Ablage öffnen“ gerundet

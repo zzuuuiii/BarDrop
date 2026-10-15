@@ -9,8 +9,15 @@ import IOKit
 /// Ist das nicht möglich, wird auf `NSHapticFeedbackManager` zurückgegriffen.
 enum Haptics {
     /// Einzelner, dezenter Impuls (Öffnen, Drüberziehen einer Aktion).
+    /// Zeitpunkt des letzten Impulses (nur auf dem Hauptthread)
+    private static var lastTap = Date.distantPast
+
     static func tap() {
         guard AppSettings.shared.hapticsEnabled else { return }
+        // Zwei Auslöser im selben Moment (z. B. Ablage erreicht und Aktion darunter) zählen einmal
+        let now = Date()
+        guard now.timeIntervalSince(lastTap) > 0.08 else { return }
+        lastTap = now
         if !TrackpadActuator.shared.actuate(.weak) {
             NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
@@ -19,7 +26,11 @@ enum Haptics {
     /// Impuls beim Ablegen. Bewusst derselbe leichte, einzelne Impuls wie beim
     /// Erreichen der Ablage: Die stärkere Stufe des Aktuators fühlt sich wie ein
     /// doppeltes Klicken an.
+    ///
+    /// Kam gerade erst ein Impuls (die Datei hat die Ablage eben erreicht, z. B. bei einem
+    /// schnellen Wurf), entfällt dieser: Zwei Impulse kurz hintereinander wirken doppelt.
     static func drop() {
+        guard Date().timeIntervalSince(lastTap) > 0.4 else { return }
         tap()
     }
 }

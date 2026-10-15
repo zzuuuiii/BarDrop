@@ -81,14 +81,19 @@ final class EdgeController: NSObject {
             // Fensterlage oben links gemessen, Bildschirme unten links
             let rect = CGRect(x: bounds.minX, y: primaryHeight - bounds.maxY,
                               width: bounds.width, height: bounds.height)
-            if let s = screens.first(where: { Self.covers(rect, $0.frame) }) { frames.append(s.frame) }
+            if let s = screens.first(where: { Self.fillsScreen(rect, $0) }) { frames.append(s.frame) }
         }
         fullScreenFrames = frames
     }
 
-    private static func covers(_ a: CGRect, _ b: CGRect) -> Bool {
-        abs(a.minX - b.minX) < 2 && abs(a.minY - b.minY) < 2
-            && abs(a.width - b.width) < 2 && abs(a.height - b.height) < 2
+    /// Füllt das Fenster den Bildschirm wie im Vollbild? Auf Bildschirmen mit Notch lässt
+    /// macOS den Streifen neben der Kamera frei: Das Fenster darf um diese Höhe kürzer sein.
+    private static func fillsScreen(_ rect: CGRect, _ screen: NSScreen) -> Bool {
+        let f = screen.frame
+        let notch = max(0, screen.safeAreaInsets.top)
+        return abs(rect.minX - f.minX) < 2 && abs(rect.width - f.width) < 2
+            && abs(rect.minY - f.minY) < 2
+            && rect.height >= f.height - notch - 2 && rect.height <= f.height + 2
     }
 
     private func updateFrontmostExcluded(_ excluded: [String]? = nil) {
@@ -139,7 +144,9 @@ final class EdgeController: NSObject {
             forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             self?.updateFullScreen()
+            // Die Vollbild-Animation kann länger dauern: zweimal nachsehen
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self?.updateFullScreen() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { self?.updateFullScreen() }
         }
         fullScreenObserver = settings.$openInFullScreen
             .receive(on: DispatchQueue.main)
@@ -545,6 +552,7 @@ final class EdgeController: NSObject {
 
         let dx = settings.edge == .right ? screen.frame.maxX - loc.x : loc.x - screen.frame.minX
         let expandedBody = bodyRect(.expanded, on: screen)
+        ui.expandedBody = expandedBody
         let locked = ui.isLocked || actions.isQuickLookVisible
 
         if ui.expandRequested {

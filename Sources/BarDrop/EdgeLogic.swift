@@ -90,6 +90,8 @@ enum EdgeLogic {
                 // aber wieder, wenn man damit an den Rand zurückkommt (zum Zurücklegen)
                 let backAtEdge = s.onScreen && !s.innerEdge && s.dx < dragExpandDistance && s.dy < dragExpandSpan
                 result.target = s.overExpanded || state.manualOpen || backAtEdge ? .expanded : .hidden
+                // Zurück am Rand: derselbe leichte Impuls wie beim ersten Hineinziehen
+                if result.target == .expanded && state.level != .expanded { result.haptic = true }
             } else if c.dragReveal == .off {
                 result.target = s.overExpanded || state.manualOpen ? .expanded : .hidden
             } else if !s.onScreen || (s.innerEdge && !s.overExpanded && !state.manualOpen) {

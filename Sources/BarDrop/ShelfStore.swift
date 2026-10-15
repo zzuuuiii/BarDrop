@@ -189,6 +189,8 @@ final class ShelfStore: ObservableObject {
             guard let f = updated[e].files.firstIndex(where: { $0.id == id }) else { continue }
             var file = ShelfFile(url: copy, owned: true)
             file.id = id     // Auswahl und Kachel bleiben dieselben
+            // Die Kachel ist schon zu sehen: beim Austausch nicht erneut einblenden
+            Thumbnails.shownOnce.insert(copy.path)
             updated[e].files[f] = file
             insertWithoutAnimation { $0 = updated }
             return

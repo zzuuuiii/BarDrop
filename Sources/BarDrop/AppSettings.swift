@@ -529,7 +529,9 @@ final class AppSettings: ObservableObject {
         dragOutCopyOnly = defaults.bool(forKey: Key.dragOutCopyOnly)
         showOutline = defaults.bool(forKey: Key.showOutline)
         showTitle = defaults.bool(forKey: Key.showTitle)
-        openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
+        // Auf eine der wählbaren Wartezeiten runden (ältere Versionen hatten andere)
+        let storedDelay = defaults.double(forKey: Key.openDelay)
+        openDelay = OpenDelay.choices.min { abs($0 - storedDelay) < abs($1 - storedDelay) } ?? OpenDelay.instant
         let storedLanguage = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
         language = storedLanguage
         AppLanguage.current = storedLanguage

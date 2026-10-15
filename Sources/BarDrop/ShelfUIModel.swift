@@ -38,6 +38,8 @@ final class ShelfUIModel: ObservableObject {
     var lastDropWasInternal = false
     /// Klick auf die mittlere Stufe: Ablage ganz öffnen (Modus „Per Klick“).
     var expandRequested = false
+    /// Lage der offenen Ablage (schwarze Form) auf dem Bildschirm, ohne Schattenrand
+    var expandedBody: CGRect = .zero
 
     /// Ordner oder App, die gerade über die Ablage gezogen wird und sich anheften ließe.
     /// Solange gesetzt, zeigt die Aktionsleiste einen freien Platz zum Anheften.

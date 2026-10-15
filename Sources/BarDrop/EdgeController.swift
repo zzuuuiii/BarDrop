@@ -56,44 +56,22 @@ final class EdgeController: NSObject {
     /// Öffnen im Vollbild ausgeschaltet ist, sonst leer)
     private var fullScreenFrames: [CGRect] = []
     private var spaceObserver: NSObjectProtocol?
+    private var terminateObserver: NSObjectProtocol?
     private var fullScreenObserver: AnyCancellable?
 
-    /// Fenster der App vorn, die einen ganzen Bildschirm bedecken. Nur Lage und Besitzer
-    /// der Fenster werden gelesen, dafür braucht es keine Bildschirmaufnahme-Erlaubnis.
-    /// Läuft nur beim App- oder Schreibtischwechsel, nicht im Takt.
+    /// Bildschirme, die gerade einen Vollbild-Schreibtisch zeigen. Gefragt wird macOS
+    /// selbst, welche Art Schreibtisch aktiv ist, nicht die Fenstergröße: Ein Fenster, das
+    /// nur den Bildschirm ausfüllt, ist kein Vollbild. Läuft nur beim App- oder
+    /// Schreibtischwechsel, nicht im Takt.
     private func updateFullScreen(enabled: Bool? = nil) {
         let open = enabled ?? settings.openInFullScreen
-        guard !open, let pid = NSWorkspace.shared.frontmostApplication?.processIdentifier,
-              pid != ProcessInfo.processInfo.processIdentifier,
-              let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
-                                                       kCGNullWindowID) as? [[String: Any]] else {
+        guard !open, let spaces = FullScreenSpaces.displays() else {
             fullScreenFrames = []
             return
         }
-        let screens = NSScreen.screens
-        let primaryHeight = screens.first?.frame.height ?? 0
-        var frames: [CGRect] = []
-        for window in windows {
-            guard (window[kCGWindowOwnerPID as String] as? pid_t) == pid,
-                  (window[kCGWindowLayer as String] as? Int) == 0,
-                  let dict = window[kCGWindowBounds as String] as? NSDictionary,
-                  let bounds = CGRect(dictionaryRepresentation: dict) else { continue }
-            // Fensterlage oben links gemessen, Bildschirme unten links
-            let rect = CGRect(x: bounds.minX, y: primaryHeight - bounds.maxY,
-                              width: bounds.width, height: bounds.height)
-            if let s = screens.first(where: { Self.fillsScreen(rect, $0) }) { frames.append(s.frame) }
-        }
-        fullScreenFrames = frames
-    }
-
-    /// Füllt das Fenster den Bildschirm wie im Vollbild? Auf Bildschirmen mit Notch lässt
-    /// macOS den Streifen neben der Kamera frei: Das Fenster darf um diese Höhe kürzer sein.
-    private static func fillsScreen(_ rect: CGRect, _ screen: NSScreen) -> Bool {
-        let f = screen.frame
-        let notch = max(0, screen.safeAreaInsets.top)
-        return abs(rect.minX - f.minX) < 2 && abs(rect.width - f.width) < 2
-            && abs(rect.minY - f.minY) < 2
-            && rect.height >= f.height - notch - 2 && rect.height <= f.height + 2
+        fullScreenFrames = NSScreen.screens
+            .filter { spaces.all || spaces.uuids.contains(FullScreenSpaces.uuid(of: $0) ?? "") }
+            .map(\.frame)
     }
 
     private func updateFrontmostExcluded(_ excluded: [String]? = nil) {
@@ -148,6 +126,10 @@ final class EdgeController: NSObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { self?.updateFullScreen() }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { self?.updateFullScreen() }
         }
+        // Eine Vollbild-App wird beendet: Ihr Schreibtisch verschwindet
+        terminateObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.updateFullScreen() }
         fullScreenObserver = settings.$openInFullScreen
             .receive(on: DispatchQueue.main)
             .sink { [weak self] open in self?.updateFullScreen(enabled: open) }

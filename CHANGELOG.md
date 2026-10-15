@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.25.2
+* Open in full screen: BarDrop now asks macOS whether a display shows a full screen space, instead of guessing from window sizes. A window that merely fills the screen no longer counts as full screen
+
 ## 1.25.1
 * Open in full screen: also recognized on displays with a notch, where full screen apps leave the strip next to the camera free; checked again a little later after switching to full screen
 * A light tap when you bring an item you dragged out back to the edge and the shelf opens again

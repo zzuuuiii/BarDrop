@@ -152,14 +152,18 @@ struct ShelfContent: View {
                     .overlay(alignment: .topLeading) { bandOverlay }
                     .onPreferenceChange(TileFramesKey.self) { tileFrames = $0 }
                 }
-                // Unten weich auslaufen statt hart abgeschnitten: Kacheln, die unter der
-                // Aktionsleiste weitergehen, scheinen auf den letzten Punkten leicht durch
+                // Unten weich auslaufen statt hart abgeschnitten: ganz bis unsichtbar und
+                // mit sanftem Verlauf, sonst bliebe am Ende doch eine Kante stehen
                 .mask(
                     VStack(spacing: 0) {
                         Color.black
-                        LinearGradient(colors: [.black, .black.opacity(0.15)],
-                                       startPoint: .top, endPoint: .bottom)
-                            .frame(height: 16)
+                        LinearGradient(stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black.opacity(0.8), location: 0.3),
+                            .init(color: .black.opacity(0.4), location: 0.65),
+                            .init(color: .black.opacity(0), location: 1)
+                        ], startPoint: .top, endPoint: .bottom)
+                        .frame(height: 22)
                     }
                 )
             }

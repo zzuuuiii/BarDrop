@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.21.2
+* The bottom edge of the item grid now fades out completely, without a visible edge at the end
+
 ## 1.21.1
 * Items fade out softly at the bottom edge above the action bar instead of being cut off
 

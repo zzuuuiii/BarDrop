@@ -1,5 +1,5 @@
-* Items fade out softly at the bottom edge above the action bar instead of being cut off
+* The bottom edge of the item grid now fades out completely, without a visible edge at the end
 
 <!-- de -->
 
-* Objekte laufen am unteren Rand über der Aktionsleiste weich aus, statt hart abgeschnitten zu sein
+* Der untere Rand der Objekte läuft jetzt ganz aus, ohne sichtbare Kante am Ende

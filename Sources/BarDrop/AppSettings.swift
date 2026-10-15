@@ -531,9 +531,10 @@ final class AppSettings: ObservableObject {
         // nie selbst umgestellt hat, behält den Zustand, den er gerade sieht; neue
         // Installationen beginnen mit Rahmen.
         // (object(forKey:) sähe auch den registrierten Standard, deshalb im eigenen Bereich nachsehen)
-        let ownValues = Bundle.main.bundleIdentifier.flatMap { defaults.persistentDomain(forName: $0) } ?? [:]
-        if ownValues[Key.showOutline] == nil, defaults.bool(forKey: Key.didLaunchBefore) {
-            defaults.set(false, forKey: Key.showOutline)
+        let store = UserDefaults.standard
+        let ownValues = Bundle.main.bundleIdentifier.flatMap { store.persistentDomain(forName: $0) } ?? [:]
+        if ownValues[Key.showOutline] == nil, store.bool(forKey: Key.didLaunchBefore) {
+            store.set(false, forKey: Key.showOutline)
         }
         showOutline = defaults.bool(forKey: Key.showOutline)
         showTitle = defaults.bool(forKey: Key.showTitle)

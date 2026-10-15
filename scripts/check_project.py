@@ -48,7 +48,7 @@ for path in sorted((ROOT / "Sources").rglob("*.swift")):
 
 # Version, Änderungsprotokoll und Release-Notizen passen zusammen
 version = (ROOT / "Resources/VERSION").read_text(encoding="utf-8").strip()
-if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+if not re.fullmatch(r"\d+\.\d+\.\d+(-beta\.\d+)?", version):
     error("Resources/VERSION", f"keine Version: {version!r}")
 
 changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")

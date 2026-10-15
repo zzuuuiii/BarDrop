@@ -261,3 +261,15 @@ final class EdgeLogicTests: XCTestCase {
         XCTAssertTrue(back.haptic, "Mit leichtem Impuls, wie beim ersten Hineinziehen")
     }
 }
+
+/// Versionsnummern mit Betas vergleichen
+final class VersionTests: XCTestCase {
+    func testBetasComeBeforeTheRegularVersion() {
+        XCTAssertTrue(Updater.isNewer("1.29.0", than: "1.29.0-beta.3"))
+        XCTAssertTrue(Updater.isNewer("1.29.0-beta.2", than: "1.29.0-beta.1"))
+        XCTAssertTrue(Updater.isNewer("1.29.0-beta.1", than: "1.28.1"))
+        XCTAssertFalse(Updater.isNewer("1.29.0-beta.4", than: "1.29.0"))
+        XCTAssertFalse(Updater.isNewer("1.28.1", than: "1.28.1"))
+        XCTAssertTrue(Updater.isNewer("1.30.0", than: "1.29.9"))
+    }
+}

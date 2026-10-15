@@ -1,9 +1,11 @@
-* Beta channel: Settings → About BarDrop → Beta versions. New versions appear as betas first; regular versions summarize everything since the last one
-* Convert moved to the right-click menu of an item or a selection (several images can be combined into one PDF); it’s no longer an action in the bar
-* Names under the actions are back to their previous size
+* Updates install by themselves in the background once BarDrop hasn’t been used for 15 minutes
+* Holding ⌫ removes only one item; press again for the next
+* Version numbers: betas are called like the version they lead to, for example 1.29.0-beta.1
+* Fewer info buttons, clearer texts for automatic updates and beta versions
 
 <!-- de -->
 
-* Beta-Kanal: Einstellungen → Über BarDrop → Beta-Versionen. Neue Versionen erscheinen zuerst als Beta; reguläre Versionen fassen alles seit der letzten zusammen
-* Umwandeln steht jetzt im Rechtsklick-Menü eines Objekts oder einer Auswahl (mehrere Bilder lassen sich zu einem PDF zusammenfassen); als Aktion in der Leiste gibt es es nicht mehr
-* Die Namen unter den Aktionen haben wieder ihre frühere Größe
+* Updates installieren sich im Hintergrund von selbst, wenn BarDrop 15 Minuten nicht benutzt wurde
+* ⌫ gedrückt halten entfernt nur ein Objekt; für das nächste noch einmal drücken
+* Versionsnummern: Betas heißen wie die Version, zu der sie führen, etwa 1.29.0-beta.1
+* Weniger Info-Knöpfe, klarere Texte für automatische Updates und Beta-Versionen

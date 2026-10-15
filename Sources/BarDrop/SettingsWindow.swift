@@ -228,14 +228,14 @@ struct AboutSettings: View {
     let showOnboarding: () -> Void
 
     private var version: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "–"
+        Updater.shared.currentVersion
     }
 
     private var updateNote: String {
         switch updater.state {
         case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
-        case .available(let v): return L("Version \(v) is available. BarDrop will be replaced and restart; your items stay in the shelf.",
-                                         "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Objekte bleiben in der Ablage.")
+        case .available(let v): return L("Version \(v) is ready. BarDrop installs it by itself when you haven’t used it for a while, or update now. Your items stay in the shelf.",
+                                         "Version \(v) ist bereit. BarDrop installiert sie von selbst, wenn du es eine Weile nicht benutzt, oder du aktualisierst jetzt. Die Objekte bleiben in der Ablage.")
         // Feste Meldung statt der gespeicherten: bleibt in der gewählten Sprache
         case .failed: return L("The last attempt didn’t work. Please try again later.",
                                "Der letzte Versuch hat nicht geklappt. Versuch es später noch einmal.")
@@ -267,10 +267,13 @@ struct AboutSettings: View {
                 }
                 .padding(.horizontal, SettingsTheme.rowPadding)
                 .padding(.vertical, 12)
-                ToggleRow(L("Check for updates automatically", "Automatisch nach Updates suchen"), isOn: $settings.autoUpdateCheck)
+                ToggleRow(L("Update automatically", "Automatisch aktualisieren"),
+                          info: L("New versions are installed in the background after BarDrop hasn’t been used for 15 minutes.",
+                                  "Neue Versionen werden im Hintergrund installiert, wenn BarDrop 15 Minuten nicht benutzt wurde."),
+                          isOn: $settings.autoUpdateCheck)
                 ToggleRow(L("Beta versions", "Beta-Versionen"),
-                          info: L("Get new versions earlier, as soon as they’re built. They may still have bugs. Regular versions collect all changes since the last one.",
-                                  "Neue Versionen früher bekommen, sobald sie fertig sind. Sie können noch Fehler haben. Reguläre Versionen fassen alle Änderungen seit der letzten zusammen."),
+                          info: L("Try new features before they come to everyone. Betas may still have bugs.",
+                                  "Neue Funktionen ausprobieren, bevor sie für alle erscheinen. Betas können noch Fehler haben."),
                           isOn: $settings.betaUpdates)
             }
 

@@ -52,6 +52,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .removeDuplicates { $0 == $1 }
             .sink { [weak self] code, modifiers in self?.registerHotKey(code: code, modifiers: modifiers) }
 
+        // Stille Updates nur, wenn BarDrop 15 Minuten unbenutzt war und kein Fenster offen ist
+        Updater.shared.isIdle = { [weak self] in
+            guard let self else { return false }
+            return self.controller.isIdle(for: 15 * 60)
+                && self.settingsWindow?.isVisible != true && self.onboarding == nil
+        }
         Updater.shared.start()
 
         // Erster Start: Einführung. Als erledigt gilt sie erst, wenn sie geschlossen
@@ -60,7 +66,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // sähe man sonst gar nicht, dass BarDrop läuft.
         if !settings.didLaunchBefore {
             DispatchQueue.main.async { [weak self] in self?.showOnboarding() }
-        } else {
+        } else if !Updater.launchedAfterUpdate {
+            // Nach einem stillen Update nicht zeigen: Davon soll man nichts merken
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.controller.greet() }
         }
     }

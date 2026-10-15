@@ -337,9 +337,19 @@ final class EdgeController: NSObject {
 
     // MARK: Zustände
 
+    /// Zuletzt sichtbar oder benutzt (für stille Updates)
+    private(set) var lastActivity = Date()
+
+    /// Ruht die Ablage seit `interval` Sekunden (zu und nichts in Arbeit)?
+    func isIdle(for interval: TimeInterval) -> Bool {
+        ui.level == .hidden && !ui.ownDragActive && store.pendingImports == 0
+            && Date().timeIntervalSince(lastActivity) >= interval
+    }
+
     private func setLevel(_ new: ShelfUIModel.Level) {
         let old = ui.level
         guard new != old else { return }
+        lastActivity = Date()
         let style = settings.animationStyle
         // Kleine Stufen haben ihre eigene, elastische Bewegung; die Ablage selbst die gewählte
         let animation: Animation

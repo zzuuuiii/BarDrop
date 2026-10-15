@@ -260,7 +260,6 @@ final class AppSettings: ObservableObject {
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
         static let hotKeyLabel = "hotKeyLabel"
-        static let skippedUpdateVersion = "skippedUpdateVersion"
         static let didLaunchBefore = "didLaunchBefore"
     }
 
@@ -336,13 +335,8 @@ final class AppSettings: ObservableObject {
         return s + hotKeyLabel
     }
 
-    /// Regelmäßig auf GitHub nach neuen Versionen suchen.
+    /// Neue Versionen still im Hintergrund installieren (sucht dafür regelmäßig auf GitHub).
     @Published var autoUpdateCheck: Bool { didSet { defaults.set(autoUpdateCheck, forKey: Key.autoUpdateCheck) } }
-    /// Version, die der Nutzer beim automatischen Hinweis übersprungen hat.
-    var skippedUpdateVersion: String? {
-        get { defaults.string(forKey: Key.skippedUpdateVersion) }
-        set { defaults.set(newValue, forKey: Key.skippedUpdateVersion) }
-    }
     /// Feiner heller Rahmen um die schwarze Form (sichtbar auf dunklem Hintergrund).
     @Published var showOutline: Bool { didSet { defaults.set(showOutline, forKey: Key.showOutline) } }
     /// Name „BarDrop“ oben in der offenen Ablage
@@ -573,6 +567,8 @@ final class AppSettings: ObservableObject {
         defaults.removeObject(forKey: "showMenuBarIcon")
         // „Klick öffnet sofort“ gibt es nicht mehr als Schalter: Mit Wartezeit gilt es immer
         defaults.removeObject(forKey: "clickToOpenEarly")
+        // Versionen überspringen gibt es nicht mehr: Updates kommen still im Hintergrund
+        defaults.removeObject(forKey: "skippedUpdateVersion")
 
         if let data = defaults.data(forKey: Key.quickActions),
            let decoded = try? JSONDecoder().decode([QuickAction].self, from: data) {
@@ -638,7 +634,6 @@ final class AppSettings: ObservableObject {
         sortOrder = .newestFirst
         quickActions = QuickAction.defaults
         autoUpdateCheck = true
-        skippedUpdateVersion = nil
         resetHotKey()
     }
 

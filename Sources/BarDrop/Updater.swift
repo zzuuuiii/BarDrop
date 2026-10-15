@@ -37,9 +37,19 @@ final class Updater: ObservableObject {
     private var release: Release?
     private var timer: Timer?
 
+    /// Volle Version, bei Betas mit „-beta.N“
     var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+        Bundle.main.object(forInfoDictionaryKey: "BarDropVersion") as? String
+            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
+
+    /// Wird BarDrop gerade nicht benutzt? (seit 15 Minuten keine Ablage offen, keine
+    /// Einstellungen, nichts in Arbeit). Dann darf ein Update still installiert werden.
+    var isIdle: () -> Bool = { false }
+    /// Wartet auf eine ruhige Minute für die stille Installation
+    private var idleTimer: Timer?
+    /// Die laufende Installation kam ohne Zutun: keine Fenster, keine Fehlermeldung
+    private var silent = false
 
     /// Prüft kurz nach dem Start und danach alle sechs Stunden, wenn eingeschaltet.
     func start() {
@@ -100,8 +110,10 @@ final class Updater: ObservableObject {
         }
         release = Release(version: version, dmg: dmg, sha256: digest, page: page)
         state = .available(version)
-        if interactive || AppSettings.shared.skippedUpdateVersion != version {
-            offer(version, interactive: interactive)
+        if interactive {
+            offer(version)
+        } else {
+            installWhenIdle()
         }
     }
 
@@ -120,46 +132,76 @@ final class Updater: ObservableObject {
             .max { isNewer(version($1), than: version($0)) }
     }
 
+    /// Versionen vergleichen: 1.29.0 > 1.29.0-beta.2 > 1.29.0-beta.1 > 1.28.3
     static func isNewer(_ a: String, than b: String) -> Bool {
-        let x = a.split(separator: ".").map { Int($0) ?? 0 }
-        let y = b.split(separator: ".").map { Int($0) ?? 0 }
-        for i in 0..<max(x.count, y.count) {
-            let l = i < x.count ? x[i] : 0
-            let r = i < y.count ? y[i] : 0
+        func parts(_ v: String) -> (core: [Int], beta: Int?) {
+            let split = v.split(separator: "-", maxSplits: 1)
+            let core = split.first.map { $0.split(separator: ".").map { Int($0) ?? 0 } } ?? []
+            let beta = split.count > 1 ? Int(split[1].split(separator: ".").last ?? "") ?? 0 : nil
+            return (core, beta)
+        }
+        let x = parts(a), y = parts(b)
+        for i in 0..<max(x.core.count, y.core.count) {
+            let l = i < x.core.count ? x.core[i] : 0
+            let r = i < y.core.count ? y.core[i] : 0
             if l != r { return l > r }
         }
-        return false
+        switch (x.beta, y.beta) {
+        case (nil, nil): return false
+        case (nil, _): return true          // die reguläre Version ist neuer als ihre Betas
+        case (_, nil): return false
+        case let (l?, r?): return l > r
+        }
     }
 
     // MARK: Anbieten
 
-    private func offer(_ version: String, interactive: Bool) {
+    /// Im Hintergrund: jede Minute nachsehen, ob BarDrop gerade unbenutzt ist, und dann
+    /// ohne Rückfrage installieren. Die neue Version startet unbemerkt an derselben Stelle.
+    private func installWhenIdle() {
+        guard idleTimer == nil else { return }
+        let timer = Timer(timeInterval: 60, repeats: true) { [weak self] timer in
+            guard let self else { return timer.invalidate() }
+            guard case .available = self.state else {
+                timer.invalidate()
+                self.idleTimer = nil
+                return
+            }
+            guard AppSettings.shared.autoUpdateCheck, self.isIdle() else { return }
+            timer.invalidate()
+            self.idleTimer = nil
+            self.install(silent: true)
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        idleTimer = timer
+    }
+
+    private func offer(_ version: String) {
         let alert = NSAlert()
         alert.messageText = L("BarDrop \(version) is available", "BarDrop \(version) ist verfügbar")
         alert.informativeText = L("You have version \(currentVersion). BarDrop will be replaced and restart; your items stay in the shelf.",
                                   "Installiert ist Version \(currentVersion). BarDrop wird ersetzt und startet neu, die Objekte bleiben in der Ablage.")
         alert.addButton(withTitle: L("Install", "Installieren"))
         alert.addButton(withTitle: L("Later", "Später"))
-        if !interactive { alert.addButton(withTitle: L("Skip This Version", "Diese Version überspringen")) }
         alert.icon = NSApp.applicationIconImage
         NSApp.activate(ignoringOtherApps: true)
         switch alert.runModal() {
         case .alertFirstButtonReturn:
             install()
-        case .alertThirdButtonReturn:
-            AppSettings.shared.skippedUpdateVersion = version
         default:
-            break
+            installWhenIdle()
         }
     }
 
     // MARK: Installieren
 
-    func install() {
+    func install(silent: Bool = false) {
         guard let release else { return check(interactive: true) }
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app" else { return }
+        self.silent = silent
         if target.path.contains("/AppTranslocation/") || target.path.hasPrefix("/Volumes/") {
+            guard !silent else { return }
             showMessage(L("Move BarDrop to Applications first", "BarDrop zuerst in „Programme“ bewegen"),
                         L("BarDrop is running straight from the download. Move BarDrop to the Applications folder first and open it from there.",
                           "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort."))
@@ -273,6 +315,9 @@ final class Updater: ObservableObject {
         }
     }
 
+    /// Diese Instanz wurde von einem Update gestartet
+    static var launchedAfterUpdate: Bool { ProcessInfo.processInfo.arguments.contains(afterUpdateArgument) }
+
     /// Beim Start nach einem Update: auf das Ende der alten Fassung warten (höchstens
     /// zehn Sekunden), dann weitermachen. Ohne Update sofort.
     static func waitForPreviousVersion(then proceed: @escaping () -> Void) {
@@ -318,6 +363,8 @@ final class Updater: ObservableObject {
         Log.edge.error("Update fehlgeschlagen: \(message, privacy: .public)")
         DispatchQueue.main.async {
             self.state = .failed(message)
+            // Still im Hintergrund: keine Meldung, beim nächsten Suchen neuer Versuch
+            guard !self.silent else { return }
             let alert = NSAlert()
             alert.messageText = L("The update couldn’t be installed", "Update konnte nicht installiert werden")
             alert.informativeText = L("\(message) You can also download the new version yourself.",

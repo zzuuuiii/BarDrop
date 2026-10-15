@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.29.0-beta.1
+* Updates install by themselves in the background once BarDrop hasn’t been used for 15 minutes; afterwards it just keeps running, without a message
+* Holding ⌫ removes only one item; press again for the next
+* Version numbers: betas are called like the version they lead to, for example 1.29.0-beta.1
+* Fewer info buttons: Where, larger hit area, full screen, excluded apps and screenshots explain themselves
+* Clearer texts for automatic updates and beta versions
+
 ## 1.28.1
 * Beta channel: Settings → About BarDrop → Beta versions. New versions appear as betas first; regular versions summarize everything since the last one
 * Convert moved to the right-click menu of an item or a selection (several images can be combined into one PDF); it’s no longer an action in the bar

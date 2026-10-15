@@ -20,7 +20,9 @@ echo "==> Erzeuge App-Bundle"
 APP_DIR="$OUT/$APP.app"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BIN_DIR/$APP" "$APP_DIR/Contents/MacOS/$APP"
-sed -e "s/__VERSION__/$VERSION/g" -e "s/__BUILD__/$BUILD_NUMBER/g" Resources/Info.plist > "$APP_DIR/Contents/Info.plist"
+# macOS erwartet nur Zahlen (1.29.0); die volle Version mit „-beta.N“ steht in BarDropVersion
+SHORT="${VERSION%%-*}"
+sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHORT__/$SHORT/g" -e "s/__BUILD__/$BUILD_NUMBER/g" Resources/Info.plist > "$APP_DIR/Contents/Info.plist"
 printf "APPL????" > "$APP_DIR/Contents/PkgInfo"
 
 echo "==> Erzeuge App-Icon"

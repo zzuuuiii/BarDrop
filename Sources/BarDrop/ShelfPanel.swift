@@ -53,8 +53,8 @@ final class ShelfPanel: NSPanel {
         switch event.keyCode {
         case 49: // Leertaste
             actions.toggleQuickLookCurrent()
-        case 51, 117: // Löschen
-            actions.removeCurrentSelection()
+        case 51, 117: // Löschen; gedrückt halten entfernt nicht alles nacheinander
+            if !event.isARepeat { actions.removeCurrentSelection() }
         case 53: // Escape: Auswahl aufheben, Stapel verlassen, schließen
             if actions.hasCurrentSelection {
                 actions.clearCurrentSelection()
@@ -106,7 +106,7 @@ final class ShelfPanel: NSPanel {
             NSApp.terminate(nil)
         default:
             if event.keyCode == 51 { // ⌘⌫
-                actions.removeCurrentSelection()
+                if !event.isARepeat { actions.removeCurrentSelection() }
                 return true
             }
             if event.keyCode == 126, actions.ui.openStack != nil { // ⌘↑: Stapel verlassen

@@ -9,6 +9,14 @@ Thanks for your interest in BarDrop.
 
 Contributions are licensed under the [GPL-3.0](../LICENSE), like BarDrop itself.
 
+## Version numbers
+
+`MAJOR.MINOR.PATCH`, as in [Semantic Versioning](https://semver.org):
+
+* **MINOR** (1.29.0) for new features, **PATCH** (1.29.1) for fixes only, **MAJOR** for a fundamental change.
+* Betas carry the number of the version they lead up to: `1.29.0-beta.1`, `1.29.0-beta.2`, … and finally `1.29.0` as the regular version.
+* `Resources/VERSION` holds the full number; macOS gets the part without `-beta.N` as its short version.
+
 ## Releases
 
 Every push to `main` builds BarDrop and publishes the version in `Resources/VERSION` as a **beta** (a GitHub pre-release). Only people who turned on Settings → About BarDrop → Beta versions get it.

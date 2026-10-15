@@ -175,9 +175,7 @@ struct OpeningSettings: View {
                     .padding(.vertical, 14)
             }
 
-            SettingsSection(L("Where", "Wo"),
-                            info: L("“Follows pointer” makes the shelf appear wherever the pointer reaches the edge. Limited to the middle, the rest of the edge stays free, for example for hot corners.",
-                                    "„Am Zeiger“ lässt die Ablage dort erscheinen, wo der Zeiger den Rand erreicht. Auf die Mitte beschränkt, bleibt der übrige Rand frei, etwa für aktive Ecken.")) {
+            SettingsSection(L("Where", "Wo")) {
                 PickerRow(L("Screen edge", "Bildschirmrand"), selection: $settings.edge,
                           options: ScreenEdge.allCases.map { ($0, $0.title) })
                 PickerRow(L("Position along the edge", "Position am Rand"), selection: heightMode,
@@ -197,22 +195,16 @@ struct OpeningSettings: View {
                           selection: $settings.openChoice,
                           options: OpenChoice.all.map { ($0, $0.title) })
                 ToggleRow(L("Larger hit area", "Größerer Trefferbereich"),
-                          info: L("The strip and handle also respond when the pointer is slightly next to them. Helpful if you often just miss the strip.",
-                                  "Streifen und Griff reagieren auch, wenn der Zeiger knapp daneben ist. Hilfreich, wenn du den Streifen oft knapp verfehlst."),
                           isOn: $settings.generousHitArea)
                 PickerRow(L("While dragging files", "Beim Ziehen von Dateien"), selection: $settings.dragReveal,
                           options: DragReveal.allCases.map { ($0, $0.title) })
                 ToggleRow(L("Open in full screen", "Im Vollbild öffnen"),
-                          info: L("When off, moving the pointer to the edge doesn’t open the shelf while an app is in full screen there. Dragging files and the shortcut still work.",
-                                  "Aus: Ist dort eine App im Vollbild, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter."),
                           isOn: $settings.openInFullScreen)
             }
 
             // Wie die Aktionsliste: Liste in einer Karte, „Hinzufügen“ als eigene Karte darunter
             VStack(alignment: .leading, spacing: 8) {
-                SettingsSection(L("Not in these apps", "Nicht in diesen Apps"),
-                                info: L("While one of these apps is in front, moving the pointer to the edge doesn’t open the shelf. Dragging files there and the shortcut still work.",
-                                        "Ist eine dieser Apps vorn, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter.")) {
+                SettingsSection(L("Not in these apps", "Nicht in diesen Apps")) {
                     if settings.excludedApps.isEmpty {
                         Text(L("No apps", "Keine Apps"))
                             .font(.system(size: 13.5))
@@ -406,8 +398,6 @@ struct ItemSettings: View {
 
             SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {
                 ToggleRow(L("New screenshots", "Neue Bildschirmfotos"),
-                          info: L("Screenshots you take appear in the shelf right away, wherever macOS saves them. Screenshots copied to the clipboard aren’t included.",
-                                  "Aufgenommene Bildschirmfotos landen sofort in der Ablage, egal wo macOS sie speichert. Bildschirmfotos in die Zwischenablage gehören nicht dazu."),
                           isOn: $settings.addScreenshots)
             }
 

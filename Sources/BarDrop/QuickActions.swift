@@ -54,8 +54,9 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .messages:
             return Self.appIcon("com.apple.MobileSMS")
         case .trash:
-            // Das Papierkorb-Symbol des Systems
-            return NSWorkspace.shared.icon(forFile: (NSHomeDirectory() as NSString).appendingPathComponent(".Trash"))
+            // Das Papierkorb-Symbol des Systems, wie im Dock. Der Papierkorb-Ordner selbst
+            // ist ohne Festplattenvollzugriff nicht lesbar und liefert nur ein Blatt.
+            return NSImage(named: NSImage.trashEmptyName)
         case .folder, .app:
             guard let path, FileManager.default.fileExists(atPath: path) else { return nil }
             return NSWorkspace.shared.icon(forFile: path)

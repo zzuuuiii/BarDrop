@@ -101,13 +101,14 @@ struct QuickActionIcon: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
         } else {
-            // Eigene Kachel im macOS-Icon-Raster
+            // Eigene Kachel im macOS-Icon-Raster, im Blau von AirDrop, Ordnern und Mail
             RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-                .fill(LinearGradient(colors: [Color(white: 0.36), Color(white: 0.16)],
+                .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.68, blue: 1.0),
+                                              Color(red: 0.1, green: 0.45, blue: 0.95)],
                                      startPoint: .top, endPoint: .bottom))
                 .overlay(
                     RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
                 )
                 .overlay(
                     Image(systemName: action.fallbackSymbol)

@@ -1,5 +1,7 @@
-* Sliders snap exactly onto the dots below them
+* Trash action with the system trash icon
+* Share action in blue, matching the other actions
 
 <!-- de -->
 
-* Regler rasten genau auf den Punkten darunter ein
+* Papierkorb-Aktion mit dem Papierkorb-Symbol des Systems
+* Teilen-Aktion in Blau, passend zu den anderen Aktionen

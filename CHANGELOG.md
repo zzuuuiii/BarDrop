@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.19.2
+* Trash action shows the system trash icon
+* Share action in blue, matching AirDrop, folders and Mail
+
 ## 1.19.1
 * Sliders snap exactly onto the dots below them, also for shelf height and strip length
 

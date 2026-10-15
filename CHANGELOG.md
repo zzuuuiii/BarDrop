@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.20.1
+* The shelf is titled “BarDrop”
+* Dropped items show up right away instead of sometimes only after reopening the shelf: new tiles no longer fade in
+
 ## 1.20.0
 * New screenshots can go straight into the shelf (Settings → Items → Add new screenshots)
 * Pin by dragging: drop a folder or app on “Pin” at the end of the action bar, drag an action out of the shelf to remove it (Settings → Actions)

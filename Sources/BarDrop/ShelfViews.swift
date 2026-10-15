@@ -188,7 +188,7 @@ struct ShelfContent: View {
                     HStack(spacing: 3) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .semibold))
-                        Text(L("Shelf", "Ablage"))
+                        Text("BarDrop")
                             .font(.system(size: 13, weight: .semibold))
                     }
                     .foregroundStyle(.white.opacity(0.92))
@@ -201,7 +201,7 @@ struct ShelfContent: View {
                 status(selected > 0 ? L("\(selected) of \(stack.files.count) selected", "\(selected) von \(stack.files.count) ausgewählt")
                                     : L("\(stack.files.count) items in stack", "\(stack.files.count) Objekte im Stapel"))
             } else {
-                Text(L("Shelf", "Ablage"))
+                Text("BarDrop")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.92))
                     .allowsHitTesting(false)
@@ -247,6 +247,12 @@ struct ShelfContent: View {
 
     // MARK: Raster
 
+    /// Neue Kacheln erscheinen sofort in voller Deckkraft, nur beim Entfernen wird
+    /// ausgeblendet. Eine Einblendung kann hängen bleiben, wenn die Ablage gerade
+    /// nicht gezeichnet wird; die Kachel stünde dann unsichtbar da, bis sich die
+    /// Ablage neu öffnet.
+    private static let tileTransition = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
+
     @ViewBuilder
     private var mainGrid: some View {
         if store.entries.isEmpty {
@@ -254,6 +260,7 @@ struct ShelfContent: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 40)
                 .allowsHitTesting(false)
+                .transition(Self.tileTransition)
         } else {
             LazyVGrid(columns: columns, spacing: 6) {
                 ForEach(actions.orderedEntries) { entry in
@@ -265,11 +272,12 @@ struct ShelfContent: View {
                                                        value: [entry.id: g.frame(in: .named("grid"))])
                             }
                         )
-                        .transition(.opacity)
+                        .transition(Self.tileTransition)
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+            .transition(Self.tileTransition)
         }
     }
 
@@ -284,7 +292,7 @@ struct ShelfContent: View {
                                                    value: [file.id: g.frame(in: .named("grid"))])
                         }
                     )
-                    .transition(.opacity)
+                    .transition(Self.tileTransition)
             }
         }
         .padding(.horizontal, 12)

@@ -3,7 +3,7 @@ import AppKit
 
 // MARK: Übergang: weich einblenden mit Unschärfe (Stärke je nach Einstellung)
 
-private struct BlurFade: ViewModifier {
+struct BlurFade: ViewModifier {
     var radius: CGFloat
     var opacity: Double
     var scale: CGFloat
@@ -12,7 +12,7 @@ private struct BlurFade: ViewModifier {
     }
 }
 
-private extension AnyTransition {
+extension AnyTransition {
     static func blurFade(_ radius: CGFloat) -> AnyTransition {
         // „Bewegung reduzieren“: nur überblenden
         if radius == 0 { return .opacity.animation(.easeOut(duration: 0.15)) }
@@ -333,7 +333,6 @@ struct ShelfContent: View {
             LazyVGrid(columns: columns, spacing: 6) {
                 // Was gerade noch geladen wird (Bilder aus dem Web, große Dateien),
                 // steht sofort als Kachel da, an der Stelle, an der es landen wird
-                if ui.showSampleTile { sampleTile }
                 if showPending && settings.sortOrder == .newestFirst { pendingTiles }
                 ForEach(actions.orderedEntries) { entry in
                     TileView(entry: entry, ui: ui, actions: actions,
@@ -348,6 +347,7 @@ struct ShelfContent: View {
                         .transition(Self.tileTransition)
                 }
                 if showPending && settings.sortOrder == .oldestFirst { pendingTiles }
+                if ui.showSampleTile { sizeGuides }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -355,17 +355,18 @@ struct ShelfContent: View {
         }
     }
 
-    /// Beispiel beim Verstellen der Symbolgröße: das App-Symbol als gewöhnliche Datei
-    private var sampleTile: some View {
-        TileLabel(title: "BarDrop.app", isSelected: false, isKey: false,
-                  iconSize: CGFloat(settings.tileIconSize)) {
-            Image(nsImage: NSApp.applicationIconImage ?? NSImage())
-                .resizable()
-                .interpolation(.high)
-                .frame(width: CGFloat(settings.tileIconSize), height: CGFloat(settings.tileIconSize))
+    /// Beim Verstellen der Symbolgröße: leere Plätze in der neuen Größe, bis zwei Reihen
+    /// gefüllt sind. So sieht man Größe und Anzahl pro Reihe, auch in einer leeren Ablage.
+    /// Erscheinen ohne Einblendung, damit sie dem Regler sofort folgen.
+    @ViewBuilder
+    private var sizeGuides: some View {
+        let icon = CGFloat(settings.tileIconSize)
+        let width = max(ui.expandedBody.width - 24, icon + 22)
+        let perRow = max(1, Int((width + 8) / (icon + 22 + 8)))
+        let count = max(0, perRow * 2 - store.entries.count)
+        ForEach(0..<count, id: \.self) { _ in
+            SizeGuideTile(iconSize: icon)
         }
-        .allowsHitTesting(false)
-        .transition(.opacity)
     }
 
     /// Platzhalter für laufende Übernahmen, je eine Kachel
@@ -470,6 +471,25 @@ struct ShelfContent: View {
 // MARK: Kachel (Darstellung wie im Finder)
 
 /// Gemeinsame Darstellung: Vorschau mit grauer Fläche und Name in Akzentfarbe, wenn ausgewählt.
+/// Leerer Platz in Kachelgröße (Vorschau der Symbolgröße)
+private struct SizeGuideTile: View {
+    let iconSize: CGFloat
+
+    var body: some View {
+        TileLabel(title: " ", isSelected: false, isKey: false, iconSize: iconSize) {
+            RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous)
+                .fill(.white.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: iconSize * 0.22, style: .continuous)
+                        .strokeBorder(.white.opacity(0.22), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+                )
+                .frame(width: iconSize * 0.84, height: iconSize * 0.84)
+        }
+        .allowsHitTesting(false)
+        .transaction { $0.animation = nil }
+    }
+}
+
 struct TileLabel<Preview: View>: View {
     let title: String
     let isSelected: Bool

@@ -16,7 +16,7 @@ enum SettingsTheme {
     /// Inhalt rechts
     static let content = dynamic(dark: (0.192, 0.196, 0.2), light: (0.94, 0.94, 0.945))
     /// Deckkraft von Seitenleiste und Inhalt über dem Schreibtisch
-    static let backdropOpacity = 0.8
+    static let backdropOpacity = 0.7
     /// Karten
     static let card = dynamic(dark: (0.184, 0.188, 0.188), light: (0.99, 0.99, 0.99))
     /// Gewählter Eintrag der Seitenleiste
@@ -62,6 +62,21 @@ struct SettingsPage<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .scrollIndicators(.automatic)
+        // Nichts scrollt unter die Überschrift der Seite
+        .modifier(HardTopEdge())
+        .clipped()
+    }
+}
+
+/// Ab macOS 26 blendet eine Bildlaufansicht ihren Inhalt oben weich aus und lässt ihn
+/// unter die Titelleiste laufen. Hier gibt es eine eigene Überschrift: Kante ausblenden.
+private struct HardTopEdge: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }
 

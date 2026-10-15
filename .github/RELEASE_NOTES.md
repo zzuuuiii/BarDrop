@@ -1,17 +1,17 @@
-* Right-click menus of the shelf follow the pointer without delay and look like the lists in Settings
-* Convert opens next to the menu while the menu stays visible
-* No extra tap when dropping a file
-* Lists in Settings stay in place while scrolling; clicking the button again closes them
-* Settings and the introduction are slightly more transparent
-* A sample file shows the icon size while you change it
-* The introduction goes step by step without a sidebar
+* Right-click menus are system menus again, in the Liquid Glass look of macOS
+* The introduction looks like the open shelf itself
+* Changing the file icon size shows empty places in the new size, also in an empty shelf
+* Images from the web no longer disappear right after dropping them
+* Nothing scrolls under the page title in Settings
+* The shortcuts in the shelf are collapsed under Keyboard
+* Settings are slightly more transparent
 
 <!-- de -->
 
-* Rechtsklick-Menüs der Ablage folgen dem Zeiger ohne Verzögerung und sehen aus wie die Listen in den Einstellungen
-* Umwandeln öffnet sich neben dem Menü, das Menü bleibt dabei stehen
-* Kein zusätzlicher Impuls mehr beim Ablegen einer Datei
-* Listen in den Einstellungen bleiben beim Scrollen stehen; ein erneuter Klick auf den Knopf schließt sie
-* Einstellungen und Einführung sind etwas durchsichtiger
-* Beim Verstellen der Symbolgröße liegt eine Beispieldatei in der Ablage
-* Die Einführung geht Schritt für Schritt vor, ohne Seitenleiste
+* Rechtsklick-Menüs sind wieder Systemmenüs im Liquid-Glass-Aussehen von macOS
+* Die Einführung sieht aus wie die offene Ablage selbst
+* Beim Verstellen der Symbolgröße zeigen leere Plätze die neue Größe, auch in einer leeren Ablage
+* Bilder aus dem Web verschwinden nach dem Ablegen nicht mehr
+* In den Einstellungen scrollt nichts mehr unter die Überschrift
+* Die Tastenkürzel in der Ablage sind unter Tastatur eingeklappt
+* Die Einstellungen sind etwas durchsichtiger

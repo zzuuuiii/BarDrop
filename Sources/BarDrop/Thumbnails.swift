@@ -167,6 +167,11 @@ struct ThumbnailView: View {
     private func reveal() {
         Thumbnails.shownOnce.insert(url.path)
         guard !ready else { return }
-        withAnimation(.easeOut(duration: 0.15)) { ready = true }
+        // Ohne Animation: Kommt die Datei erst nach einem Download an (Bilder aus dem
+        // Web), hat die Ablage oft keinen Fokus mehr. Eine Einblendung bliebe dann bei
+        // Deckkraft null hängen, und die Kachel wäre bis zum nächsten Öffnen unsichtbar.
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { ready = true }
     }
 }

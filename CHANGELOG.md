@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.30.0-beta.5
+* Right-click menus are system menus again, in the Liquid Glass look of macOS; Convert is a regular submenu next to them
+* The introduction looks like the open shelf: black shape, the same tiles, fonts and transitions; the last step shows the features as tiles
+* While changing the file icon size, empty places in the new size fill two rows of the shelf, also when it is empty
+* Images from the web no longer disappear right after dropping them
+* Nothing scrolls under the page title in Settings any more
+* Keyboard: the shortcuts in the shelf are collapsed
+* Settings are slightly more transparent
+
 ## 1.30.0-beta.4
 * Right-click menus of the shelf are drawn by BarDrop itself: the highlight follows the pointer without delay and they look like the lists in Settings
 * Convert is a submenu again that opens next to the menu while the menu stays visible

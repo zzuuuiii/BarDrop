@@ -68,6 +68,7 @@ struct GeneralSettings: View {
 struct KeyboardSettings: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
+    @State private var showShortcuts = false
 
     var body: some View {
         SettingsPage {
@@ -81,28 +82,37 @@ struct KeyboardSettings: View {
                     .padding(8)
             }
 
-            // Oben, was man ständig braucht; darunter der Rest
+            // Die Kürzel in der Ablage sind eingeklappt: Wer sie sucht, klappt sie auf
             SettingsSection(L("In the open shelf", "In der offenen Ablage")) {
-                ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
-                ShortcutRow(L("Open", "Öffnen"), ["↩"])
-                ShortcutRow(L("Remove selection", "Auswahl entfernen"), ["⌫"])
-                ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
-                ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
-                ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), ["⌘", "V"])
-            }
-
-            SettingsSection(L("More", "Weitere")) {
-                ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
-                ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
-                ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
-                ShortcutRow(L("Select all", "Alle auswählen"), ["⌘", "A"])
-                ShortcutRow(L("Move selection", "Auswahl bewegen"), ["←", "→", "↑", "↓"])
-                ShortcutRow(L("Extend selection", "Auswahl erweitern"), ["⇧", "←"])
-                ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
-                ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), ["⌘", "↑"])
-                ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), ["esc"])
-                ShortcutRow(L("Settings", "Einstellungen"), ["⌘", ","])
-                ShortcutRow(L("Quit BarDrop", "BarDrop beenden"), ["⌘", "Q"])
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showShortcuts.toggle() }
+                } label: {
+                    SettingsRow(L("Keyboard shortcuts", "Tastenkürzel")) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(showShortcuts ? 90 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                if showShortcuts {
+                    ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
+                    ShortcutRow(L("Open", "Öffnen"), ["↩"])
+                    ShortcutRow(L("Remove selection", "Auswahl entfernen"), ["⌫"])
+                    ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
+                    ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
+                    ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
+                    ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
+                    ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), ["⌘", "V"])
+                    ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
+                    ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
+                    ShortcutRow(L("Select all", "Alle auswählen"), ["⌘", "A"])
+                    ShortcutRow(L("Move selection", "Auswahl bewegen"), ["←", "→", "↑", "↓"])
+                    ShortcutRow(L("Extend selection", "Auswahl erweitern"), ["⇧", "←"])
+                    ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), ["⌘", "↑"])
+                    ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), ["esc"])
+                }
             }
         }
     }

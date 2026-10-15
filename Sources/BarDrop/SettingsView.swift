@@ -74,7 +74,7 @@ struct KeyboardSettings: View {
         SettingsPage {
             SettingsSection(L("Show or hide the shelf", "Ablage ein- oder ausblenden"),
                             info: L("Click a modifier key to turn it on or off. Click the key on the right, then press a new one.",
-                                    "Sondertasten anklicken, um sie an- oder abzuschalten. Auf die Taste rechts klicken und eine neue drücken."),
+                                    "Klick auf eine Sondertaste, um sie an- oder auszuschalten. Klick auf die Taste rechts und drück eine neue."),
                             note: hotKeyStatus.available ? nil : L("Another app already uses this shortcut. Choose a different combination.",
                                                                    "Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination."),
                             noteColor: .red) {
@@ -385,7 +385,7 @@ struct ItemSettings: View {
                           options: SortOrder.allCases.map { ($0, $0.title) })
                 PickerRow(L("Group into a stack", "Stapel bilden"),
                           info: L("When this many items are dropped at once, they become a stack. You can also select several items and right-click “Group as Stack”. Click a stack to open it.",
-                                  "Werden so viele Objekte auf einmal abgelegt, entsteht ein Stapel. Du kannst auch mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“. Ein Klick öffnet einen Stapel."),
+                                  "Werden so viele Objekte auf einmal abgelegt, entsteht ein Stapel. Du kannst auch mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“ wählen. Ein Klick öffnet einen Stapel."),
                           selection: stackFrom,
                           options: [(0, L("Never", "Nie"))] + (2...10).map { ($0, L("From \($0) items", "Ab \($0) Objekten")) })
             }
@@ -409,8 +409,8 @@ struct ItemSettings: View {
             }
 
             SettingsSection(L("Cleanup", "Aufräumen"),
-                            info: L("Files from the Finder are never deleted when you remove them. Images, links and text that only exist in BarDrop are deleted once removing them can no longer be undone with ⌘Z.",
-                                    "Dateien aus dem Finder bleiben beim Entfernen erhalten. Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.")) {
+                            info: L("Files from the Finder are never deleted when you remove them. Copies, images, links and text that only exist in BarDrop are deleted once removing them can no longer be undone with ⌘Z.",
+                                    "Dateien aus dem Finder bleiben beim Entfernen erhalten. Kopien, Bilder, Links und Texte, die nur in BarDrop liegen, werden gelöscht, sobald sich das Entfernen nicht mehr mit ⌘Z widerrufen lässt.")) {
                 PickerRow(L("Remove automatically", "Automatisch entfernen"), selection: autoRemove,
                           options: AutoRemoveOption.allCases.map { ($0, $0.title) })
                 SettingsRow(L("Remove all items", "Alle Objekte entfernen")) {

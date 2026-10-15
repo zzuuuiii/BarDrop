@@ -241,8 +241,8 @@ struct AboutSettings: View {
     private var updateNote: String {
         switch updater.state {
         case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
-        case .available(let v): return L("Version \(v) is ready. BarDrop installs it by itself when you haven’t used it for a while, or update now. Your items stay in the shelf.",
-                                         "Version \(v) ist bereit. BarDrop installiert sie von selbst, wenn du es eine Weile nicht benutzt, oder du aktualisierst jetzt. Die Objekte bleiben in der Ablage.")
+        case .available(let v): return L("Version \(v) is ready. BarDrop installs it by itself once you haven’t used it for a while, or you can update now. Your items stay in the shelf.",
+                                         "Version \(v) ist bereit. BarDrop installiert sie von selbst, sobald du es eine Weile nicht benutzt. Du kannst auch gleich aktualisieren. Die Objekte bleiben in der Ablage.")
         // Feste Meldung statt der gespeicherten: bleibt in der gewählten Sprache
         case .failed: return L("The last attempt didn’t work. Please try again later.",
                                "Der letzte Versuch hat nicht geklappt. Versuch es später noch einmal.")

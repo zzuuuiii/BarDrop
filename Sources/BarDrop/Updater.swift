@@ -202,7 +202,7 @@ final class Updater: ObservableObject {
         self.silent = silent
         if target.path.contains("/AppTranslocation/") || target.path.hasPrefix("/Volumes/") {
             guard !silent else { return }
-            showMessage(L("Move BarDrop to Applications first", "BarDrop zuerst in „Programme“ bewegen"),
+            showMessage(L("Move BarDrop to Applications first", "BarDrop zuerst in „Programme“ verschieben"),
                         L("BarDrop is running straight from the download. Move BarDrop to the Applications folder first and open it from there.",
                           "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort."))
             return
@@ -366,7 +366,7 @@ final class Updater: ObservableObject {
             // Still im Hintergrund: keine Meldung, beim nächsten Suchen neuer Versuch
             guard !self.silent else { return }
             let alert = NSAlert()
-            alert.messageText = L("The update couldn’t be installed", "Update konnte nicht installiert werden")
+            alert.messageText = L("The update couldn’t be installed", "Das Update ließ sich nicht installieren")
             alert.informativeText = L("\(message) You can also download the new version yourself.",
                                       "\(message) Du kannst die neue Version auch selbst laden.")
             alert.addButton(withTitle: L("Open Download", "Download öffnen"))

@@ -232,7 +232,8 @@ struct QuickActionButton: View {
 
     var body: some View {
         VStack(spacing: 4) {
-            QuickActionIcon(action: action)
+            // Ohne Namen größer, damit die Leiste nicht leer wirkt
+            QuickActionIcon(action: action, size: AppSettings.shared.showActionLabels ? 34 : 44)
                 .scaleEffect(targeted ? 1.1 : 1)
                 .opacity(draggingOut ? 0.3 : 1)
             if AppSettings.shared.showActionLabels {
@@ -373,7 +374,7 @@ private struct PinSlot: View {
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 34, height: 34)
+                .frame(width: settings.showActionLabels ? 34 : 44, height: settings.showActionLabels ? 34 : 44)
                 .opacity(targeted ? 1 : 0.45)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "plus.circle.fill")

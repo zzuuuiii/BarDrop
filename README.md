@@ -53,7 +53,7 @@ Images from the browser, links and text work just like files. On first launch a 
 >
 > To allow it once: close the message, then go to **System Settings → Privacy & Security → Open Anyway**.
 
-After that, BarDrop installs new versions itself when you agree (can be turned off in Settings → About BarDrop).
+After that, BarDrop keeps itself up to date in the background while you’re not using it. Both this and early beta versions can be set in Settings → About BarDrop.
 
 ## Features
 
@@ -61,7 +61,7 @@ After that, BarDrop installs new versions itself when you agree (can be turned o
 * Left or right edge, at a fixed height or wherever the pointer reaches the edge (whole edge, middle half or middle third)
 * Opens instantly or after 1 to 5 seconds at the edge, on click or with a keyboard shortcut; a click on the strip skips the wait
 * Optional larger hit area for when you just miss the strip
-* Exclude apps in which the edge shouldn’t open the shelf, for example games
+* Exclude apps in which the edge shouldn’t open the shelf, for example games, and optionally stay closed in full screen
 * Files flung quickly at the edge are still caught
 * Thin light outline so it stays visible on dark backgrounds
 * On all displays, or only the built-in or external ones
@@ -70,6 +70,7 @@ After that, BarDrop installs new versions itself when you agree (can be turned o
 **Items**
 * Files, folders, images from the web (WebP, AVIF and HEIC can be saved as PNG or JPEG), links and text
 * New screenshots can land in the shelf automatically
+* Convert with a right-click: images, PDF pages, text documents, audio and video, using only what macOS includes
 * Newest or oldest first, stacks, selection like in the Finder
 * Removed something by accident? `⌘Z` brings it back
 * Moved or renamed files stay in the shelf, iCloud files are downloaded when needed, files from disconnected drives stay greyed out

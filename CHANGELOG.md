@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.29.0
+Everything since 1.28.0:
+* Updates install by themselves in the background once BarDrop hasn’t been used for 15 minutes; Beta versions can be turned on in Settings → About BarDrop
+* Convert with a right-click on an item or a selection: images, PDF pages, text documents, audio and video, using only what macOS includes
+* Dragging out works like in the Finder for every item, with the name highlighted the same way and previews also for files just added
+* Built for macOS 26: window buttons, menus and alerts in the current system style; the Settings window has all three window buttons
+* Right-click menus without icons, as Apple does it again since macOS 27; only Share and Settings keep theirs
+* Holding ⌫ removes only one item
+* Without names under the actions, their icons are larger
+* Settings: software update in its own row, fewer info buttons, all texts reviewed in English and German
+
 ## 1.29.0-beta.4
 * Right-click menus without icons, as Apple does it again since macOS 27; only Share and Settings keep theirs
 * Dragging out: the name is highlighted like in the Finder, tight around the text with only slightly rounded corners

@@ -53,7 +53,7 @@ Bilder aus dem Browser, Links und Text funktionieren genauso wie Dateien. Beim e
 >
 > Einmalig freigeben: Meldung schließen, dann **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**.
 
-Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar unter Einstellungen → Über BarDrop).
+Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht benutzt. Das und frühe Beta-Versionen stellst du unter Einstellungen → Über BarDrop ein.
 
 ## Funktionen
 
@@ -61,7 +61,7 @@ Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar
 * Links oder rechts, feste Höhe oder dort, wo der Zeiger den Rand erreicht (ganzer Rand, mittlere Hälfte oder mittleres Drittel)
 * Öffnet sofort oder nach 1 bis 5 Sekunden am Rand, per Klick oder per Kurzbefehl; ein Klick auf den Streifen überspringt die Wartezeit
 * Auf Wunsch größerer Trefferbereich, falls du den Streifen knapp verfehlst
-* Apps ausnehmen, in denen der Rand die Ablage nicht öffnen soll, zum Beispiel Spiele
+* Apps ausnehmen, in denen der Rand die Ablage nicht öffnen soll, zum Beispiel Spiele, und auf Wunsch im Vollbild geschlossen bleiben
 * Auch schnell an den Rand geworfene Dateien werden sicher aufgenommen
 * Feiner heller Rahmen, damit sie auch auf dunklem Hintergrund zu sehen ist
 * Auf allen Bildschirmen oder nur auf dem integrierten bzw. den externen
@@ -70,6 +70,7 @@ Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar
 **Objekte**
 * Dateien, Ordner, Bilder aus dem Web (WebP, AVIF und HEIC werden als PNG oder JPEG gespeichert), Links und Text
 * Neue Bildschirmfotos landen auf Wunsch automatisch in der Ablage
+* Umwandeln per Rechtsklick: Bilder, PDF-Seiten, Textdokumente, Audio und Video, nur mit dem, was macOS mitbringt
 * Neueste oder älteste zuerst, Stapel per Auswahl, Auswahl wie im Finder
 * Versehentlich entfernt? `⌘Z` holt es zurück
 * Verschobene oder umbenannte Dateien bleiben in der Ablage, Dateien aus iCloud werden bei Bedarf geladen, Dateien von getrennten Laufwerken bleiben ausgegraut erhalten

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.29.0-beta.3
+* Dragging out works like in the Finder for every item: files BarDrop stored itself (copies, web images, converted files) now go out as a fresh copy of the file instead of a file promise, so the Finder and other apps show the usual drag and drop
+* About BarDrop: software update in its own row, the version reads “1.29.0 Beta 3” and is never cut off
+
 ## 1.29.0-beta.2
 * Built with Xcode 26 on macOS 26: window buttons, menus and alerts in the current system style (Liquid Glass) on macOS 26 and later
 * Settings window with all three window buttons, like other apps

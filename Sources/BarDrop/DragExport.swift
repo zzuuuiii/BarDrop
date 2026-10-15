@@ -16,6 +16,19 @@ enum DragExport {
     /// Pasteboard-Schreiber für eine Datei der Ablage.
     static func writer(for file: ShelfFile) -> NSPasteboardWriting {
         guard file.owned else { return file.url as NSURL }
+        // Wie im Finder: eine frische Kopie (auf APFS ein Klon, ohne Wartezeit) als
+        // Dateiadresse. So zeigen Finder und andere Apps das gewohnte Ziehen und Ablegen,
+        // und die gespeicherte Datei bleibt unberührt. Versprechen nur noch für Text und
+        // Links (die zusätzlich ihren Inhalt mitbringen) oder wenn die Kopie nicht klappt.
+        let native = NativeContent(of: file.url)
+        if native.string == nil, native.url == nil, let fresh = Outbox.shared.freshCopy(of: file.url) {
+            return fresh as NSURL
+        }
+        return promiseWriter(for: file, native: native)
+    }
+
+    /// Datei-Versprechen mit frischer Kopie als Adresse und gegebenenfalls dem Inhalt
+    static func promiseWriter(for file: ShelfFile, native: NativeContent? = nil) -> ExportPromiseProvider {
         let type = (try? file.url.resourceValues(forKeys: [.contentTypeKey]).contentType)
             ?? UTType(filenameExtension: file.url.pathExtension) ?? .data
         let item = ExportItem(source: file.url,
@@ -24,7 +37,7 @@ enum DragExport {
         let provider = ExportPromiseProvider(fileType: item.fileType, delegate: DragExporter.shared)
         provider.userInfo = item
         provider.fileURL = Outbox.shared.freshCopy(of: file.url) ?? file.url
-        let native = NativeContent(of: file.url)
+        let native = native ?? NativeContent(of: file.url)
         provider.nativeString = native.string
         provider.nativeURL = native.url
         return provider

@@ -233,6 +233,11 @@ struct AboutSettings: View {
         Updater.shared.currentVersion
     }
 
+    /// „1.29.0-beta.2“ lesbar als „1.29.0 Beta 2“
+    static func readable(_ version: String) -> String {
+        version.replacingOccurrences(of: "-beta.", with: " Beta ")
+    }
+
     private var updateNote: String {
         switch updater.state {
         case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
@@ -259,16 +264,21 @@ struct AboutSettings: View {
                         Text("BarDrop")
                             .font(.system(size: 15, weight: .semibold))
                         HStack(spacing: 5) {
-                            Text(L("Version \(version)", "Version \(version)"))
+                            Text(L("Version \(Self.readable(version))", "Version \(Self.readable(version))"))
                                 .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .fixedSize()
                             ReleaseNotesButton()
                         }
                     }
-                    Spacer()
-                    updateControl
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, SettingsTheme.rowPadding)
                 .padding(.vertical, 12)
+                // Eigene Zeile, damit weder Version noch Knopf je gekürzt werden
+                SettingsRow(L("Software update", "Softwareupdate")) {
+                    updateControl.fixedSize()
+                }
                 ToggleRow(L("Update automatically", "Automatisch aktualisieren"),
                           info: L("New versions are installed in the background after BarDrop hasn’t been used for 15 minutes.",
                                   "Neue Versionen werden im Hintergrund installiert, wenn BarDrop 15 Minuten nicht benutzt wurde."),

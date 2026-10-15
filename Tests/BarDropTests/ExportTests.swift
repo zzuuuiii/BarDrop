@@ -24,21 +24,25 @@ final class ExportTests: XCTestCase {
         return url
     }
 
-    func testOwnFileIsOfferedAsPromisePlusFileURL() throws {
+    func testOwnFileIsOfferedAsFreshCopyLikeTheFinder() throws {
         let url = file("Bild.png", "x")
         let writer = DragExport.writer(for: ShelfFile(url: url, owned: true))
-        let provider = try XCTUnwrap(writer as? ExportPromiseProvider, "Eigene Dateien gehen als Versprechen")
+        let fresh = try XCTUnwrap((writer as? NSURL).map { $0 as URL }, "Eigene Dateien gehen wie im Finder als Adresse")
+        XCTAssertNotEqual(fresh.standardizedFileURL, url.standardizedFileURL, "Frische Kopie statt gespeicherter Datei")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fresh.path))
+        try? FileManager.default.removeItem(at: fresh.deletingLastPathComponent())
+    }
+
+    func testPromiseOffersPromisePlusFileURL() throws {
+        let url = file("Bild.png", "x")
+        let provider = DragExport.promiseWriter(for: ShelfFile(url: url, owned: true))
         let pb = NSPasteboard(name: NSPasteboard.Name("BarDropExport-\(UUID().uuidString)"))
         defer { pb.releaseGlobally() }
         let types = provider.writableTypes(for: pb)
         XCTAssertTrue(types.contains(.fileURL), "Programme ohne Versprechen brauchen die Adresse")
         XCTAssertTrue(types.contains { $0.rawValue.contains("promise") }, "Versprechen fehlt: \(types)")
         XCTAssertFalse(types.contains(.string), "Bilder bekommen keinen Text")
-
-        let fresh = try XCTUnwrap(provider.fileURL)
-        XCTAssertNotEqual(fresh.standardizedFileURL, url.standardizedFileURL, "Frische Kopie statt gespeicherter Datei")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: fresh.path))
-        try? FileManager.default.removeItem(at: fresh.deletingLastPathComponent())
+        if let fresh = provider.fileURL { try? FileManager.default.removeItem(at: fresh.deletingLastPathComponent()) }
     }
 
     func testUserFileIsOfferedAsPlainURL() {
@@ -65,7 +69,7 @@ final class ExportTests: XCTestCase {
 
     func testPromiseIsFulfilledByCopying() throws {
         let source = file("Foto.png", "Bilddaten")
-        let provider = try XCTUnwrap(DragExport.writer(for: ShelfFile(url: source, owned: true)) as? ExportPromiseProvider)
+        let provider = DragExport.promiseWriter(for: ShelfFile(url: source, owned: true))
         let destination = base.appendingPathComponent("Ziel").appendingPathComponent("Foto.png")
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
 
@@ -83,7 +87,7 @@ final class ExportTests: XCTestCase {
 
     func testFailedPromiseIsReported() throws {
         let source = file("Weg.png", "x")
-        let provider = try XCTUnwrap(DragExport.writer(for: ShelfFile(url: source, owned: true)) as? ExportPromiseProvider)
+        let provider = DragExport.promiseWriter(for: ShelfFile(url: source, owned: true))
         try FileManager.default.removeItem(at: source)
         let done = expectation(description: "Fehler")
         DragExporter.shared.filePromiseProvider(provider, writePromiseTo: base.appendingPathComponent("x.png")) { error in

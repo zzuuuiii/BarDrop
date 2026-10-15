@@ -18,7 +18,7 @@ jobs:
     # macOS 26 mit Xcode 26: Fensterknöpfe, Menüs und Hinweise im aktuellen Stil des Systems
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Toolchain
         run: |

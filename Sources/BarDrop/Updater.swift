@@ -1,4 +1,5 @@
 import AppKit
+import CoreServices
 import CryptoKit
 
 /// Sucht auf GitHub nach einer neuen Version und installiert sie auf Wunsch:
@@ -199,20 +200,84 @@ final class Updater: ObservableObject {
                                 "Keine Schreibrechte im Ordner „\(target.deletingLastPathComponent().lastPathComponent)“."))
         }
 
-        // Austausch erst, wenn BarDrop beendet ist; danach neu starten
-        let script = """
-        while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
-        rm -rf "$2" && mv "$3" "$2"
-        xattr -dr com.apple.quarantine "$2" 2>/dev/null
-        open "$2"
-        """
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
-        process.arguments = ["-c", script, "sh", "\(ProcessInfo.processInfo.processIdentifier)",
-                             target.path, staged.path]
-        try process.run()
-        Log.edge.info("Update auf \(release.version, privacy: .public) wird installiert")
-        DispatchQueue.main.async { NSApp.terminate(nil) }
+        // Austausch sofort, noch während BarDrop läuft: Das laufende Programm ist schon
+        // geladen, und ein Fehler lässt sich hier noch melden und rückgängig machen.
+        let backup = target.deletingLastPathComponent().appendingPathComponent(Self.backupName)
+        try? FileManager.default.removeItem(at: backup)
+        do {
+            try FileManager.default.moveItem(at: target, to: backup)
+        } catch {
+            try? FileManager.default.removeItem(at: staged)
+            throw UpdateError(L("BarDrop couldn’t be replaced.", "BarDrop ließ sich nicht ersetzen."))
+        }
+        do {
+            try FileManager.default.moveItem(at: staged, to: target)
+        } catch {
+            try? FileManager.default.moveItem(at: backup, to: target)
+            try? FileManager.default.removeItem(at: staged)
+            throw UpdateError(L("BarDrop couldn’t be replaced.", "BarDrop ließ sich nicht ersetzen."))
+        }
+        _ = Self.run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", target.path])
+        Log.edge.info("Update auf \(release.version, privacy: .public) installiert, Neustart")
+        DispatchQueue.main.async { Self.relaunch(target) }
+    }
+
+    /// Alte Fassung neben der App, bis die neue gestartet ist
+    private static let backupName = ".BarDrop-Old.app"
+    /// Startargument der neuen Fassung: Prozessnummer der alten, auf deren Ende sie wartet
+    static let afterUpdateArgument = "--bardrop-after-update"
+
+    /// Neue Fassung über die Startdienste öffnen, nicht als Unterprozess: Ein Unterprozess
+    /// kann mit der alten App zusammen beendet werden, dann startete nichts mehr.
+    /// Die neue Fassung wartet, bis diese hier beendet ist, und richtet sich erst dann ein.
+    private static func relaunch(_ app: URL) {
+        LSRegisterURL(app as CFURL, true)
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        config.activates = false
+        config.arguments = [afterUpdateArgument, "\(ProcessInfo.processInfo.processIdentifier)"]
+        NSWorkspace.shared.openApplication(at: app, configuration: config) { _, error in
+            if let error {
+                // Rückfall: kleines Skript wartet auf das Ende und öffnet dann die App
+                Log.edge.error("Neustart über Startdienste fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+                let script = """
+                while kill -0 "$1" 2>/dev/null; do sleep 0.2; done
+                sleep 0.5
+                open "$2"
+                """
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/sh")
+                process.arguments = ["-c", script, "sh", "\(ProcessInfo.processInfo.processIdentifier)", app.path]
+                try? process.run()
+            }
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+    }
+
+    /// Beim Start nach einem Update: auf das Ende der alten Fassung warten (höchstens
+    /// zehn Sekunden), dann weitermachen. Ohne Update sofort.
+    static func waitForPreviousVersion(then proceed: @escaping () -> Void) {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: afterUpdateArgument), i + 1 < args.count,
+              let pid = pid_t(args[i + 1]), pid > 0 else { return proceed() }
+        let deadline = Date().addingTimeInterval(10)
+        Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { timer in
+            if kill(pid, 0) != 0 || Date() > deadline {
+                timer.invalidate()
+                proceed()
+            }
+        }
+    }
+
+    /// Reste eines Updates neben der App entfernen
+    static func cleanUpAfterUpdate() {
+        let folder = Bundle.main.bundleURL.deletingLastPathComponent()
+        DispatchQueue.global(qos: .utility).async {
+            for name in [backupName, ".BarDrop-Update.app"] {
+                let url = folder.appendingPathComponent(name)
+                if FileManager.default.fileExists(atPath: url.path) { try? FileManager.default.removeItem(at: url) }
+            }
+        }
     }
 
     private static func run(_ tool: String, _ arguments: [String]) -> Bool {

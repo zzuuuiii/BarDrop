@@ -88,6 +88,15 @@ struct QuickAction: Codable, Identifiable, Hashable {
         ]
     }
 
+    /// Art einer anheftbaren Aktion: Apps als App, andere Ordner als Ordner, sonst nichts
+    static func pinnableKind(_ url: URL) -> Kind? {
+        guard url.isFileURL else { return nil }
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isApplicationKey, .isPackageKey])
+        guard values?.isDirectory == true else { return nil }
+        if values?.isApplication == true || url.pathExtension.lowercased() == "app" { return .app }
+        return values?.isPackage == true ? nil : .folder
+    }
+
     /// Höchstzahl in der Leiste: eine Reihe mit sechs, zwei Reihen mit je fünf
     static func limit(twoRows: Bool) -> Int { twoRows ? 2 * perRow : 6 }
     /// Aktionen pro Reihe bei zwei Reihen

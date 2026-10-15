@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.20.0
+* New screenshots can go straight into the shelf (Settings → Items → Add new screenshots)
+* Pin by dragging: drop a folder or app on “Pin” at the end of the action bar, drag an action out of the shelf to remove it (Settings → Actions)
+* Reordering actions: the bottom row stays in place while you drag, so its places are easy to hit
+* After an update BarDrop restarts reliably: the new version is opened by macOS itself and waits until the old one has quit
+
 ## 1.19.2
 * Trash action shows the system trash icon
 * Share action in blue, matching AirDrop, folders and Mail

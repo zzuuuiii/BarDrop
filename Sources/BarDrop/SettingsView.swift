@@ -386,6 +386,10 @@ struct ItemSettings: View {
             SettingsSection(L("Storage", "Speichern"),
                             info: L("Without a copy, files from the Finder are only linked and are found again even after you move or rename them. Images from the web are always stored; WebP, AVIF and HEIC can be saved as PNG or JPEG.",
                                     "Ohne Kopie werden Dateien aus dem Finder nur verknüpft und auch nach dem Verschieben oder Umbenennen wiedergefunden. Bilder aus dem Web werden immer gespeichert, WebP, AVIF und HEIC auf Wunsch als PNG oder JPEG.")) {
+                ToggleRow(L("Add new screenshots", "Neue Bildschirmfotos hinzufügen"),
+                          info: L("Screenshots you take appear in the shelf right away, wherever macOS saves them. Screenshots copied to the clipboard aren’t included.",
+                                  "Aufgenommene Bildschirmfotos landen sofort in der Ablage, egal wo macOS sie speichert. Bildschirmfotos in die Zwischenablage gehören nicht dazu."),
+                          isOn: $settings.addScreenshots)
                 ToggleRow(L("Always store a copy", "Immer eine Kopie anlegen"), isOn: $settings.copyAllFiles)
                 ToggleRow(L("Save web images as PNG or JPEG", "Bilder aus dem Web als PNG oder JPEG speichern"), isOn: $settings.convertWebImages)
             }
@@ -443,6 +447,10 @@ struct ActionSettings: View {
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
                           isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
+                ToggleRow(L("Pin by dragging", "Per Ziehen anheften"),
+                          info: L("Drag a folder or app over the open shelf and drop it on “Pin” at the end of the action bar. Drag an action out of the shelf to remove it.",
+                                  "Zieh einen Ordner oder eine App über die offene Ablage und lass sie auf „Anheften“ am Ende der Aktionsleiste los. Zieh eine Aktion aus der Ablage heraus, um sie zu entfernen."),
+                          isOn: $settings.pinFromShelf)
             }
         }
     }
@@ -581,17 +589,26 @@ private struct ActionListEditor: View {
         twoRows ? (a.split, a.order.count - a.split) : (a.order.count, 0)
     }
 
+    /// Gezeigte Zeilen je Karte. Während des Ziehens behält die obere Karte ihre Höhe,
+    /// auch wenn die Aktion nach unten wandert: So bleibt die untere Reihe stehen,
+    /// statt unter dem Zeiger nach oben zu springen, und man trifft ihre Plätze.
+    private func displayCounts(_ a: Arrangement) -> (top: Int, bottom: Int) {
+        let c = counts(a)
+        guard twoRows, dragging != nil else { return c }
+        return (max(c.top, counts(committed).top), c.bottom)
+    }
+
     private func cardHeight(_ n: Int) -> CGFloat { CGFloat(max(1, n)) * Self.pitch - 1 }
 
     /// Oberkante der Karte einer Reihe
     private func rowTop(_ row: Int, _ a: Arrangement) -> CGFloat {
         guard twoRows else { return 0 }
         if row == 0 { return Self.labelHeight }
-        return Self.labelHeight + cardHeight(counts(a).top) + Self.rowGap + Self.labelHeight
+        return Self.labelHeight + cardHeight(displayCounts(a).top) + Self.rowGap + Self.labelHeight
     }
 
     private func totalHeight(_ a: Arrangement) -> CGFloat {
-        let c = counts(a)
+        let c = displayCounts(a)
         return twoRows ? rowTop(1, a) + cardHeight(c.bottom) : cardHeight(c.top)
     }
 
@@ -626,14 +643,18 @@ private struct ActionListEditor: View {
         // Zwei Reihen: Anzahlen ohne die gezogene Aktion
         let topCount = from < base.split ? base.split - 1 : base.split
         let bottomCount = rest.count - topCount
-        // Untere Kante der oberen Karte, wenn die Aktion oben eingefügt würde
-        let topCardBottom = Self.labelHeight + cardHeight(topCount + 1)
-        let toBottomRow = center > topCardBottom + (Self.rowGap + Self.labelHeight) / 2
+        // Grenze: Mitte zwischen der oberen Karte, wie sie gerade zu sehen ist, und der
+        // unteren. Sie wandert nur, wenn die obere Karte wächst; das wirkt zugleich als
+        // Puffer, damit die Reihe an der Grenze nicht hin und her springt.
+        let shownTop = displayCounts(shown).top
+        let boundary = Self.labelHeight + cardHeight(shownTop) + (Self.rowGap + Self.labelHeight) / 2
+        let toBottomRow = center > boundary
 
         var split = topCount
         let insertAt: Int
         if toBottomRow {
-            let rowStart = Self.labelHeight + cardHeight(topCount) + Self.rowGap + Self.labelHeight
+            // Die obere Karte behält beim Ziehen mindestens ihre ursprüngliche Höhe
+            let rowStart = Self.labelHeight + cardHeight(max(topCount, base.split)) + Self.rowGap + Self.labelHeight
             let index = min(max(Int(((center - rowStart - Self.rowHeight / 2) / Self.pitch).rounded()), 0), bottomCount)
             insertAt = topCount + index
         } else {
@@ -659,8 +680,9 @@ private struct ActionListEditor: View {
             if twoRows {
                 rowLabel(L("Top row", "Obere Reihe"), y: 0)
                 rowLabel(L("Bottom row", "Untere Reihe"), y: rowTop(1, a) - Self.labelHeight)
-                card(count: c.top, top: rowTop(0, a), emptyHint: c.top == 0)
-                card(count: c.bottom, top: rowTop(1, a), emptyHint: c.bottom == 0)
+                let d = displayCounts(a)
+                card(count: d.top, top: rowTop(0, a), emptyHint: c.top == 0)
+                card(count: d.bottom, top: rowTop(1, a), emptyHint: c.bottom == 0)
             } else {
                 card(count: c.top, top: 0, emptyHint: false)
                 if a.order.isEmpty {

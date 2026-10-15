@@ -157,12 +157,26 @@ final class ShelfDropHandler {
         // Kein Hinweis „Hier ablegen“ für eigene Objekte: Beim Herausziehen beginnt der
         // Zug ja über der Ablage
         if !isOwn(sender) { setTargeted(true) }
+        ui.setPinCandidate(isOwn(sender) ? nil : Self.pinCandidate(sender.draggingPasteboard))
         // Eigenes Objekt zurück in die Ablage: einfach zurücklegen
         return isOwn(sender) ? .generic : .copy
     }
 
     func updated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        isOwn(sender) ? .generic : .copy
+        ui.holdPinCandidate()
+        return isOwn(sender) ? .generic : .copy
+    }
+
+    /// Genau ein Ordner oder eine App aus dem Finder, die sich anheften ließe.
+    /// Nur beim Hineinziehen gelesen, nicht bei jeder Bewegung.
+    static func pinCandidate(_ pasteboard: NSPasteboard) -> URL? {
+        guard AppSettings.shared.pinFromShelf,
+              let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+                                                options: [.urlReadingFileURLsOnly: true]) as? [URL],
+              urls.count == 1, let url = urls.first,
+              ContentImporter.isUserFile(url),
+              AppSettings.shared.canPin(url) else { return nil }
+        return url
     }
 
     func perform(_ sender: NSDraggingInfo) -> Bool {
@@ -175,11 +189,13 @@ final class ShelfDropHandler {
         store.ingest(from: sender.draggingPasteboard)
         Haptics.drop()
         setTargeted(false)
+        ui.setPinCandidate(nil)
         return true
     }
 
     func finished() {
         setTargeted(false)
+        ui.releasePinCandidate()
     }
 }
 

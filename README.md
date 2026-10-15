@@ -68,15 +68,17 @@ After that, BarDrop installs new versions itself when you agree (can be turned o
 
 **Items**
 * Files, folders, images from the web (WebP, AVIF and HEIC can be saved as PNG or JPEG), links and text
+* New screenshots can land in the shelf automatically
 * Newest or oldest first, stacks, selection like in the Finder
 * Removed something by accident? `⌘Z` brings it back
 * Moved or renamed files stay in the shelf, iCloud files are downloaded when needed, files from disconnected drives stay greyed out
 * Contents survive a restart and can be cleaned up automatically after 1 to 24 hours
 
 **Action bar**
-* AirDrop, Mail, Messages, Share, any folder or app
+* AirDrop, Mail, Messages, Share, Trash, any folder or app
 * Drag items onto it, or select them and click
 * One row with up to six actions or two rows with up to ten
+* Optionally pin a folder or app by dragging it onto the shelf, and remove an action by dragging it out
 
 **Settings**
 * English or German

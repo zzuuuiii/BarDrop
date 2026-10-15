@@ -39,6 +39,33 @@ final class ShelfUIModel: ObservableObject {
     /// Klick auf die mittlere Stufe: Ablage ganz öffnen (Modus „Per Klick“).
     var expandRequested = false
 
+    /// Ordner oder App, die gerade über die Ablage gezogen wird und sich anheften ließe.
+    /// Solange gesetzt, zeigt die Aktionsleiste einen freien Platz zum Anheften.
+    @Published private(set) var pinCandidate: URL?
+    private var pinClear: DispatchWorkItem?
+
+    func setPinCandidate(_ url: URL?) {
+        holdPinCandidate()
+        guard pinCandidate != url else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { pinCandidate = url }
+    }
+
+    /// Der Zeiger ist noch über der Ablage (ein Ziel darin hat den Drag übernommen)
+    func holdPinCandidate() {
+        pinClear?.cancel()
+        pinClear = nil
+    }
+
+    /// Der Zeiger hat ein Ziel verlassen: kurz warten, ob ein anderes Ziel der Ablage
+    /// übernimmt, sonst den Platz wieder ausblenden
+    func releasePinCandidate(after delay: TimeInterval = 0.25) {
+        holdPinCandidate()
+        guard pinCandidate != nil else { return }
+        let work = DispatchWorkItem { [weak self] in self?.setPinCandidate(nil) }
+        pinClear = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
     /// Kurze Rückmeldung oben in der Ablage („2 Objekte entfernt · Widerrufen“).
     struct Notice: Equatable {
         var id = UUID()

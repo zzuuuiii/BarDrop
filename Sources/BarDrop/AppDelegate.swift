@@ -13,9 +13,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var hotKey: HotKey?
     private var onboarding: OnboardingController?
+    private var screenshots: ScreenshotWatcher?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Nach einem Update erst starten, wenn die alte Fassung beendet ist
+        Updater.waitForPreviousVersion { [weak self] in self?.launch() }
+    }
+
+    private func launch() {
         endOtherInstances()
+        Updater.cleanUpAfterUpdate()
         store = ShelfStore()
         ui = ShelfUIModel()
         controller = EdgeController(store: store, ui: ui, settings: settings)
@@ -25,6 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         // Herausziehen fehlgeschlagen: Objekt zurück in die Ablage
         DragExporter.shared.onFailed = { [weak self] url in self?.store.restore(url) }
+        // Neue Bildschirmfotos: kurz den Streifen zeigen, damit man sieht, wo sie liegen
+        screenshots = ScreenshotWatcher(store: store) { [weak self] in
+            guard let self, self.ui.level == .hidden else { return }
+            self.controller.greet()
+        }
 
         // Kein Symbol in der Menüleiste: Einstellungen und Beenden erreicht man über
         // einen Rechtsklick in die Ablage oder durch erneutes Öffnen von BarDrop.
@@ -128,6 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     // MARK: Einstellungen
 
     func showSettings() {
+        guard store != nil else { return }   // noch nicht gestartet (wartet nach Update)
         if settingsWindow == nil {
             let window = SettingsWindowFactory.make(settings: settings, store: store) { [weak self] in
                 DispatchQueue.main.async { self?.showOnboarding() }

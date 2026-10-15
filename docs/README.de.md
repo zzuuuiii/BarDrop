@@ -68,15 +68,17 @@ Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar
 
 **Objekte**
 * Dateien, Ordner, Bilder aus dem Web (WebP, AVIF und HEIC werden als PNG oder JPEG gespeichert), Links und Text
+* Neue Bildschirmfotos landen auf Wunsch automatisch in der Ablage
 * Neueste oder älteste zuerst, Stapel per Auswahl, Auswahl wie im Finder
 * Versehentlich entfernt? `⌘Z` holt es zurück
 * Verschobene oder umbenannte Dateien bleiben in der Ablage, Dateien aus iCloud werden bei Bedarf geladen, Dateien von getrennten Laufwerken bleiben ausgegraut erhalten
 * Inhalt bleibt nach einem Neustart erhalten, auf Wunsch nach 1 bis 24 Stunden automatisch aufgeräumt
 
 **Aktionsleiste**
-* AirDrop, Mail, Nachrichten, Teilen, beliebige Ordner und Apps
+* AirDrop, Mail, Nachrichten, Teilen, Papierkorb, beliebige Ordner und Apps
 * Objekte darauf ziehen oder auswählen und anklicken
 * Eine Reihe mit bis zu sechs oder zwei Reihen mit bis zu zehn Aktionen
+* Auf Wunsch Ordner und Apps per Ziehen auf die Ablage anheften und Aktionen durch Herausziehen entfernen
 
 **Einstellungen**
 * Englisch oder Deutsch

@@ -238,6 +238,8 @@ final class AppSettings: ObservableObject {
         static let generousHitArea = "generousHitArea"
         static let twoActionRows = "twoActionRows"
         static let actionRowSplit = "actionRowSplit"
+        static let pinFromShelf = "pinFromShelf"
+        static let addScreenshots = "addScreenshots"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -349,6 +351,11 @@ final class AppSettings: ObservableObject {
     @Published var twoActionRows: Bool { didSet { defaults.set(twoActionRows, forKey: Key.twoActionRows) } }
     /// Zwei Reihen: so viele Aktionen (vorne in `quickActions`) stehen in der oberen Reihe
     @Published var actionRowSplit: Int { didSet { defaults.set(actionRowSplit, forKey: Key.actionRowSplit) } }
+    /// Ordner und Apps auf die Aktionsleiste der Ablage ziehen heftet sie an,
+    /// eine Aktion aus der Ablage herausziehen entfernt sie
+    @Published var pinFromShelf: Bool { didSet { defaults.set(pinFromShelf, forKey: Key.pinFromShelf) } }
+    /// Neue Bildschirmfotos landen automatisch in der Ablage
+    @Published var addScreenshots: Bool { didSet { defaults.set(addScreenshots, forKey: Key.addScreenshots) } }
 
     /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
     /// fünf Aktionen hat.
@@ -359,6 +366,30 @@ final class AppSettings: ObservableObject {
     static func clampSplit(_ split: Int, count: Int) -> Int {
         let per = QuickAction.perRow
         return min(max(split, max(0, count - per)), min(per, count))
+    }
+
+    /// Lässt sich dieser Ordner bzw. diese App gerade in der Ablage anheften?
+    func canPin(_ url: URL) -> Bool {
+        pinFromShelf
+            && quickActions.count < QuickAction.limit(twoRows: twoActionRows)
+            && QuickAction.pinnableKind(url) != nil
+            && !quickActions.contains { $0.path == url.path }
+    }
+
+    /// Ordner oder App hinten an die Aktionsleiste anheften
+    @discardableResult
+    func pin(_ url: URL) -> Bool {
+        guard canPin(url), let kind = QuickAction.pinnableKind(url) else { return false }
+        quickActions.append(QuickAction(kind: kind, path: url.path))
+        return true
+    }
+
+    /// Aktion entfernen; aus der oberen Reihe rückt die Grenze mit, die untere bleibt
+    func removeQuickAction(_ id: QuickAction.ID) {
+        guard let index = quickActions.firstIndex(where: { $0.id == id }) else { return }
+        let split = effectiveActionSplit
+        quickActions.remove(at: index)
+        if index < split { actionRowSplit = split - 1 }
     }
 
     /// Ab dieser Verzögerung lässt sich das Öffnen per Klick abkürzen.
@@ -418,6 +449,8 @@ final class AppSettings: ObservableObject {
             Key.language: AppLanguage.english.rawValue,
             Key.generousHitArea: false,
             Key.twoActionRows: false,
+            Key.pinFromShelf: false,
+            Key.addScreenshots: false,
             Key.actionRowSplit: QuickAction.perRow,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
@@ -470,6 +503,8 @@ final class AppSettings: ObservableObject {
         generousHitArea = defaults.bool(forKey: Key.generousHitArea)
         twoActionRows = defaults.bool(forKey: Key.twoActionRows)
         actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)
+        pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
+        addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -531,6 +566,8 @@ final class AppSettings: ObservableObject {
         generousHitArea = false
         twoActionRows = false
         actionRowSplit = QuickAction.perRow
+        pinFromShelf = false
+        addScreenshots = false
         showOutline = true
         removeAfterDragOut = true
         stackMultiple = true

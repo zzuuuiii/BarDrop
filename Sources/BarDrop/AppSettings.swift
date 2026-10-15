@@ -237,6 +237,7 @@ final class AppSettings: ObservableObject {
         static let language = "language"
         static let generousHitArea = "generousHitArea"
         static let twoActionRows = "twoActionRows"
+        static let actionRowSplit = "actionRowSplit"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -341,6 +342,19 @@ final class AppSettings: ObservableObject {
     @Published var generousHitArea: Bool { didSet { defaults.set(generousHitArea, forKey: Key.generousHitArea) } }
     /// Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen
     @Published var twoActionRows: Bool { didSet { defaults.set(twoActionRows, forKey: Key.twoActionRows) } }
+    /// Zwei Reihen: so viele Aktionen (vorne in `quickActions`) stehen in der oberen Reihe
+    @Published var actionRowSplit: Int { didSet { defaults.set(actionRowSplit, forKey: Key.actionRowSplit) } }
+
+    /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
+    /// fünf Aktionen hat.
+    var effectiveActionSplit: Int {
+        Self.clampSplit(actionRowSplit, count: quickActions.count)
+    }
+
+    static func clampSplit(_ split: Int, count: Int) -> Int {
+        let per = QuickAction.perRow
+        return min(max(split, max(0, count - per)), min(per, count))
+    }
 
     /// Ab dieser Verzögerung lässt sich das Öffnen per Klick abkürzen.
     static let clickToOpenMinDelay = 1.0
@@ -399,6 +413,7 @@ final class AppSettings: ObservableObject {
             Key.language: AppLanguage.english.rawValue,
             Key.generousHitArea: false,
             Key.twoActionRows: false,
+            Key.actionRowSplit: QuickAction.perRow,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
             Key.hotKeyModifiers: Self.defaultHotKey.modifiers,
@@ -447,6 +462,7 @@ final class AppSettings: ObservableObject {
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
         generousHitArea = defaults.bool(forKey: Key.generousHitArea)
         twoActionRows = defaults.bool(forKey: Key.twoActionRows)
+        actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -497,6 +513,7 @@ final class AppSettings: ObservableObject {
         clickToOpenEarly = true
         generousHitArea = false
         twoActionRows = false
+        actionRowSplit = QuickAction.perRow
         showOutline = true
         removeAfterDragOut = true
         stackMultiple = true

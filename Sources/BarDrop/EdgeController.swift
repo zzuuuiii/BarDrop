@@ -45,6 +45,7 @@ final class EdgeController: NSObject {
     private var monitors: [Any] = []
     private var layoutDirty = false
     private var settingsObserver: AnyCancellable?
+    private var contentObserver: AnyCancellable?
     /// Fokus zurückgeben, sobald ein eigener Drag beendet ist.
     private var pendingResignFocus = false
 
@@ -81,6 +82,13 @@ final class EdgeController: NSObject {
             self?.layoutDirty = true
             DispatchQueue.main.async { self?.wake() }
         }
+        // Neuer Inhalt, der erst später fertig wird (Bilder aus dem Web, große Dateien,
+        // iCloud): Ohne Fokus zeichnet macOS das Fenster teils erst beim nächsten Öffnen
+        // neu. Deshalb hier selbst neu zeichnen, sobald sich der Inhalt ändert.
+        contentObserver = store.$entries.map { _ in () }
+            .merge(with: store.$pendingImports.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.refreshContent() }
 
         let cleanup = Timer(timeInterval: 60, target: self, selector: #selector(removeExpired), userInfo: nil, repeats: true)
         RunLoop.main.add(cleanup, forMode: .common)
@@ -320,6 +328,26 @@ final class EdgeController: NSObject {
             guard let self, self.ui.level == .expanded, !self.panel.isKeyWindow,
                   (NSEvent.pressedMouseButtons & 1) == 0 else { return }
             self.panel.makeKey()
+        }
+    }
+
+    /// Zeichnet die offene Ablage sofort neu und holt den Fokus zurück, wenn der Zeiger
+    /// darüber ist (so wie direkt nach dem Ablegen).
+    private func refreshContent() {
+        guard ui.level == .expanded, let host = panel.contentView else { return }
+        host.needsLayout = true
+        host.needsDisplay = true
+        panel.displayIfNeeded()
+        // Kurz danach noch einmal: Die Einfüge-Animation beginnt erst im nächsten Durchlauf
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self, self.ui.level == .expanded else { return }
+            self.panel.contentView?.needsDisplay = true
+            self.panel.displayIfNeeded()
+            if !self.panel.isKeyWindow, (NSEvent.pressedMouseButtons & 1) == 0,
+               let screen = self.screen,
+               self.bodyRect(.expanded, on: screen).contains(NSEvent.mouseLocation) {
+                self.panel.makeKey()
+            }
         }
     }
 

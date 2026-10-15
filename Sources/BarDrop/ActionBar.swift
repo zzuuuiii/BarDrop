@@ -182,20 +182,26 @@ struct QuickActionBar: View {
     let store: ShelfStore
     let actions: ShelfActions
 
-    private var visible: [QuickAction] {
-        Array(settings.quickActions.prefix(QuickAction.limit(twoRows: settings.twoActionRows)))
-    }
-
     var body: some View {
-        let items = visible
+        let all = settings.quickActions
         Group {
-            if settings.twoActionRows && items.count > QuickAction.perRow {
-                // Zwei Reihen zu je fünf Plätzen, die zweite linksbündig auf demselben Raster
-                VStack(spacing: 2) {
-                    row(Array(items.prefix(QuickAction.perRow)), slots: QuickAction.perRow)
-                    row(Array(items.dropFirst(QuickAction.perRow)), slots: QuickAction.perRow)
+            if settings.twoActionRows {
+                // Zwei Reihen, wie in den Einstellungen verteilt. Beide auf demselben
+                // Raster von fünf Plätzen, damit die Symbole übereinander stehen.
+                let split = settings.effectiveActionSplit
+                let top = Array(all.prefix(split))
+                let bottom = Array(all.dropFirst(split).prefix(QuickAction.perRow))
+                if top.isEmpty || bottom.isEmpty {
+                    let only = top.isEmpty ? bottom : top
+                    row(only, slots: only.count)
+                } else {
+                    VStack(spacing: 2) {
+                        row(top, slots: QuickAction.perRow)
+                        row(bottom, slots: QuickAction.perRow)
+                    }
                 }
             } else {
+                let items = Array(all.prefix(QuickAction.limit(twoRows: false)))
                 row(items, slots: items.count)
             }
         }

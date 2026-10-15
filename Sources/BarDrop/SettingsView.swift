@@ -414,129 +414,39 @@ struct ActionSettings: View {
     @State private var selection: QuickAction.ID?
     @State private var addButtonFrame: CGRect = .zero
 
-    // Anordnen per Ziehen: Die gezogene Zeile folgt dem Zeiger, die anderen rücken
-    // Platz für Platz nach, jeder neue Platz rastet mit einem leichten Impuls ein.
-    @State private var dragging: QuickAction.ID?
-    @State private var dragStartIndex = 0
-    @State private var dragTranslation: CGFloat = 0
-
-    /// Zeilenhöhe plus Trennlinie: so weit ist ein Platz vom nächsten entfernt
-    private static let rowHeight: CGFloat = 52
-    private static let pitch: CGFloat = rowHeight + 1
-
     private var limit: Int { QuickAction.limit(twoRows: settings.twoActionRows) }
 
     var body: some View {
         SettingsPage {
-            SettingsSection(L("Action bar", "Aktionsleiste"),
-                            info: L("Drag items onto an action at the bottom of the shelf, or select them and click the action. Drag a row to reorder, or right-click it. Up to \(limit) actions.",
-                                    "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen eine Zeile ziehen oder per Rechtsklick verschieben. Höchstens \(limit) Aktionen.")) {
-                HStack(spacing: 8) {
-                    addMenu
-                    HeaderIconButton(symbol: "minus.circle.fill", help: L("Remove selected action", "Ausgewählte Aktion entfernen"),
-                                     disabled: selection == nil) {
-                        if let action = settings.quickActions.first(where: { $0.id == selection }) { remove(action) }
+            VStack(alignment: .leading, spacing: 8) {
+                SettingsHeader(L("Action bar", "Aktionsleiste"),
+                               info: L("Drag items onto an action at the bottom of the shelf, or select them and click the action. Drag a row to reorder it; with two rows you can also drag it into the other row. Up to \(limit) actions.",
+                                       "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen eine Zeile ziehen; bei zwei Reihen auch in die andere Reihe. Höchstens \(limit) Aktionen.")) {
+                    HStack(spacing: 8) {
+                        addMenu
+                        HeaderIconButton(symbol: "minus.circle.fill", help: L("Remove selected action", "Ausgewählte Aktion entfernen"),
+                                         disabled: selection == nil) {
+                            if let action = settings.quickActions.first(where: { $0.id == selection }) { remove(action) }
+                        }
+                        HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore defaults", "Standard wiederherstellen")) {
+                            settings.quickActions = QuickAction.defaults
+                            settings.actionRowSplit = QuickAction.perRow
+                            selection = nil
+                        }
                     }
-                    HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore defaults", "Standard wiederherstellen")) {
-                        settings.quickActions = QuickAction.defaults
-                        selection = nil
-                    }
                 }
-            } content: {
-                ForEach(Array(settings.quickActions.enumerated()), id: \.element.id) { index, action in
-                    row(action, index: index)
-                }
-                if settings.quickActions.isEmpty {
-                    SettingsRow(L("No actions", "Keine Aktionen")) { EmptyView() }
-                        .foregroundStyle(.secondary)
-                }
+                .padding(.horizontal, 8)
+
+                ActionListEditor(settings: settings, selection: $selection,
+                                 onRemove: remove, onMove: move)
             }
 
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
-                          info: L("Shows the action bar in two rows of up to five actions each, so up to ten actions fit. With one row there is room for six.",
-                                  "Zeigt die Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen, so passen bis zu zehn hinein. Mit einer Reihe ist Platz für sechs."),
-                          isOn: $settings.twoActionRows)
+                          info: L("Shows the action bar in two rows of up to five actions each, so up to ten fit. Drag an action into the row where you want it. With one row there is room for six.",
+                                  "Zeigt die Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen, so passen bis zu zehn hinein. Zieh eine Aktion in die Reihe, in der du sie haben willst. Mit einer Reihe ist Platz für sechs."),
+                          isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
             }
-        }
-    }
-
-    private func row(_ action: QuickAction, index: Int) -> some View {
-        let selected = selection == action.id
-        let isDragged = dragging == action.id
-        let hidden = index >= limit
-        return HStack(spacing: 10) {
-            QuickActionIcon(action: action, size: 26)
-                .opacity(hidden ? 0.4 : 1)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(action.title)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(selected ? Color.white : Color.primary)
-                Text(hidden ? L("Not shown, the bar is full", "Nicht sichtbar, die Leiste ist voll") : action.help)
-                    .font(.system(size: 11))
-                    .foregroundStyle(selected ? Color.white.opacity(0.8) : Color.secondary)
-            }
-            Spacer()
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(selected ? Color.white.opacity(0.7) : Color.secondary.opacity(isDragged ? 1 : 0.6))
-                .frame(width: 28, height: Self.rowHeight)
-                .contentShape(Rectangle())
-                .help(L("Drag to reorder", "Zum Anordnen ziehen"))
-        }
-        .padding(.leading, SettingsTheme.rowPadding)
-        .padding(.trailing, 4)
-        .frame(height: Self.rowHeight)
-        .background(selected ? Color(nsColor: .controlAccentColor) : SettingsTheme.card)
-        .contentShape(Rectangle())
-        .shadow(color: .black.opacity(isDragged ? 0.35 : 0), radius: 8, y: 3)
-        .scaleEffect(isDragged ? 1.015 : 1)
-        .offset(y: isDragged ? dragOffset(for: index) : 0)
-        .zIndex(isDragged ? 1 : 0)
-        .onTapGesture { selection = selection == action.id ? nil : action.id }
-        .gesture(
-            // Global gemessen: Die Zeile bewegt sich selbst mit, ihr eigenes Koordinatensystem auch
-            DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                .onChanged { g in dragChanged(action, index: index, translation: g.translation.height) }
-                .onEnded { _ in dragEnded() }
-        )
-        .contextMenu {
-            Button(L("Move Up", "Nach oben")) { move(action, by: -1) }
-                .disabled(settings.quickActions.first?.id == action.id)
-            Button(L("Move Down", "Nach unten")) { move(action, by: 1) }
-                .disabled(settings.quickActions.last?.id == action.id)
-            Divider()
-            Button(L("Remove", "Entfernen")) { remove(action) }
-        }
-    }
-
-    /// Versatz der gezogenen Zeile: Zeigerweg minus die Plätze, um die sie schon gewandert ist
-    private func dragOffset(for index: Int) -> CGFloat {
-        dragTranslation - CGFloat(index - dragStartIndex) * Self.pitch
-    }
-
-    private func dragChanged(_ action: QuickAction, index: Int, translation: CGFloat) {
-        if dragging != action.id {
-            dragging = action.id
-            dragStartIndex = index
-            selection = action.id
-        }
-        dragTranslation = translation
-        let count = settings.quickActions.count
-        let target = min(max(dragStartIndex + Int((translation / Self.pitch).rounded()), 0), count - 1)
-        guard let current = settings.quickActions.firstIndex(where: { $0.id == action.id }),
-              target != current else { return }
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-            settings.quickActions.move(fromOffsets: IndexSet(integer: current),
-                                       toOffset: target > current ? target + 1 : target)
-        }
-        Haptics.tap()   // eingerastet
-    }
-
-    private func dragEnded() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-            dragging = nil
-            dragTranslation = 0
         }
     }
 
@@ -564,22 +474,47 @@ struct ActionSettings: View {
     }
 
     private func remove(_ action: QuickAction) {
-        settings.quickActions.removeAll { $0.id == action.id }
+        guard let index = settings.quickActions.firstIndex(where: { $0.id == action.id }) else { return }
+        let split = settings.effectiveActionSplit
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            settings.quickActions.remove(at: index)
+            // Aus der oberen Reihe entfernt: die Grenze rückt mit, die untere Reihe bleibt, wie sie ist
+            if index < split { settings.actionRowSplit = split - 1 }
+        }
         if selection == action.id { selection = nil }
     }
 
+    /// Nach oben oder unten um einen Platz; über die Grenze der Reihen hinweg wechselt die Reihe.
     private func move(_ action: QuickAction, by offset: Int) {
         guard let i = settings.quickActions.firstIndex(of: action) else { return }
-        let j = i + offset
-        guard settings.quickActions.indices.contains(j) else { return }
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-            settings.quickActions.swapAt(i, j)
+        var order = settings.quickActions
+        var split = settings.effectiveActionSplit
+        if settings.twoActionRows {
+            // Erst die Reihe wechseln, wenn die Aktion am Rand ihrer Reihe steht
+            if offset < 0 && i == split, split < QuickAction.perRow { split += 1 }
+            else if offset > 0 && i == split - 1, order.count - split < QuickAction.perRow { split -= 1 }
+            else {
+                let j = i + offset
+                guard order.indices.contains(j) else { return }
+                order.swapAt(i, j)
+            }
+        } else {
+            let j = i + offset
+            guard order.indices.contains(j) else { return }
+            order.swapAt(i, j)
         }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            settings.quickActions = order
+            settings.actionRowSplit = AppSettings.clampSplit(split, count: order.count)
+        }
+        Haptics.tap()
     }
 
     private func add(_ action: QuickAction) {
         guard settings.quickActions.count < limit else { return }
-        settings.quickActions.append(action)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            settings.quickActions.append(action)
+        }
         selection = action.id
     }
 
@@ -607,5 +542,304 @@ struct ActionSettings: View {
         if panel.runModal() == .OK, let url = panel.url {
             add(QuickAction(kind: .app, path: url.path))
         }
+    }
+}
+
+// MARK: Aktionen anordnen
+
+/// Liste der Aktionen zum Anordnen per Ziehen, bei zwei Reihen in zwei Karten.
+///
+/// Während des Ziehens bleibt die gespeicherte Reihenfolge unverändert. Aus der
+/// Zeigerposition wird nur ein Vorschlag berechnet, und jede Zeile bekommt ihre Lage
+/// aus diesem Vorschlag. Die gezogene Zeile folgt dem Zeiger, die anderen gleiten an
+/// ihren neuen Platz, jeder neue Platz rastet mit einem leichten Impuls ein. Erst beim
+/// Loslassen wird gespeichert. So springt nichts, und die Trennlinien bleiben stehen.
+private struct ActionListEditor: View {
+    @ObservedObject var settings: AppSettings
+    @Binding var selection: QuickAction.ID?
+    let onRemove: (QuickAction) -> Void
+    let onMove: (QuickAction, Int) -> Void
+
+    /// Reihenfolge und Grenze zwischen den Reihen
+    struct Arrangement: Equatable {
+        var order: [QuickAction.ID]
+        var split: Int
+    }
+
+    @State private var dragging: QuickAction.ID?
+    @State private var dragStartY: CGFloat = 0
+    @State private var dragTranslation: CGFloat = 0
+    @State private var proposal: Arrangement?
+
+    private static let rowHeight: CGFloat = 52
+    private static let pitch: CGFloat = rowHeight + 1      // Zeile plus Trennlinie
+    private static let labelHeight: CGFloat = 26           // „Obere Reihe“ über der Karte
+    private static let rowGap: CGFloat = 14                // Abstand zwischen den Karten
+    private static let space = "actionList"
+
+    private var twoRows: Bool { settings.twoActionRows }
+
+    private var committed: Arrangement {
+        Arrangement(order: settings.quickActions.map(\.id), split: settings.effectiveActionSplit)
+    }
+
+    /// Was gerade gezeigt wird: der Vorschlag beim Ziehen, sonst das Gespeicherte
+    private var shown: Arrangement { proposal ?? committed }
+
+    // MARK: Geometrie
+
+    private func counts(_ a: Arrangement) -> (top: Int, bottom: Int) {
+        twoRows ? (a.split, a.order.count - a.split) : (a.order.count, 0)
+    }
+
+    private func cardHeight(_ n: Int) -> CGFloat { CGFloat(max(1, n)) * Self.pitch - 1 }
+
+    /// Oberkante der Karte einer Reihe
+    private func rowTop(_ row: Int, _ a: Arrangement) -> CGFloat {
+        guard twoRows else { return 0 }
+        if row == 0 { return Self.labelHeight }
+        return Self.labelHeight + cardHeight(counts(a).top) + Self.rowGap + Self.labelHeight
+    }
+
+    private func totalHeight(_ a: Arrangement) -> CGFloat {
+        let c = counts(a)
+        return twoRows ? rowTop(1, a) + cardHeight(c.bottom) : cardHeight(c.top)
+    }
+
+    /// Reihe und Platz einer Aktion
+    private func slot(of id: QuickAction.ID, in a: Arrangement) -> (row: Int, index: Int)? {
+        guard let i = a.order.firstIndex(of: id) else { return nil }
+        if twoRows && i >= a.split { return (1, i - a.split) }
+        return (0, i)
+    }
+
+    private func y(of id: QuickAction.ID, in a: Arrangement) -> CGFloat {
+        guard let s = slot(of: id, in: a) else { return 0 }
+        return rowTop(s.row, a) + CGFloat(s.index) * Self.pitch
+    }
+
+    // MARK: Vorschlag aus der Zeigerposition
+
+    /// Wohin die gezogene Aktion käme, wenn ihre Oberkante bei `top` liegt.
+    private func propose(for id: QuickAction.ID, top: CGFloat) -> Arrangement {
+        let base = committed
+        var rest = base.order
+        guard let from = rest.firstIndex(of: id) else { return base }
+        rest.remove(at: from)
+        let center = top + Self.rowHeight / 2
+
+        guard twoRows else {
+            let index = min(max(Int(((center - Self.rowHeight / 2) / Self.pitch).rounded()), 0), rest.count)
+            rest.insert(id, at: index)
+            return Arrangement(order: rest, split: base.split)
+        }
+
+        // Zwei Reihen: Anzahlen ohne die gezogene Aktion
+        let topCount = from < base.split ? base.split - 1 : base.split
+        let bottomCount = rest.count - topCount
+        // Untere Kante der oberen Karte, wenn die Aktion oben eingefügt würde
+        let topCardBottom = Self.labelHeight + cardHeight(topCount + 1)
+        let toBottomRow = center > topCardBottom + (Self.rowGap + Self.labelHeight) / 2
+
+        var split = topCount
+        let insertAt: Int
+        if toBottomRow {
+            let rowStart = Self.labelHeight + cardHeight(topCount) + Self.rowGap + Self.labelHeight
+            let index = min(max(Int(((center - rowStart - Self.rowHeight / 2) / Self.pitch).rounded()), 0), bottomCount)
+            insertAt = topCount + index
+        } else {
+            let index = min(max(Int(((center - Self.labelHeight - Self.rowHeight / 2) / Self.pitch).rounded()), 0), topCount)
+            insertAt = index
+            split += 1
+        }
+        rest.insert(id, at: insertAt)
+        // Ist die Zielreihe voll, rückt ihre letzte bzw. erste Aktion in die andere Reihe
+        return Arrangement(order: rest, split: AppSettings.clampSplit(split, count: rest.count))
+    }
+
+    // MARK: Ansicht
+
+    var body: some View {
+        let a = shown
+        let c = counts(a)
+        let actions = Dictionary(uniqueKeysWithValues: settings.quickActions.map { ($0.id, $0) })
+        let hiddenFrom = QuickAction.limit(twoRows: twoRows)
+
+        ZStack(alignment: .topLeading) {
+            // Karten, Überschriften und Trennlinien: stehen fest, nur die Höhe passt sich an
+            if twoRows {
+                rowLabel(L("Top row", "Obere Reihe"), y: 0)
+                rowLabel(L("Bottom row", "Untere Reihe"), y: rowTop(1, a) - Self.labelHeight)
+                card(count: c.top, top: rowTop(0, a), emptyHint: c.top == 0)
+                card(count: c.bottom, top: rowTop(1, a), emptyHint: c.bottom == 0)
+            } else {
+                card(count: c.top, top: 0, emptyHint: false)
+                if a.order.isEmpty {
+                    Text(L("No actions", "Keine Aktionen"))
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, SettingsTheme.rowPadding)
+                        .frame(height: Self.rowHeight)
+                }
+            }
+
+            // Zeilen: liegen frei über den Karten
+            ForEach(settings.quickActions) { action in
+                let isDragged = dragging == action.id
+                let index = a.order.firstIndex(of: action.id) ?? 0
+                ActionRow(action: action,
+                          selected: selection == action.id,
+                          lifted: isDragged,
+                          hidden: !twoRows && index >= hiddenFrom)
+                    .frame(height: Self.rowHeight)
+                    .offset(y: isDragged ? dragStartY + dragTranslation : y(of: action.id, in: a))
+                    .zIndex(isDragged ? 2 : 1)
+                    .onTapGesture { selection = selection == action.id ? nil : action.id }
+                    .gesture(dragGesture(for: action))
+                    .contextMenu { menu(for: action) }
+            }
+            .animation(nil, value: dragTranslation)
+        }
+        .frame(height: totalHeight(a), alignment: .top)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .coordinateSpace(name: Self.space)
+        .onChange(of: actions.count) { _, _ in
+            if let id = dragging, actions[id] == nil { endDrag(commit: false) }
+        }
+    }
+
+    private func rowLabel(_ text: String, y: CGFloat) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.leading, 8)
+            .frame(height: Self.labelHeight, alignment: .center)
+            .offset(y: y)
+    }
+
+    /// Karte mit Trennlinien für `count` Zeilen; leer mit Hinweis zum Hineinziehen.
+    private func card(count: Int, top: CGFloat, emptyHint: Bool) -> some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                .fill(SettingsTheme.card)
+            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
+            ForEach(1..<max(count, 1), id: \.self) { i in
+                Rectangle()
+                    .fill(SettingsTheme.separator)
+                    .frame(height: 1)
+                    .padding(.leading, SettingsTheme.rowPadding + 36)
+                    .offset(y: CGFloat(i) * Self.pitch - 1)
+            }
+            if emptyHint {
+                Text(L("Drag actions here", "Aktionen hierher ziehen"))
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Self.rowHeight)
+            }
+        }
+        .frame(height: cardHeight(count))
+        .offset(y: top)
+    }
+
+    @ViewBuilder
+    private func menu(for action: QuickAction) -> some View {
+        let order = settings.quickActions
+        Button(L("Move Up", "Nach oben")) { onMove(action, -1) }
+            .disabled(order.first?.id == action.id)
+        Button(L("Move Down", "Nach unten")) { onMove(action, 1) }
+            .disabled(order.last?.id == action.id)
+        Divider()
+        Button(L("Remove", "Entfernen")) { onRemove(action) }
+    }
+
+    // MARK: Ziehen
+
+    private func dragGesture(for action: QuickAction) -> some Gesture {
+        DragGesture(minimumDistance: 2, coordinateSpace: .named(Self.space))
+            .onChanged { g in
+                if dragging != action.id {
+                    dragging = action.id
+                    dragStartY = y(of: action.id, in: committed)
+                }
+                dragTranslation = g.translation.height
+                let top = dragStartY + dragTranslation
+                let next = propose(for: action.id, top: top)
+                if next != shown {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) { proposal = next }
+                    Haptics.tap()   // eingerastet
+                }
+            }
+            .onEnded { _ in endDrag(commit: true) }
+    }
+
+    private func endDrag(commit: Bool) {
+        if commit, let proposal {
+            // Ohne Animation speichern: Die Zeilen stehen schon an diesem Platz
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) {
+                let byID = Dictionary(uniqueKeysWithValues: settings.quickActions.map { ($0.id, $0) })
+                let order = proposal.order.compactMap { byID[$0] }
+                if order.count == settings.quickActions.count {
+                    settings.quickActions = order
+                    settings.actionRowSplit = proposal.split
+                }
+            }
+        }
+        // Die gezogene Zeile gleitet auf ihren Platz
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.86)) {
+            dragging = nil
+            dragTranslation = 0
+            proposal = nil
+        }
+    }
+}
+
+/// Eine Zeile der Aktionsliste.
+private struct ActionRow: View {
+    let action: QuickAction
+    let selected: Bool
+    let lifted: Bool
+    let hidden: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            QuickActionIcon(action: action, size: 26)
+                .opacity(hidden ? 0.4 : 1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(action.title)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .lineLimit(1)
+                Text(hidden ? L("Not shown, the bar is full", "Nicht sichtbar, die Leiste ist voll") : action.help)
+                    .font(.system(size: 11))
+                    .foregroundStyle(selected ? Color.white.opacity(0.8) : Color.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Image(systemName: "line.3.horizontal")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(selected ? Color.white.opacity(0.75) : Color.secondary.opacity(lifted ? 1 : 0.6))
+                .frame(width: 30, height: 40)
+                .contentShape(Rectangle())
+                .help(L("Drag to reorder", "Zum Anordnen ziehen"))
+        }
+        .padding(.leading, SettingsTheme.rowPadding)
+        .padding(.trailing, 6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: lifted ? SettingsTheme.cardRadius : 8, style: .continuous)
+                .fill(selected ? Color(nsColor: .controlAccentColor) : (lifted ? SettingsTheme.card : Color.clear))
+                .padding(lifted ? 0 : 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                .strokeBorder(SettingsTheme.cardBorder, lineWidth: lifted ? 1 : 0)
+        )
+        .shadow(color: .black.opacity(lifted ? 0.4 : 0), radius: 10, y: 4)
+        .scaleEffect(lifted ? 1.02 : 1)
+        .contentShape(Rectangle())
     }
 }

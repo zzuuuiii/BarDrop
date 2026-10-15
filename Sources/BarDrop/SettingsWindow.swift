@@ -11,7 +11,7 @@ enum SettingsWindowFactory {
 
     static func make(settings: AppSettings, store: ShelfStore, showOnboarding: @escaping () -> Void) -> NSWindow {
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
-                              styleMask: [.titled, .closable, .fullSizeContentView],
+                              styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
                               backing: .buffered, defer: false)
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
@@ -24,8 +24,10 @@ enum SettingsWindowFactory {
         // oder Aktionszeilen das ganze Fenster mit
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
+        // Alle drei Ampelknöpfe wie bei anderen Apps; Vergrößern ist ausgegraut, weil
+        // das Fenster eine feste Größe hat (wie bei den Systemeinstellungen)
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
-        window.standardWindowButton(.zoomButton)?.isHidden = true
+        window.standardWindowButton(.zoomButton)?.isHidden = false
         // Leicht durchscheinend wie bei Klack: Fenster selbst ohne Farbe,
         // die Flächen zeichnet SettingsRoot über einer Unschärfe.
         window.isOpaque = false

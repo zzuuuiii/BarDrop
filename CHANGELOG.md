@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.29.0-beta.2
+* Built with Xcode 26 on macOS 26: window buttons, menus and alerts in the current system style (Liquid Glass) on macOS 26 and later
+* Settings window with all three window buttons, like other apps
+* Dragging items out looks like in the Finder: the name in a capsule in your accent color, and images just converted show their preview instead of a plain icon
+
 ## 1.29.0-beta.1
 * Updates install by themselves in the background once BarDrop hasn’t been used for 15 minutes; afterwards it just keeps running, without a message
 * Holding ⌫ removes only one item; press again for the next

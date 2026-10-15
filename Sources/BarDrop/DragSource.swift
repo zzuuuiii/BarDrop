@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import ImageIO
+import UniformTypeIdentifiers
 
 /// AppKit-Ansicht über einer Kachel: Auswahl, Klicks, Kontextmenü, Hover und das
 /// Herausziehen von Dateien (auch mehrere auf einmal).
@@ -127,10 +129,12 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         return item
     }
 
-    /// Vorschau im echten Seitenverhältnis (max. 64 pt), sonst das Dateisymbol.
+    /// Vorschau im echten Seitenverhältnis (max. 64 pt), sonst das Dateisymbol. Fehlt die
+    /// Vorschau noch (etwa bei gerade umgewandelten Bildern), wird sie hier schnell erzeugt,
+    /// damit das gezogene Bild wie die Kachel aussieht und nicht wie ein Standardsymbol.
     private static func dragIcon(for url: URL) -> NSImage {
         let box: CGFloat = 64
-        let source = Thumbnails.cached(url, size: 56) ?? Thumbnails.icon(url)
+        let source = Thumbnails.cached(url, size: 56) ?? quickImagePreview(url) ?? Thumbnails.icon(url)
         let size = source.size
         guard size.width > 0, size.height > 0 else { return source }
         let scale = min(box / size.width, box / size.height)
@@ -142,11 +146,23 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         return image
     }
 
-    /// Dateiname in einer dezenten, gut lesbaren Kapsel.
+    /// Kleine Vorschau eines Bildes direkt aus der Datei (ImageIO, ohne Quick Look)
+    private static func quickImagePreview(_ url: URL) -> NSImage? {
+        guard let type = UTType(filenameExtension: url.pathExtension.lowercased()), type.conforms(to: .image),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 128
+              ] as CFDictionary) else { return nil }
+        return NSImage(cgImage: image, size: NSSize(width: image.width / 2, height: image.height / 2))
+    }
+
+    /// Dateiname wie beim Ziehen im Finder: weiße Schrift in einer Kapsel in der Akzentfarbe.
     private static func labelImage(_ text: String) -> NSImage {
         let shown = text.count > 28 ? String(text.prefix(13)) + "…" + String(text.suffix(13)) : text
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .font: NSFont.systemFont(ofSize: 12),
             .foregroundColor: NSColor.white
         ]
         let string = NSAttributedString(string: shown, attributes: attributes)
@@ -154,7 +170,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         let size = NSSize(width: ceil(textSize.width) + 12, height: ceil(textSize.height) + 4)
         let image = NSImage(size: size)
         image.lockFocus()
-        NSColor.black.withAlphaComponent(0.6).setFill()
+        NSColor.controlAccentColor.setFill()
         NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: size.height / 2, yRadius: size.height / 2).fill()
         string.draw(at: NSPoint(x: 6, y: 2))
         image.unlockFocus()

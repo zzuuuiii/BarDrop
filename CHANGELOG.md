@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.19.1
+* Sliders snap exactly onto the dots below them, also for shelf height and strip length
+
 ## 1.19.0
 * Settings sorted by what you want to do: Opening (where and when the shelf opens) and Appearance (size, strip, style) instead of Shelf, with opening options moved out of General
 * Introduction: dots show your progress; the settings tip shows the real tabs with their icons

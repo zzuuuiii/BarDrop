@@ -457,7 +457,16 @@ struct KlackSlider: View {
     }
 
     private func set(_ raw: Double) {
-        let v = step > 0 ? (raw / step).rounded() * step : raw
+        // Mit Schritten: genau auf den sichtbaren Punkten einrasten, nie dazwischen
+        let v: Double
+        if step > 0 {
+            let span = range.upperBound - range.lowerBound
+            let stops = tickFractions.map { range.lowerBound + Double($0) * span }
+            let nearest = stops.min(by: { abs($0 - raw) < abs($1 - raw) }) ?? raw
+            v = (nearest / step).rounded() * step       // ohne Rundungsfehler speichern
+        } else {
+            v = raw
+        }
         let clamped = min(max(v, range.lowerBound), range.upperBound)
         guard abs(clamped - value) > 1e-9 else { return }
         value = clamped

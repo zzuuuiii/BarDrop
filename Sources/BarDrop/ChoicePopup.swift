@@ -19,7 +19,7 @@ final class ChoicePopup: NSPanel {
 
     private var anchor: CGRect = .zero
     /// Hält die Einträge am Leben, solange das Menü offen ist
-    private var menu: NSMenu?
+    private var source: NSMenu?
     private var rows: [ChoiceRow] = []
     /// Lage der Zeilen im Menü (von oben links), für Untermenüs daneben
     fileprivate var rowFrames: [Int: CGRect] = [:]
@@ -85,7 +85,7 @@ final class ChoicePopup: NSPanel {
         popup.backgroundColor = .clear
         popup.hasShadow = true
         popup.level = .popUpMenu
-        popup.menu = menu
+        popup.source = menu
         popup.rows = menu.items.filter { !$0.isHidden }.map(ChoiceRow.init)
         let host = NSHostingView(rootView: ChoiceList(
             rows: popup.rows, minWidth: minWidth,

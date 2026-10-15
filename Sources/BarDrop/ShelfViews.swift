@@ -442,7 +442,7 @@ struct TileView: View {
 
     /// Alle Dateien liegen auf einem Laufwerk, das gerade nicht angeschlossen ist
     private var offlineVolume: String? {
-        let names = entry.files.map(\.offlineVolumeName)
+        let names = entry.files.map(\.offlineVolumeNameForDisplay)
         guard let first = names.first, let name = first, names.allSatisfy({ $0 != nil }) else { return nil }
         return name
     }
@@ -475,8 +475,8 @@ struct StackMemberTile: View {
                 menu: { anchor in actions.menu(for: file, in: entry, anchor: anchor) }
             )
         )
-        .opacity(file.offlineVolumeName != nil ? 0.4 : 1)
-        .help(file.offlineVolumeName.map { L("Drive “\($0)” isn’t connected", "Laufwerk „\($0)“ ist nicht angeschlossen") } ?? file.url.lastPathComponent)
+        .opacity(file.offlineVolumeNameForDisplay != nil ? 0.4 : 1)
+        .help(file.offlineVolumeNameForDisplay.map { L("Drive “\($0)” isn’t connected", "Laufwerk „\($0)“ ist nicht angeschlossen") } ?? file.url.lastPathComponent)
     }
 }
 

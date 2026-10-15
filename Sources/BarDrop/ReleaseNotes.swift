@@ -10,16 +10,15 @@ final class ReleaseNotes: ObservableObject {
     struct Entry: Identifiable, Equatable {
         let version: String
         let date: Date?
-        /// Englische Notizen (bei älteren Versionen die einzigen, auf Deutsch)
-        let notes: [String]
-        /// Deutsche Fassung, falls das Release beide Sprachen enthält
+        let notesEnglish: [String]?
         let notesGerman: [String]?
         let page: URL?
         var id: String { version }
 
-        /// Notizen in der gewählten Sprache
+        /// Notizen in der gewählten Sprache, sonst in der anderen
         var lines: [String] {
-            AppSettings.shared.language == .german ? (notesGerman ?? notes) : notes
+            AppSettings.shared.language == .german ? (notesGerman ?? notesEnglish ?? [])
+                                                    : (notesEnglish ?? notesGerman ?? [])
         }
     }
 
@@ -31,6 +30,8 @@ final class ReleaseNotes: ObservableObject {
     @Published private(set) var state: State = .idle
 
     private let url = URL(string: "https://api.github.com/repos/zzuuuiii/BarDrop/releases?per_page=8")!
+    /// Englisches Änderungsprotokoll: für ältere Releases, deren Notizen nur auf Deutsch sind
+    private let changelogURL = URL(string: "https://raw.githubusercontent.com/zzuuuiii/BarDrop/main/CHANGELOG.md")!
     static let allReleases = URL(string: "https://github.com/zzuuuiii/BarDrop/releases")!
 
     func loadIfNeeded() {
@@ -39,21 +40,47 @@ final class ReleaseNotes: ObservableObject {
         var request = URLRequest(url: url)
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.timeoutInterval = 20
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
-            let parsed = data.flatMap(Self.parse)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if let parsed, !parsed.isEmpty {
-                    self.entries = parsed
-                    self.state = .loaded
-                } else {
-                    self.state = .failed
-                }
-            }
+        var releases: Data?
+        var changelog: Data?
+        let group = DispatchGroup()
+        group.enter()
+        URLSession.shared.dataTask(with: request) { data, _, _ in
+            releases = data
+            group.leave()
         }.resume()
+        group.enter()
+        URLSession.shared.dataTask(with: URLRequest(url: changelogURL, timeoutInterval: 20)) { data, _, _ in
+            changelog = data
+            group.leave()
+        }.resume()
+        group.notify(queue: .main) { [weak self] in
+            guard let self else { return }
+            let english = changelog.flatMap { String(data: $0, encoding: .utf8) }.map(Self.parseChangelog) ?? [:]
+            if let parsed = releases.flatMap({ Self.parse($0, englishFallback: english) }), !parsed.isEmpty {
+                self.entries = parsed
+                self.state = .loaded
+            } else {
+                self.state = .failed
+            }
+        }
     }
 
-    static func parse(_ data: Data) -> [Entry]? {
+    /// Abschnitte „## 1.2.3“ im Änderungsprotokoll, je Version die Aufzählungspunkte
+    static func parseChangelog(_ text: String) -> [String: [String]] {
+        var result: [String: [String]] = [:]
+        var current: String?
+        for raw in text.components(separatedBy: .newlines) {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            if line.hasPrefix("## ") {
+                current = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+            } else if let version = current, line.hasPrefix("* ") || line.hasPrefix("- ") {
+                result[version, default: []].append(String(line.dropFirst(2)))
+            }
+        }
+        return result
+    }
+
+    static func parse(_ data: Data, englishFallback: [String: [String]] = [:]) -> [Entry]? {
         guard let list = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return nil }
         let iso = ISO8601DateFormatter()
         return list.compactMap { json in
@@ -63,12 +90,15 @@ final class ReleaseNotes: ObservableObject {
             let date = (json["published_at"] as? String).flatMap { iso.date(from: $0) }
             let page = (json["html_url"] as? String).flatMap(URL.init(string:))
             let body = json["body"] as? String ?? ""
-            // Zweisprachige Releases: Englisch oben, Deutsch nach der Marke <!-- de -->
+            // Zweisprachige Releases (ab 1.16): Englisch oben, Deutsch nach der Marke <!-- de -->.
+            // Ältere Releases sind nur deutsch; Englisch kommt dann aus dem Änderungsprotokoll.
             let parts = body.components(separatedBy: germanMarker)
-            return Entry(version: version, date: date,
-                         notes: cleanNotes(parts[0]),
-                         notesGerman: parts.count > 1 ? cleanNotes(parts[1]) : nil,
-                         page: page)
+            if parts.count > 1 {
+                return Entry(version: version, date: date, notesEnglish: cleanNotes(parts[0]),
+                             notesGerman: cleanNotes(parts[1]), page: page)
+            }
+            return Entry(version: version, date: date, notesEnglish: englishFallback[version],
+                         notesGerman: cleanNotes(body), page: page)
         }
     }
 

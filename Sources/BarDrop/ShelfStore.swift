@@ -39,14 +39,46 @@ struct ShelfFile: Codable, Hashable, Identifiable {
     /// und sind wieder da, sobald das Laufwerk zurück ist.
     var offlineVolumeName: String? { Self.offlineVolumeName(of: url) }
 
-    static func offlineVolumeName(of url: URL) -> String? {
+    /// Wie `offlineVolumeName`, aber kurz zwischengespeichert: Kacheln fragen das bei
+    /// jedem Neuzeichnen, und eine Abfrage an ein Netzlaufwerk kann dauern.
+    var offlineVolumeNameForDisplay: String? { Self.offlineVolumeName(of: url, cached: true) }
+
+    static func offlineVolumeName(of url: URL, cached: Bool = false) -> String? {
         let parts = url.standardizedFileURL.pathComponents      // ["/", "Volumes", "Stick", …]
         guard parts.count > 3, parts[1] == "Volumes" else { return nil }
         let root = "/Volumes/" + parts[2]
+        if cached, let online = VolumeState.cached(root) { return online ? nil : parts[2] }
         // Angeschlossen: Der Ordner ist selbst der Einhängepunkt eines Laufwerks
         let mount = try? URL(fileURLWithPath: root, isDirectory: true).resourceValues(forKeys: [.volumeURLKey]).volume
-        if let mount, mount.standardizedFileURL.path == root { return nil }
-        return parts[2]
+        let online = mount?.standardizedFileURL.path == root
+        VolumeState.store(root, online: online)
+        return online ? nil : parts[2]
+    }
+}
+
+/// Ob ein Laufwerk angeschlossen ist, für zwei Sekunden gemerkt; beim An- oder
+/// Abstecken eines Laufwerks sofort vergessen.
+private enum VolumeState {
+    private static let lock = NSLock()
+    private static var states: [String: (online: Bool, at: Date)] = [:]
+    private static let observers: [NSObjectProtocol] = {
+        let center = NSWorkspace.shared.notificationCenter
+        return [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification].map {
+            center.addObserver(forName: $0, object: nil, queue: nil) { _ in
+                VolumeState.lock.lock(); VolumeState.states.removeAll(); VolumeState.lock.unlock()
+            }
+        }
+    }()
+
+    static func cached(_ root: String) -> Bool? {
+        _ = observers
+        lock.lock(); defer { lock.unlock() }
+        guard let s = states[root], Date().timeIntervalSince(s.at) < 2 else { return nil }
+        return s.online
+    }
+
+    static func store(_ root: String, online: Bool) {
+        lock.lock(); states[root] = (online, Date()); lock.unlock()
     }
 }
 
@@ -236,9 +268,10 @@ final class ShelfStore: ObservableObject {
         let newEntries = settings.stackMultiple && fresh.count >= settings.stackThreshold
             ? [ShelfEntry(files: fresh)]
             : fresh.map { ShelfEntry(files: [$0]) }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-            entries.insert(contentsOf: newEntries, at: 0)
-        }
+        // Ohne Animation: Neue Objekte kommen oft erst nach einem Download an, wenn die
+        // Ablage keinen Fokus mehr hat. Dann bliebe eine Einblend-Animation unsichtbar am
+        // Anfang hängen, bis sich die Ablage neu öffnet.
+        insertWithoutAnimation { $0.insert(contentsOf: newEntries, at: 0) }
     }
 
     /// Legt Objekte auf einen vorhandenen Eintrag: Er wird zum Stapel bzw. ergänzt.
@@ -256,7 +289,14 @@ final class ShelfStore: ObservableObject {
         updated[idx].files += fresh
         let targetID = updated[idx].id
         updated.removeAll { $0.files.isEmpty && $0.id != targetID }
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { entries = updated }
+        insertWithoutAnimation { $0 = updated }
+    }
+
+    /// Ändert die Einträge ohne Animation (siehe `add`).
+    private func insertWithoutAnimation(_ change: (inout [ShelfEntry]) -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { change(&entries) }
     }
 
     /// Fasst mehrere Einträge zu einem Stapel zusammen. Liegt `target` dabei,
@@ -426,6 +466,8 @@ final class ShelfStore: ObservableObject {
             }
             guard !back.isEmpty else { continue }
             restored.formUnion(back.map(\.id))
+            // Zurückgeholt zählt wie neu abgelegt: sonst nähme „Automatisch entfernen“
+            // ein altes Objekt gleich wieder weg, dann ohne Widerrufen
             if let idx = updated.firstIndex(where: { $0.id == item.before.id }) {
                 // Eintrag gibt es noch (Stapel): Dateien an ihre alte Stelle im Stapel
                 var files = updated[idx].files
@@ -434,9 +476,11 @@ final class ShelfStore: ObservableObject {
                     files.insert(file, at: min(pos, files.count))
                 }
                 updated[idx].files = files
+                updated[idx].added = Date()
             } else {
                 var entry = item.before
                 entry.files = back
+                entry.added = Date()
                 updated.insert(entry, at: min(item.index, updated.count))
             }
         }
@@ -450,6 +494,14 @@ final class ShelfStore: ObservableObject {
 
     /// Dateien, die das letzte Widerrufen zurückgebracht hat (für die Auswahl).
     private(set) var lastRestoredFileIDs: Set<UUID> = []
+
+    /// Widerruft das letzte Entfernen und liefert, was zurückgekommen ist. Leer, wenn die
+    /// Dateien inzwischen weg sind (z. B. Bilder aus dem Web, Minuten nach dem Herausziehen).
+    func undoLast() -> Set<UUID> {
+        lastRestoredFileIDs = []
+        undoManager.undo()
+        return lastRestoredFileIDs
+    }
 
     /// Widerrufen ist für diese Entfernung nicht mehr möglich: aufgehobene Dateien löschen.
     private func expire(_ removal: ShelfRemoval) {
@@ -472,9 +524,7 @@ final class ShelfStore: ObservableObject {
         guard let file = pendingDeletion.removeValue(forKey: url.standardizedFileURL),
               FileManager.default.fileExists(atPath: file.url.path) else { return }
         Log.store.info("Objekt nach Fehler zurückgeholt")
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) {
-            entries.insert(ShelfEntry(files: [file]), at: 0)
-        }
+        insertWithoutAnimation { $0.insert(ShelfEntry(files: [file]), at: 0) }
     }
 
     /// Prüft, ob alle Dateien noch da sind. Verschobene Dateien des Nutzers werden über

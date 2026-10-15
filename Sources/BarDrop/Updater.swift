@@ -172,11 +172,13 @@ final class Updater: ObservableObject {
 
     /// Prüft die DMG, legt die neue App neben die alte und startet den Austausch.
     private func prepare(dmg: URL, in work: URL, target: URL, release: Release) throws {
-        if let expected = release.sha256 {
-            let data = try Data(contentsOf: dmg)
-            let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-            guard actual == expected.lowercased() else { throw UpdateError(L("The DMG’s checksum doesn’t match.", "Die Prüfsumme der DMG stimmt nicht.")) }
+        // Ohne Prüfsumme lässt sich die DMG nicht prüfen: dann lieber nicht installieren
+        guard let expected = release.sha256 else {
+            throw UpdateError(L("The download couldn’t be verified.", "Der Download ließ sich nicht prüfen."))
         }
+        let data = try Data(contentsOf: dmg)
+        let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        guard actual == expected.lowercased() else { throw UpdateError(L("The DMG’s checksum doesn’t match.", "Die Prüfsumme der DMG stimmt nicht.")) }
 
         let mount = work.appendingPathComponent("mnt", isDirectory: true)
         try FileManager.default.createDirectory(at: mount, withIntermediateDirectories: true)

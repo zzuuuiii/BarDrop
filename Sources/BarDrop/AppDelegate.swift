@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var ui: ShelfUIModel!
     private var controller: EdgeController!
     private var hotKeyObserver: AnyCancellable?
+    private var languageObserver: AnyCancellable?
     private var settingsWindow: NSWindow?
     private var hotKey: HotKey?
     private var onboarding: OnboardingController?
@@ -27,6 +28,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         // Kein Symbol in der Menüleiste: Einstellungen und Beenden erreicht man über
         // einen Rechtsklick in die Ablage oder durch erneutes Öffnen von BarDrop.
+
+        // Unsichtbares Hauptmenü, damit ⌘, ⌘W und ⌘Q in Einstellungen und Einführung
+        // funktionieren (eine App ohne Dock-Symbol zeigt es nie an)
+        languageObserver = settings.$language
+            .removeDuplicates()
+            .sink { [weak self] _ in DispatchQueue.main.async { self?.installMainMenu() } }
 
         // Kurzbefehl, neu registriert, sobald er in den Einstellungen geändert wird
         hotKeyObserver = settings.$hotKeyCode.combineLatest(settings.$hotKeyModifiers)
@@ -54,6 +61,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         // Widerrufen ist nach dem Beenden nicht mehr möglich: aufgehobene Dateien löschen
         store?.discardUndoHistory()
+    }
+
+    // MARK: Hauptmenü
+
+    private func installMainMenu() {
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "BarDrop")
+        appMenu.addItem(ClosureMenuItem(L("Settings", "Einstellungen"), key: ",") { [weak self] in
+            self?.showSettings()
+        })
+        appMenu.addItem(.separator())
+        appMenu.addItem(ClosureMenuItem(L("Quit BarDrop", "BarDrop beenden"), key: "q") {
+            NSApp.terminate(nil)
+        })
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: L("Window", "Fenster"))
+        windowMenu.addItem(ClosureMenuItem(L("Close", "Schließen"), key: "w") {
+            // Nur echte Fenster schließen, nie die Ablage selbst
+            guard let window = NSApp.keyWindow, !(window is ShelfPanel) else { return }
+            window.performClose(nil)
+        })
+        windowItem.submenu = windowMenu
+        main.addItem(windowItem)
+
+        NSApp.mainMenu = main
     }
 
     // MARK: Einführung

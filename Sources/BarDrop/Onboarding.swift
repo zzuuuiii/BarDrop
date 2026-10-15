@@ -85,8 +85,6 @@ final class OnboardingController: NSObject, NSWindowDelegate {
     private var baseline: Set<UUID> = []
     /// Einträge mit der Beispieldatei: werden am Ende wieder entfernt
     private var sampleEntries: Set<UUID> = []
-    /// Beim Schritt „Zurückholen“ war die Ablage schon einmal zu
-    private var sawHidden = false
     private var finished = false
 
     /// Wird nach dem Schließen aufgerufen, damit der Besitzer loslassen kann.
@@ -134,17 +132,12 @@ final class OnboardingController: NSObject, NSWindowDelegate {
             .sink { [weak self] entries in self?.entriesChanged(entries) }
             .store(in: &subscriptions)
 
-        ui.$level
-            .sink { [weak self] level in self?.levelChanged(level) }
-            .store(in: &subscriptions)
     }
 
     private func prepare(_ step: OnboardingModel.Step) {
         switch step {
         case .drop:
             baseline = Set(store.entries.map(\.id))
-        case .retrieve:
-            sawHidden = ui.level == .hidden
         default:
             break
         }
@@ -159,12 +152,6 @@ final class OnboardingController: NSObject, NSWindowDelegate {
         if entries.contains(where: { !baseline.contains($0.id) }) {
             model.complete(.drop)
         }
-    }
-
-    private func levelChanged(_ level: ShelfUIModel.Level) {
-        guard model.step == .retrieve else { return }
-        if level == .hidden { sawHidden = true }
-        if level == .expanded && sawHidden { model.complete(.retrieve) }
     }
 
     // MARK: Ende
@@ -318,7 +305,9 @@ struct OnboardingView: View {
                                onDragStarted: model.onSampleDragStarted)
                 }
             case .retrieve:
-                MiniScreen(edge: model.settings.edge, done: model.stepDone)
+                ReturnDropZone(url: model.sampleURL, done: model.stepDone) {
+                    model.complete(.retrieve)
+                }
             case .shortcut:
                 KeyCaps(settings: model.settings, pressed: model.stepDone)
             case .actions:
@@ -343,7 +332,7 @@ struct OnboardingView: View {
         switch model.step {
         case .welcome: return L("Welcome to BarDrop", "Willkommen bei BarDrop")
         case .drop: return model.stepDone ? L("Dropped", "Abgelegt") : L("Drop something", "Leg etwas ab")
-        case .retrieve: return model.stepDone ? L("There it is", "Da ist sie") : L("Get it back", "Hol es zurück")
+        case .retrieve: return model.stepDone ? L("Got it back", "Zurückgeholt") : L("Get it back", "Hol es zurück")
         case .shortcut: return model.stepDone ? L("Perfect", "Perfekt") : L("From anywhere", "Von überall")
         case .actions: return L("Send it on", "Direkt weitergeben")
         case .organize: return L("Keep it tidy", "Ordnung halten")
@@ -366,13 +355,13 @@ struct OnboardingView: View {
                     "Zieh das Bild an den \(edgeWord) Bildschirmrand. Sobald sich die Ablage öffnet, lass es los.")
         case .retrieve:
             if model.stepDone {
-                return L("To use something, just drag it out of the shelf into any app.",
-                         "Zum Verwenden ziehst du es einfach aus der Ablage in jede beliebige App.")
+                return L("That’s how you use anything in the shelf: drag it out into any app, like Mail, the Finder or a browser.",
+                         "So verwendest du alles aus der Ablage: einfach herausziehen, in jede App, etwa Mail, den Finder oder einen Browser.")
             }
             let open = s.openMode == .click ? L("and click the handle", "und klick auf den Griff")
                                             : L("and wait a moment", "und warte einen Moment")
-            return L("Move the pointer to the \(edgeWord) edge\(middle) \(open). The shelf opens.",
-                     "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle) \(open). Die Ablage öffnet sich.")
+            return L("Move the pointer to the \(edgeWord) edge\(middle) \(open). When the shelf opens, drag the image back here.",
+                     "Fahr mit dem Zeiger an den \(edgeWord) Rand\(middle) \(open). Wenn sich die Ablage öffnet, zieh das Bild hierher zurück.")
         case .shortcut:
             return model.stepDone
                 ? L("The same shortcut closes the shelf again.", "Derselbe Kurzbefehl schließt die Ablage wieder.")
@@ -679,83 +668,121 @@ final class SampleDragView: NSView, NSDraggingSource {
     }
 }
 
-/// Kleiner Bildschirm: Der Zeiger fährt an den Rand, die Ablage öffnet sich.
-private struct MiniScreen: View {
-    let edge: ScreenEdge
+/// Fläche, in die das Bild aus der Ablage zurückgezogen wird. Nimmt nur Objekte an,
+/// die aus der Ablage kommen, damit man genau das Herausziehen übt.
+private struct ReturnDropZone: View {
+    let url: URL?
     let done: Bool
-
-    private let width: CGFloat = 300
-    private let height: CGFloat = 186
+    let onDrop: () -> Void
+    @State private var targeted = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: AnimationStyle.reduceMotion || done)) { context in
-            let t = AnimationStyle.reduceMotion || done
-                ? 1.8
-                : context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3.8)
-            scene(t: t)
-        }
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
-    }
-
-    /// Weicher Übergang zwischen zwei Zeitpunkten (0 … 1).
-    private func ramp(_ t: Double, _ a: Double, _ b: Double) -> CGFloat {
-        let x = min(max((t - a) / (b - a), 0), 1)
-        return CGFloat(x * x * (3 - 2 * x))
-    }
-
-    private func scene(t: Double) -> some View {
-        // Ablauf: Zeiger zum Rand, Ablage auf, Zeiger auf die Ablage, wieder weg, Ablage zu
-        let open = ramp(t, 0.95, 1.3) * (1 - ramp(t, 2.75, 3.05))
-        let toEdge = ramp(t, 0.1, 0.95) * (1 - ramp(t, 2.55, 3.2))
-        let onto = ramp(t, 1.35, 1.75) * (1 - ramp(t, 2.4, 2.7))
-
-        let shelfW = 4 + 92 * open
-        let shelfH = 44 + 74 * open
-        let fillet = 3 + 5 * open
-        let start = width * 0.42
-        let edgeX = width - 6
-        let cursorFromEdge = start + (edgeX - start) * toEdge - 46 * onto
-        let cursorX = edge == .right ? cursorFromEdge : width - cursorFromEdge
-
-        return ZStack(alignment: edge == .right ? .trailing : .leading) {
-            LinearGradient(colors: [Color(red: 0.2, green: 0.24, blue: 0.42),
-                                    Color(red: 0.07, green: 0.07, blue: 0.13)],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-            VStack {
-                Rectangle().fill(Color.white.opacity(0.12)).frame(height: 10)
-                Spacer()
-            }
-
-            ZStack(alignment: edge == .right ? .trailing : .leading) {
-                EdgeBlobShape(edge: edge, cornerRadius: 3 + 11 * open, fillet: fillet, filletStretch: 1.25)
-                    .fill(Color.black)
-                HStack(spacing: 6) {
-                    ForEach(0..<2, id: \.self) { _ in
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(Color.white.opacity(0.22))
-                            .frame(width: 26, height: 26)
-                    }
-                }
-                .opacity(Double(ramp(Double(open), 0.6, 1)))
-                .frame(width: shelfW)
-            }
-            .frame(width: shelfW, height: shelfH + 2 * fillet)
-
-            Image(systemName: "cursorarrow")
-                .font(.system(size: 17))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                .position(x: cursorX, y: height / 2 + 6)
+        ZStack {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(targeted ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.04))
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(targeted ? Color.accentColor : Color.secondary.opacity(0.45),
+                              style: StrokeStyle(lineWidth: 2, dash: done ? [] : [7, 6]))
                 .opacity(done ? 0 : 1)
+
+            if done {
+                ZStack(alignment: .bottomTrailing) {
+                    preview
+                        .frame(width: 108, height: 108)
+                        .shadow(color: .black.opacity(0.25), radius: 10, y: 6)
+                    CheckBadge()
+                        .scaleEffect(0.42)
+                        .frame(width: 40, height: 40)
+                        .offset(x: 14, y: 14)
+                }
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "tray.and.arrow.down")
+                        .font(.system(size: 34, weight: .regular))
+                        .foregroundStyle(targeted ? Color.accentColor : Color.secondary)
+                    Text(L("Drag the image back here", "Zieh das Bild hierher zurück"))
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
-        .frame(width: width, height: height)
+        .frame(width: 280, height: 180)
+        .scaleEffect(targeted ? 1.03 : 1)
+        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: targeted)
+        .overlay(
+            ReturnDropTarget(enabled: !done, targeted: $targeted, onDrop: onDrop)
+        )
     }
+
+    @ViewBuilder
+    private var preview: some View {
+        if let url, let image = NSImage(contentsOf: url) {
+            Image(nsImage: image).resizable().interpolation(.high)
+        } else {
+            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.secondary.opacity(0.15))
+        }
+    }
+}
+
+private struct ReturnDropTarget: NSViewRepresentable {
+    let enabled: Bool
+    @Binding var targeted: Bool
+    let onDrop: () -> Void
+
+    func makeNSView(context: Context) -> ReturnDropView {
+        let view = ReturnDropView()
+        configure(view)
+        return view
+    }
+
+    func updateNSView(_ view: ReturnDropView, context: Context) { configure(view) }
+
+    private func configure(_ view: ReturnDropView) {
+        view.enabled = enabled
+        view.onTargeted = { value in if targeted != value { targeted = value } }
+        view.onDrop = onDrop
+    }
+}
+
+final class ReturnDropView: NSView {
+    var enabled = true
+    var onTargeted: (Bool) -> Void = { _ in }
+    var onDrop: () -> Void = {}
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes(ShelfStore.acceptedTypes)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) not supported") }
+
+    /// Nur Objekte aus der Ablage
+    private func accepts(_ sender: NSDraggingInfo) -> Bool {
+        enabled && sender.draggingSource is DragSourceNSView
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard accepts(sender) else { return [] }
+        onTargeted(true)
+        Haptics.tap()
+        return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        accepts(sender) ? .copy : []
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) { onTargeted(false) }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard accepts(sender) else { return false }
+        onTargeted(false)
+        Haptics.drop()
+        DispatchQueue.main.async { self.onDrop() }
+        return true
+    }
+
+    override func concludeDragOperation(_ sender: NSDraggingInfo?) { onTargeted(false) }
 }
 
 /// Tasten für den Kurzbefehl.

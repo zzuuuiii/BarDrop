@@ -150,10 +150,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// ⌘Z: zuletzt Entferntes zurückholen und auswählen.
     func undo() {
-        let manager = store.undoManager
-        guard manager.canUndo else { return NSSound.beep() }
-        manager.undo()
-        let restored = store.lastRestoredFileIDs
+        guard store.undoManager.canUndo else { return NSSound.beep() }
+        let restored = store.undoLast()
+        // Nichts mehr da, was sich zurückholen ließe
+        guard !restored.isEmpty else { return NSSound.beep() }
         if isInStack {
             ui.memberSelection = Set(stackFiles.map(\.id)).intersection(restored)
         } else {

@@ -296,6 +296,7 @@ final class EdgeController: NSObject {
         logic.outsideSince = nil
 
         if new == .expanded {
+            Thumbnails.forgetIcons()
             store.pruneMissingFiles()
             // Vorschau beim Verstellen in den Einstellungen: den Fokus dort lassen
             if previewUntil == nil { takeFocus() }

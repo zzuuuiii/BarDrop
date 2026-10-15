@@ -229,7 +229,9 @@ struct AboutSettings: View {
         case .upToDate: return L("BarDrop is up to date.", "BarDrop ist aktuell.")
         case .available(let v): return L("Version \(v) is available. BarDrop will be replaced and restart; your items stay in the shelf.",
                                          "Version \(v) ist verfügbar. BarDrop wird ersetzt und startet neu, die Objekte bleiben in der Ablage.")
-        case .failed(let message): return message
+        // Feste Meldung statt der gespeicherten: bleibt in der gewählten Sprache
+        case .failed: return L("The last attempt didn’t work. Please try again later.",
+                               "Der letzte Versuch hat nicht geklappt. Versuch es später noch einmal.")
         default: return L("New versions come from GitHub and are verified before they’re installed.",
                           "Neue Versionen kommen von GitHub und werden vor der Installation geprüft.")
         }
@@ -413,20 +415,22 @@ struct HotKeyEditor: View {
     }
 
     static func label(for event: NSEvent) -> String {
-        switch event.keyCode {
-        case 49: return "␣"
-        case 36: return "↩"
-        case 48: return "⇥"
-        case 51: return "⌫"
-        case 123: return "←"
-        case 124: return "→"
-        case 125: return "↓"
-        case 126: return "↑"
-        default:
-            let chars = event.charactersIgnoringModifiers?.uppercased() ?? "?"
-            return chars.isEmpty ? "?" : chars
-        }
+        if let special = specialKeys[Int(event.keyCode)] { return special }
+        let chars = event.charactersIgnoringModifiers?.uppercased() ?? ""
+        // Tasten ohne druckbares Zeichen (Funktionstasten liefern Zeichen aus dem
+        // privaten Bereich von Unicode, die nicht darstellbar sind)
+        let printable = chars.unicodeScalars.allSatisfy { !(0xF700...0xF8FF).contains($0.value) && !CharacterSet.controlCharacters.contains($0) }
+        return chars.isEmpty || !printable ? "#\(event.keyCode)" : chars
     }
+
+    private static let specialKeys: [Int: String] = [
+        49: "␣", 36: "↩", 76: "⌤", 48: "⇥", 51: "⌫", 117: "⌦",
+        123: "←", 124: "→", 125: "↓", 126: "↑",
+        115: "↖", 119: "↘", 116: "⇞", 121: "⇟",
+        122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+        98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
+        105: "F13", 107: "F14", 113: "F15", 106: "F16", 64: "F17", 79: "F18", 80: "F19", 90: "F20"
+    ]
 }
 
 /// Taste wie bei Klack: dunkel eingelassen, Symbol oben, Name unten.

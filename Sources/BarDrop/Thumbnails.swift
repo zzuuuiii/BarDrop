@@ -35,6 +35,12 @@ enum Thumbnails {
         return cache
     }()
 
+    /// Beim Öffnen der Ablage neu laden: Eine Datei kann inzwischen durch eine andere
+    /// gleichen Namens ersetzt worden sein.
+    static func forgetIcons() {
+        icons.removeAllObjects()
+    }
+
     /// Finder-Symbol, zwischengespeichert: Es wird beim Zeichnen jeder Kachel gebraucht,
     /// auch in jedem Bild der Öffnen-Animation, und kostet sonst jedes Mal einen Dateizugriff.
     static func icon(_ url: URL) -> NSImage {

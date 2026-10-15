@@ -337,7 +337,12 @@ final class AppSettings: ObservableObject {
     @Published var clickToOpenEarly: Bool { didSet { defaults.set(clickToOpenEarly, forKey: Key.clickToOpenEarly) } }
 
     /// Sprache der Oberfläche
-    @Published var language: AppLanguage { didSet { defaults.set(language.rawValue, forKey: Key.language) } }
+    @Published var language: AppLanguage {
+        didSet {
+            AppLanguage.current = language
+            defaults.set(language.rawValue, forKey: Key.language)
+        }
+    }
     /// Etwas größerer Bereich um Streifen und Griff, in dem der Zeiger noch zählt
     @Published var generousHitArea: Bool { didSet { defaults.set(generousHitArea, forKey: Key.generousHitArea) } }
     /// Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen
@@ -460,6 +465,7 @@ final class AppSettings: ObservableObject {
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
         clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
         language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
+        AppLanguage.current = language
         generousHitArea = defaults.bool(forKey: Key.generousHitArea)
         twoActionRows = defaults.bool(forKey: Key.twoActionRows)
         actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)

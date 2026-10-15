@@ -18,11 +18,20 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 
     var locale: Locale { Locale(identifier: self == .german ? "de_DE" : "en_US") }
+
+    /// Aktuelle Sprache, auch aus Hintergrund-Threads sicher lesbar (z. B. beim
+    /// Benennen neu übernommener Dateien). Gesetzt von `AppSettings`.
+    static var current: AppLanguage {
+        get { lock.lock(); defer { lock.unlock() }; return stored }
+        set { lock.lock(); stored = newValue; lock.unlock() }
+    }
+    private static let lock = NSLock()
+    private static var stored: AppLanguage = .english
 }
 
 /// Text in der gewählten Sprache.
 func L(_ english: String, _ german: String) -> String {
-    AppSettings.shared.language == .german ? german : english
+    AppLanguage.current == .german ? german : english
 }
 
 enum Format {

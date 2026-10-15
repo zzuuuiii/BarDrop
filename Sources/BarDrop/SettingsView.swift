@@ -465,6 +465,7 @@ struct ActionSettings: View {
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
                           isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
+                ToggleRow(L("Show names", "Namen anzeigen"), isOn: $settings.showActionLabels)
             }
 
             SettingsSection(L("In the shelf", "In der Ablage")) {
@@ -478,7 +479,7 @@ struct ActionSettings: View {
 
     private func showAddMenu() {
         let menu = NSMenu()
-        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share, .trash] {
+        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share, .convert, .trash] {
             let item = ClosureMenuItem(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
             if settings.quickActions.contains(where: { $0.kind == kind }) {
                 item.action = nil   // schon vorhanden: ausgegraut

@@ -172,24 +172,33 @@ struct QuickActionIcon: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: size, height: size)
         } else {
-            // Eigene Kachel im macOS-Icon-Raster, im Blau von AirDrop, Ordnern und Mail
-            RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-                .fill(LinearGradient(colors: [Color(red: 0.36, green: 0.68, blue: 1.0),
-                                              Color(red: 0.1, green: 0.45, blue: 0.95)],
-                                     startPoint: .top, endPoint: .bottom))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5)
-                )
-                .overlay(
-                    Image(systemName: action.fallbackSymbol)
-                        .font(.system(size: size * 0.42, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .offset(y: action.kind == .share ? -size * 0.03 : 0)
-                )
-                .frame(width: size * 0.84, height: size * 0.84)
-                .frame(width: size, height: size)
+            fallbackTile
         }
+    }
+
+    private var fallbackTile: some View {
+        // Eigene Kachel im macOS-Icon-Raster, im Blau von AirDrop: heller oben, satter
+        // unten, ein Glanz an der Oberkante und ein leichter Schatten wie bei App-Symbolen
+        let shape = RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
+        return shape
+            .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.78, blue: 1.0),
+                                          Color(red: 0.04, green: 0.46, blue: 0.98)],
+                                 startPoint: .top, endPoint: .bottom))
+            .overlay(
+                shape.fill(LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0)],
+                                          startPoint: .top, endPoint: .center))
+            )
+            .overlay(shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5))
+            .overlay(
+                Image(systemName: action.fallbackSymbol)
+                    .font(.system(size: size * 0.4, weight: .bold))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
+                    .offset(y: action.kind == .share ? -size * 0.035 : 0)
+            )
+            .shadow(color: .black.opacity(0.3), radius: size * 0.04, y: size * 0.02)
+            .frame(width: size * 0.82, height: size * 0.82)
+            .frame(width: size, height: size)
     }
 }
 
@@ -226,11 +235,14 @@ struct QuickActionButton: View {
             QuickActionIcon(action: action)
                 .scaleEffect(targeted ? 1.1 : 1)
                 .opacity(draggingOut ? 0.3 : 1)
-            Text(action.title)
-                .font(.system(size: 10, weight: targeted ? .semibold : .medium))
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(1)
-                .truncationMode(.middle)
+            if AppSettings.shared.showActionLabels {
+                Text(action.title)
+                    .font(.system(size: 10, weight: targeted ? .semibold : .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)      // erst etwas kleiner, dann gekürzt
+                    .truncationMode(.middle)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)
@@ -373,10 +385,12 @@ private struct PinSlot: View {
                         .offset(x: 3, y: 3)
                 }
                 .scaleEffect(targeted ? 1.1 : 1)
-            Text(L("Pin", "Anheften"))
-                .font(.system(size: 10, weight: targeted ? .semibold : .medium))
-                .foregroundStyle(.white.opacity(0.7))
-                .lineLimit(1)
+            if settings.showActionLabels {
+                Text(L("Pin", "Anheften"))
+                    .font(.system(size: 10, weight: targeted ? .semibold : .medium))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 6)

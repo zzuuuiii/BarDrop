@@ -309,6 +309,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         case .folder:
             guard let folder = action.url else { return }
             move(urls, to: folder) { [weak self] moved in self?.finishAction(moved) }
+        case .convert:
+            // Originale bleiben, die Ergebnisse kommen dazu
+            showConvertMenu(urls, anchor: anchor)
         case .trash:
             // Wie im Finder: in den Papierkorb, von dort lässt es sich zurücklegen.
             // Danach immer aus der Ablage, denn die Dateien sind dort nicht mehr.
@@ -320,6 +323,54 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                     self.store.forgetFiles(at: Array(trashed.keys))
                     self.store.pruneMissingFiles()
                 }
+            }
+        }
+    }
+
+    /// Menü mit den passenden Zielformaten an der Aktion; die Ergebnisse landen in der Ablage.
+    private func showConvertMenu(_ urls: [URL], anchor: NSView) {
+        let groups = Converter.targets(for: urls)
+        let menu = NSMenu()
+        menu.font = NSFont.systemFont(ofSize: 13)
+        if groups.allSatisfy(\.isEmpty) {
+            let item = NSMenuItem(title: L("Can’t convert these items", "Diese Objekte lassen sich nicht umwandeln"),
+                                  action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+        for group in groups where !group.isEmpty {
+            if menu.numberOfItems > 0 { menu.addItem(.separator()) }
+            for target in group {
+                menu.addItem(ClosureMenuItem(target.title) { [weak self] in self?.convert(urls, to: target) })
+            }
+        }
+        ui.menuOpen = true
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.height + 4), in: anchor)
+        ui.menuOpen = false
+    }
+
+    private func convert(_ urls: [URL], to target: Converter.Target) {
+        announce(L("Converting", "Wird umgewandelt"))
+        Converter.convert(urls, to: target) { [weak self] results in
+            guard let self else { return }
+            guard !results.isEmpty else {
+                NSSound.beep()
+                self.announce(L("Couldn’t convert", "Umwandeln hat nicht geklappt"))
+                return
+            }
+            // Wie hineingezogene Dateien übernehmen; der Zwischenordner wird danach gelöscht
+            let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.convert"))
+            pasteboard.clearContents()
+            pasteboard.writeObjects(results as [NSURL])
+            self.store.ingest(from: pasteboard) { [weak self] added in
+                if let dir = results.first?.deletingLastPathComponent() {
+                    DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 30) {
+                        try? FileManager.default.removeItem(at: dir)
+                    }
+                }
+                let n = added.count
+                self?.announce(n == 1 ? L("1 item converted", "1 Objekt umgewandelt")
+                                      : L("\(n) items converted", "\(n) Objekte umgewandelt"))
             }
         }
     }

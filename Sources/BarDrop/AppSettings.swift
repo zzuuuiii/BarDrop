@@ -254,6 +254,7 @@ final class AppSettings: ObservableObject {
         static let addScreenshots = "addScreenshots"
         static let excludedApps = "excludedApps"
         static let openInFullScreen = "openInFullScreen"
+        static let showActionLabels = "showActionLabels"
         static let autoUpdateCheck = "autoUpdateCheck"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
@@ -370,6 +371,8 @@ final class AppSettings: ObservableObject {
     @Published var excludedApps: [String] { didSet { defaults.set(excludedApps, forKey: Key.excludedApps) } }
     /// Der Rand öffnet die Ablage auch, wenn die App vorn im Vollbild ist
     @Published var openInFullScreen: Bool { didSet { defaults.set(openInFullScreen, forKey: Key.openInFullScreen) } }
+    /// Namen unter den Aktionen in der Ablage
+    @Published var showActionLabels: Bool { didSet { defaults.set(showActionLabels, forKey: Key.showActionLabels) } }
 
     /// Grenze zwischen oberer und unterer Reihe, so begrenzt, dass keine Reihe mehr als
     /// fünf Aktionen hat.
@@ -480,6 +483,7 @@ final class AppSettings: ObservableObject {
             Key.pinFromShelf: true,
             Key.addScreenshots: false,
             Key.openInFullScreen: true,
+            Key.showActionLabels: true,
             Key.actionRowSplit: QuickAction.perRow,
             Key.autoUpdateCheck: true,
             Key.hotKeyCode: Self.defaultHotKey.code,
@@ -547,6 +551,7 @@ final class AppSettings: ObservableObject {
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
         openInFullScreen = defaults.bool(forKey: Key.openInFullScreen)
+        showActionLabels = defaults.bool(forKey: Key.showActionLabels)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         hotKeyCode = defaults.integer(forKey: Key.hotKeyCode)
         hotKeyModifiers = defaults.integer(forKey: Key.hotKeyModifiers)
@@ -613,6 +618,7 @@ final class AppSettings: ObservableObject {
         addScreenshots = false
         excludedApps = []
         openInFullScreen = true
+        showActionLabels = true
         showOutline = true
         showTitle = true
         removeAfterDragOut = true

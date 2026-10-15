@@ -1,5 +1,9 @@
-* Open in full screen (Settings → Opening): when off, moving to the edge doesn’t open the shelf while an app is in full screen on that display; dragging files and the shortcut still work
+* Menus under a button open upward when there isn’t enough room below, instead of running into the screen edge
+* Not in these apps: list and “Add App” look like the action list, with “No apps” while it’s empty
+* “Open shelf” instead of “Open” inside the Opening tab
 
 <!-- de -->
 
-* Im Vollbild öffnen (Einstellungen → Öffnen): Aus heißt, ist auf dem Bildschirm eine App im Vollbild, öffnet das Hinfahren an den Rand die Ablage nicht; Dateien hineinziehen und der Kurzbefehl gehen weiter
+* Menüs unter einem Knopf öffnen nach oben, wenn unten kein Platz ist, statt am Bildschirmrand abgeschnitten zu werden
+* Nicht in diesen Apps: Liste und „App hinzufügen“ sehen aus wie bei den Aktionen, leer steht dort „Keine Apps“
+* „Ablage öffnen“ statt „Öffnen“ im Bereich Öffnen

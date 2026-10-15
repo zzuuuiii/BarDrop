@@ -199,7 +199,7 @@ struct OpeningSettings: View {
             }
 
             SettingsSection(L("When", "Wann")) {
-                PickerRow(L("Open", "Öffnen"),
+                PickerRow(L("Open shelf", "Ablage öffnen"),
                           info: L("With a wait, clicking the strip opens the shelf right away.",
                                   "Mit Wartezeit öffnet ein Klick auf den Streifen die Ablage sofort."),
                           selection: $settings.openChoice,
@@ -216,17 +216,28 @@ struct OpeningSettings: View {
                           isOn: $settings.openInFullScreen)
             }
 
-            SettingsSection(L("Not in these apps", "Nicht in diesen Apps"),
-                            info: L("While one of these apps is in front, moving the pointer to the edge doesn’t open the shelf. Dragging files there and the shortcut still work.",
-                                    "Ist eine dieser Apps vorn, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter.")) {
-                ForEach(settings.excludedApps, id: \.self) { id in
-                    ExcludedAppRow(bundleID: id) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            settings.excludedApps.removeAll { $0 == id }
+            // Wie die Aktionsliste: Liste in einer Karte, „Hinzufügen“ als eigene Karte darunter
+            VStack(alignment: .leading, spacing: 8) {
+                SettingsSection(L("Not in these apps", "Nicht in diesen Apps"),
+                                info: L("While one of these apps is in front, moving the pointer to the edge doesn’t open the shelf. Dragging files there and the shortcut still work.",
+                                        "Ist eine dieser Apps vorn, öffnet das Hinfahren an den Rand die Ablage nicht. Dateien hineinziehen und der Kurzbefehl gehen weiter.")) {
+                    if settings.excludedApps.isEmpty {
+                        Text(L("No apps", "Keine Apps"))
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, SettingsTheme.rowPadding)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    }
+                    ForEach(settings.excludedApps, id: \.self) { id in
+                        ExcludedAppRow(bundleID: id) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+                                settings.excludedApps.removeAll { $0 == id }
+                            }
                         }
                     }
                 }
                 AddExcludedAppRow(settings: settings)
+                    .padding(.top, 4)
             }
         }
     }
@@ -917,28 +928,40 @@ private struct AddActionRow: View {
     let limit: Int
     @Binding var frame: CGRect
     let action: () -> Void
-    @State private var hovering = false
 
-    private var full: Bool { count >= limit }
+    var body: some View {
+        let full = count >= limit
+        AddListRow(title: full ? L("The bar is full (\(count) of \(limit))", "Die Leiste ist voll (\(count) von \(limit))")
+                               : L("Add Action", "Aktion hinzufügen"),
+                   enabled: !full, frame: $frame, action: action)
+    }
+}
+
+/// Eigene Karte unter einer Liste: Eintrag hinzufügen (Aktionen, ausgenommene Apps).
+struct AddListRow: View {
+    let title: String
+    var enabled = true
+    @Binding var frame: CGRect
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 18))
-                    .foregroundStyle(full ? Color.secondary : Color(nsColor: .controlAccentColor))
+                    .foregroundStyle(enabled ? Color(nsColor: .controlAccentColor) : Color.secondary)
                     .frame(width: 26)
-                Text(full ? L("The bar is full (\(count) of \(limit))", "Die Leiste ist voll (\(count) von \(limit))")
-                          : L("Add Action", "Aktion hinzufügen"))
+                Text(title)
                     .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(full ? Color.secondary : Color(nsColor: .controlAccentColor))
+                    .foregroundStyle(enabled ? Color(nsColor: .controlAccentColor) : Color.secondary)
                 Spacer()
             }
             .padding(.horizontal, SettingsTheme.rowPadding)
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                    .fill(SettingsTheme.card.opacity(hovering && !full ? 1 : 0.6))
+                    .fill(SettingsTheme.card.opacity(hovering && enabled ? 1 : 0.6))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
@@ -947,7 +970,7 @@ private struct AddActionRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(full)
+        .disabled(!enabled)
         .onHover { hovering = $0 }
         .readFrame($frame)
     }
@@ -1015,23 +1038,7 @@ private struct AddExcludedAppRow: View {
     @State private var frame: CGRect = .zero
 
     var body: some View {
-        Button(action: showMenu) {
-            HStack(spacing: 10) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Color(nsColor: .controlAccentColor))
-                    .frame(width: 24)
-                Text(L("Add App", "App hinzufügen"))
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(Color(nsColor: .controlAccentColor))
-                Spacer()
-            }
-            .padding(.horizontal, SettingsTheme.rowPadding)
-            .frame(height: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .readFrame($frame)
+        AddListRow(title: L("Add App", "App hinzufügen"), frame: $frame, action: showMenu)
     }
 
     private func showMenu() {

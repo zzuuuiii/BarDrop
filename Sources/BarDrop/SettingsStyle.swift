@@ -334,7 +334,19 @@ enum MenuPresenter {
 
     static func show(_ menu: NSMenu, below frame: CGRect) {
         guard let view = NSApp.currentEvent?.window?.contentView ?? NSApp.keyWindow?.contentView else { return }
-        let point = viewPoint(x: frame.minX, y: frame.maxY + 4, in: view)
+        menu.font = NSFont.systemFont(ofSize: 13)
+        var point = viewPoint(x: frame.minX, y: frame.maxY + 4, in: view)
+        // Reicht der Platz bis zum unteren Bildschirmrand nicht, öffnet das Menü nach oben
+        // (sonst schneidet der Rand es ab und es muss gescrollt werden)
+        if let window = view.window, let screen = window.screen ?? NSScreen.main {
+            let height = menu.size.height
+            let below = window.convertPoint(toScreen: view.convert(point, to: nil)).y - screen.visibleFrame.minY
+            let topPoint = viewPoint(x: frame.minX, y: frame.minY - 4, in: view)
+            let above = screen.visibleFrame.maxY - window.convertPoint(toScreen: view.convert(topPoint, to: nil)).y
+            if below < height + 8, above > below {
+                point = viewPoint(x: frame.minX, y: frame.minY - 4 - height, in: view)
+            }
+        }
         menu.popUp(positioning: nil, at: point, in: view)
     }
 

@@ -107,7 +107,7 @@ struct KeyboardSettings: View {
                     ShortcutRow(L("Show in Finder", "Im Finder zeigen"), "⌘R")
                     ShortcutRow(L("Move or extend selection", "Auswahl bewegen oder erweitern"), L("Arrow keys, ⇧", "Pfeiltasten, ⇧"))
                     ShortcutRow(L("Select all", "Alle auswählen"), "⌘A")
-                    ShortcutRow(L("Copy, copy path", "Kopieren, Pfad kopieren"), "⌘C  ⌥⌘C")
+                    ShortcutRow(L("Cut, copy, copy path", "Ausschneiden, kopieren, Pfad kopieren"), "⌘X  ⌘C  ⌥⌘C")
                     ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), "⌘V")
                     ShortcutRow(L("Redo", "Wiederholen"), "⇧⌘Z")
                     ShortcutRow(L("Back from a stack", "Zurück aus einem Stapel"), "esc  ⌘↑")

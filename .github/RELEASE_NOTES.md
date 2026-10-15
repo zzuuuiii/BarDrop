@@ -1,5 +1,9 @@
-* Open in full screen: BarDrop now asks macOS whether a display shows a full screen space, instead of guessing from window sizes. A window that merely fills the screen no longer counts as full screen
+* After removing with ⌫ the next item is selected (at the end the one before), so you can keep going
+* ⌘X cuts like Ctrl+X on Windows: the items go to the clipboard and out of the shelf; ⌘Z brings them back
+* “Path copied” now also appears in English
 
 <!-- de -->
 
-* Im Vollbild öffnen: BarDrop fragt jetzt macOS, ob ein Bildschirm einen Vollbild-Schreibtisch zeigt, statt aus Fenstergrößen zu raten. Ein Fenster, das nur den Bildschirm ausfüllt, zählt nicht mehr als Vollbild
+* Nach dem Entfernen mit ⌫ ist das nächste Objekt ausgewählt (am Ende das davor), sodass du gleich weitermachen kannst
+* ⌘X schneidet aus wie Strg+X unter Windows: Die Objekte kommen in die Zwischenablage und aus der Ablage; ⌘Z holt sie zurück
+* „Pfad kopiert“ erscheint jetzt auch auf Englisch

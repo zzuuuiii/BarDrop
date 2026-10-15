@@ -94,9 +94,10 @@ Neue Versionen installiert BarDrop danach selbst, wenn du zustimmst (abschaltbar
 | `↩`, `⌘O` | Öffnen |
 | `⌘R` | Im Finder zeigen |
 | `⌘A` | Alle auswählen |
+| `⌘X` | Ausschneiden: in die Zwischenablage und aus der Ablage |
 | `⌘C`, `⌥⌘C` | Kopieren, Pfad kopieren |
 | `⌘V` | Aus der Zwischenablage einfügen |
-| `⌫` | Auswahl entfernen |
+| `⌫` | Auswahl entfernen, danach ist das nächste Objekt ausgewählt |
 | `⌘Z`, `⇧⌘Z` | Widerrufen, wiederholen |
 | `⌘,` | Einstellungen |
 | Pfeiltasten | Auswahl bewegen, mit `⇧` erweitern |

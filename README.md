@@ -94,9 +94,10 @@ After that, BarDrop installs new versions itself when you agree (can be turned o
 | `↩`, `⌘O` | Open |
 | `⌘R` | Show in Finder |
 | `⌘A` | Select all |
+| `⌘X` | Cut: to the clipboard and out of the shelf |
 | `⌘C`, `⌥⌘C` | Copy, copy path |
 | `⌘V` | Paste from clipboard |
-| `⌫` | Remove selection |
+| `⌫` | Remove selection, the next item is selected |
 | `⌘Z`, `⇧⌘Z` | Undo, redo |
 | `⌘,` | Settings |
 | Arrow keys | Move selection, extend with `⇧` |

@@ -102,8 +102,47 @@ extension ShelfActions {
         ui.memberAnchor = id
     }
 
+    /// Entfernen per Taste: Danach ist das Objekt dahinter ausgewählt (am Ende das davor),
+    /// sodass man mit ⌫ gleich weitermachen kann, wie in Mail.
     func removeCurrentSelection() {
-        if isInStack { removeMembers(selectedMembers) } else { remove(selectedEntries) }
+        if isInStack {
+            let removed = selectedMembers
+            let next = Self.neighbor(of: Set(removed.map(\.id)), in: stackFiles.map(\.id))
+            removeMembers(removed)
+            // Der Stapel kann sich dabei aufgelöst haben
+            if let next, stackFiles.contains(where: { $0.id == next }) {
+                ui.memberSelection = [next]
+                ui.memberAnchor = next
+            }
+        } else {
+            let removed = selectedEntries
+            let next = Self.neighbor(of: Set(removed.map(\.id)), in: orderedEntries.map(\.id))
+            remove(removed)
+            if let next, orderedEntries.contains(where: { $0.id == next }) {
+                ui.selection = [next]
+                ui.selectionAnchor = next
+            }
+        }
+    }
+
+    /// ⌘X wie Strg+X unter Windows: in die Zwischenablage und aus der Ablage nehmen.
+    /// Eigene Dateien (Bilder aus dem Web, Kopien) bleiben erhalten, solange sich das
+    /// Entfernen mit ⌘Z widerrufen lässt, damit das Einfügen im Finder klappt.
+    func cutCurrentSelection() {
+        let urls = currentSelectionURLs
+        guard !urls.isEmpty else { return NSSound.beep() }
+        Self.copyFiles(urls)
+        removeCurrentSelection()
+        announce(urls.count == 1 ? L("1 item cut", "1 Objekt ausgeschnitten")
+                                 : L("\(urls.count) items cut", "\(urls.count) Objekte ausgeschnitten"),
+                 canUndo: true)
+    }
+
+    /// Nächster Nachbar nach den entfernten Einträgen, sonst der davor
+    static func neighbor(of removed: Set<UUID>, in ids: [UUID]) -> UUID? {
+        guard let last = ids.lastIndex(where: removed.contains) else { return nil }
+        if let after = ids[(last + 1)...].first(where: { !removed.contains($0) }) { return after }
+        return ids[..<last].last(where: { !removed.contains($0) })
     }
 
     func openCurrentSelection() {
@@ -126,7 +165,7 @@ extension ShelfActions {
 
     func announceCopy(_ count: Int, pathsOnly: Bool) {
         if pathsOnly {
-            announce(count == 1 ? "Pfad kopiert" : "\(count) Pfade kopiert")
+            announce(count == 1 ? L("Path copied", "Pfad kopiert") : L("\(count) paths copied", "\(count) Pfade kopiert"))
         } else {
             announce(count == 1 ? L("1 item copied", "1 Objekt kopiert") : L("\(count) items copied", "\(count) Objekte kopiert"))
         }

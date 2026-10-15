@@ -87,6 +87,8 @@ final class ShelfPanel: NSPanel {
             actions.selectAllCurrent()
         case "c":
             actions.copyCurrent(pathsOnly: event.modifierFlags.contains(.option))   // ⌥⌘C: nur Pfade
+        case "x":
+            actions.cutCurrentSelection()
         case "v":
             actions.store.pasteFromClipboard()
         case "y":

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.26.0
+* After removing with ⌫ the next item is selected (at the end the one before), so you can keep going
+* ⌘X cuts like Ctrl+X on Windows: the items go to the clipboard and out of the shelf; ⌘Z brings them back
+* “Path copied” now also appears in English
+
 ## 1.25.2
 * Open in full screen: BarDrop now asks macOS whether a display shows a full screen space, instead of guessing from window sizes. A window that merely fills the screen no longer counts as full screen
 

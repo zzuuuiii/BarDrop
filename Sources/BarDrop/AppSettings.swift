@@ -232,6 +232,7 @@ final class AppSettings: ObservableObject {
         static let quickActions = "quickActions"
         static let sortOrder = "sortOrder"
         static let showOutline = "showOutline"
+        static let showTitle = "showTitle"
         static let openDelay = "openDelay"
         static let clickToOpenEarly = "clickToOpenEarly"
         static let language = "language"
@@ -333,6 +334,8 @@ final class AppSettings: ObservableObject {
     }
     /// Feiner heller Rahmen um die schwarze Form (sichtbar auf dunklem Hintergrund).
     @Published var showOutline: Bool { didSet { defaults.set(showOutline, forKey: Key.showOutline) } }
+    /// Name „BarDrop“ oben in der offenen Ablage
+    @Published var showTitle: Bool { didSet { defaults.set(showTitle, forKey: Key.showTitle) } }
     /// So lange (Sekunden) muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht.
     @Published var openDelay: Double { didSet { defaults.set(openDelay, forKey: Key.openDelay) } }
     /// Bei langer Verzögerung (ab 1 Sekunde) öffnet ein Klick auf den Streifen die Ablage sofort.
@@ -444,6 +447,7 @@ final class AppSettings: ObservableObject {
             Key.dragOutCopyOnly: false,
             Key.sortOrder: SortOrder.newestFirst.rawValue,
             Key.showOutline: true,
+            Key.showTitle: true,
             Key.openDelay: OpenDelay.instant,
             Key.clickToOpenEarly: true,
             Key.language: AppLanguage.english.rawValue,
@@ -495,6 +499,7 @@ final class AppSettings: ObservableObject {
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
         dragOutCopyOnly = defaults.bool(forKey: Key.dragOutCopyOnly)
         showOutline = defaults.bool(forKey: Key.showOutline)
+        showTitle = defaults.bool(forKey: Key.showTitle)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
         clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
         let storedLanguage = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
@@ -569,6 +574,7 @@ final class AppSettings: ObservableObject {
         pinFromShelf = false
         addScreenshots = false
         showOutline = true
+        showTitle = true
         removeAfterDragOut = true
         stackMultiple = true
         stackThreshold = 2

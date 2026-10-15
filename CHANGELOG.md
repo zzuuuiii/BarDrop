@@ -1,7 +1,7 @@
 # Changelog
 
 ## 1.20.1
-* The shelf is titled “BarDrop”
+* The shelf is titled “BarDrop”; the name can be hidden (Settings → Appearance → Show name)
 * Dropped items show up right away instead of sometimes only after reopening the shelf: new tiles no longer fade in
 
 ## 1.20.0

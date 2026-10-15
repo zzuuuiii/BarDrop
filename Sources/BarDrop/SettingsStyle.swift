@@ -581,30 +581,6 @@ struct InfoButton: View {
     }
 }
 
-/// Kleines rundes Symbol rechts in der Überschrift, z. B. „Standard wiederherstellen“.
-struct HeaderIconButton: View {
-    let symbol: String
-    let help: String
-    var disabled = false
-    let action: () -> Void
-    @State private var hovering = false
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 13))
-                .foregroundStyle(Color.secondary.opacity(disabled ? 0.3 : hovering ? 0.95 : 0.6))
-                .frame(width: 16, height: 16)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .onHover { hovering = $0 }
-        .help(help)
-        .accessibilityLabel(help)
-    }
-}
-
 /// Erklärtext unter einer Karte: immer linksbündig.
 struct SectionNote: View {
     let text: String

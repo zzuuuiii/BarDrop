@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.27.0
+* Pinning in the shelf looks like the other actions: the real icon of the folder or app appears faded with a small plus and comes to full strength when you’re over it
+* An action you drag out of the shelf fades at its place, like an icon dragged out of the Dock
+* Settings: no reset buttons on single sections anymore; resetting everything stays under General
+
 ## 1.26.1
 * New installations start with the light outline on again; existing settings stay as they are
 * Introduction matches the app: the step for getting the image back follows “Open shelf” (instantly, after a wait, or on click), the tips mention Trash and pinning instead of Mail, automatic stacks, and that opening BarDrop again shows Settings

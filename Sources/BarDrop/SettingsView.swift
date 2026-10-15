@@ -78,9 +78,6 @@ struct KeyboardSettings: View {
                             note: hotKeyStatus.available ? nil : L("Another app already uses this shortcut. Choose a different combination.",
                                                                    "Dieser Kurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination."),
                             noteColor: .red) {
-                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore default", "Standard wiederherstellen"),
-                                 disabled: settings.hotKeyIsDefault) { settings.resetHotKey() }
-            } content: {
                 HotKeyEditor(settings: settings)
                     .padding(8)
             }
@@ -181,11 +178,6 @@ struct OpeningSettings: View {
             SettingsSection(L("Where", "Wo"),
                             info: L("“Follows pointer” makes the shelf appear wherever the pointer reaches the edge. Limited to the middle, the rest of the edge stays free, for example for hot corners.",
                                     "„Am Zeiger“ lässt die Ablage dort erscheinen, wo der Zeiger den Rand erreicht. Auf die Mitte beschränkt, bleibt der übrige Rand frei, etwa für aktive Ecken.")) {
-                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
-                                 help: L("Reset position", "Position zurücksetzen")) {
-                    settings.resetPosition()
-                }
-            } content: {
                 PickerRow(L("Screen edge", "Bildschirmrand"), selection: $settings.edge,
                           options: ScreenEdge.allCases.map { ($0, $0.title) })
                 PickerRow(L("Position along the edge", "Position am Rand"), selection: heightMode,
@@ -251,11 +243,6 @@ struct AppearanceSettings: View {
     var body: some View {
         SettingsPage {
             SettingsSection(L("Size", "Größe")) {
-                HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
-                                 help: L("Reset size and strip", "Größe und Streifen zurücksetzen")) {
-                    settings.resetLook()
-                }
-            } content: {
                 SliderRow(L("Width", "Breite"), value: $settings.shelfWidth, range: 240...400, step: 10,
                           format: SliderRow.points)
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: 280...680, step: 10,
@@ -461,15 +448,7 @@ struct ActionSettings: View {
     var body: some View {
         SettingsPage {
             VStack(alignment: .leading, spacing: 8) {
-                SettingsHeader(L("Action bar", "Aktionsleiste")) {
-                    HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore defaults", "Standard wiederherstellen")) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-                            settings.quickActions = QuickAction.defaults
-                            settings.actionRowSplit = QuickAction.perRow
-                        }
-                        selection = nil
-                    }
-                }
+                SettingsHeader(L("Action bar", "Aktionsleiste"))
                 .padding(.horizontal, 8)
 
                 ActionListEditor(settings: settings, selection: $selection,

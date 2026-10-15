@@ -11,6 +11,8 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     var onClick: (NSView) -> Void = { _ in }
     /// Herausziehen entfernt die Aktion (nur mit „Anheften in der Ablage“): Bild und Entfernen
     var dragOut: (image: () -> NSImage, remove: () -> Void)?
+    /// Die Aktion wird gerade herausgezogen (ihr Platz in der Leiste wird blass)
+    var onDraggingOut: (Bool) -> Void = { _ in }
     weak var ui: ShelfUIModel?
 
     private var pressed = false
@@ -61,6 +63,7 @@ final class ActionDropNSView: NSView, NSDraggingSource {
         dragStartFrame = body.isEmpty ? window.frame : body
         // Wie beim Herausziehen von Objekten: Die Ablage bleibt, solange der Drag läuft
         ui?.ownDragActive = true
+        onDraggingOut(true)
         let session = beginDraggingSession(with: [dragging], event: down, source: self)
         session.animatesToStartingPositionsOnCancelOrFail = true
     }
@@ -79,6 +82,7 @@ final class ActionDropNSView: NSView, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
         ui?.ownDragActive = false
+        onDraggingOut(false)
         guard operation == [], !dragStartFrame.contains(screenPoint), let remove = dragOut?.remove else { return }
         NSAnimationEffect.poof.show(centeredAt: screenPoint, size: NSSize(width: 40, height: 40))
         Haptics.drop()
@@ -131,6 +135,7 @@ struct ActionDropTarget: NSViewRepresentable {
     var onOwnDrop: ([URL], NSView) -> Void
     var onClick: (NSView) -> Void
     var dragOut: (image: () -> NSImage, remove: () -> Void)? = nil
+    var onDraggingOut: (Bool) -> Void = { _ in }
 
     func makeNSView(context: Context) -> ActionDropNSView {
         let view = ActionDropNSView(frame: .zero)
@@ -147,6 +152,7 @@ struct ActionDropTarget: NSViewRepresentable {
         view.onOwnDrop = onOwnDrop
         view.onClick = onClick
         view.dragOut = dragOut
+        view.onDraggingOut = onDraggingOut
     }
 }
 
@@ -194,6 +200,8 @@ struct QuickActionButton: View {
     let actions: ShelfActions
 
     @State private var targeted = false
+    /// Wird gerade herausgezogen: blass an ihrem Platz, wie ein Symbol im Dock
+    @State private var draggingOut = false
 
     /// Herausziehen entfernt die Aktion, wenn Anheften in der Ablage eingeschaltet ist
     private var dragOut: (image: () -> NSImage, remove: () -> Void)? {
@@ -217,6 +225,7 @@ struct QuickActionButton: View {
         VStack(spacing: 4) {
             QuickActionIcon(action: action)
                 .scaleEffect(targeted ? 1.1 : 1)
+                .opacity(draggingOut ? 0.3 : 1)
             Text(action.title)
                 .font(.system(size: 10, weight: targeted ? .semibold : .medium))
                 .foregroundStyle(.white.opacity(0.7))
@@ -254,7 +263,10 @@ struct QuickActionButton: View {
                 onClick: { anchor in
                     actions.perform(action, urls: actions.selectedEntries.flatMap(\.urls), anchor: anchor)
                 },
-                dragOut: dragOut
+                dragOut: dragOut,
+                onDraggingOut: { value in
+                    withAnimation(.easeOut(duration: 0.15)) { draggingOut = value }
+                }
             )
         )
         .help(action.help)
@@ -337,19 +349,30 @@ private struct PinSlot: View {
     let settings: AppSettings
     @State private var targeted = false
 
+    private var name: String {
+        let n = FileManager.default.displayName(atPath: url.path)
+        return url.pathExtension.lowercased() == "app" ? (n as NSString).deletingPathExtension : n
+    }
+
     var body: some View {
+        // Aufgebaut wie die übrigen Aktionen: das echte Symbol des Ordners bzw. der App,
+        // erst blass als Vorschau, über dem Platz voll; ein Plus zeigt, dass es dazukommt
         VStack(spacing: 4) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.white.opacity(targeted ? 0.7 : 0.35),
-                                  style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                Image(systemName: "pin.fill")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(targeted ? 0.95 : 0.6))
-            }
-            .frame(width: 30, height: 30)
-            .frame(width: 34, height: 34)
-            .scaleEffect(targeted ? 1.1 : 1)
+            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 34, height: 34)
+                .opacity(targeted ? 1 : 0.45)
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, Color(nsColor: .controlAccentColor))
+                        .background(Circle().fill(Color.black).padding(1))
+                        .offset(x: 3, y: 3)
+                }
+                .scaleEffect(targeted ? 1.1 : 1)
             Text(L("Pin", "Anheften"))
                 .font(.system(size: 10, weight: targeted ? .semibold : .medium))
                 .foregroundStyle(.white.opacity(0.7))
@@ -368,8 +391,7 @@ private struct PinSlot: View {
                 ui.setPinCandidate(nil)
             }
         })
-        .help(L("Pin “\(FileManager.default.displayName(atPath: url.path))” to the action bar",
-                "„\(FileManager.default.displayName(atPath: url.path))“ an die Aktionsleiste anheften"))
+        .help(L("Pin “\(name)” to the action bar", "„\(name)“ an die Aktionsleiste anheften"))
     }
 }
 

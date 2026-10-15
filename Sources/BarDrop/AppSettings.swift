@@ -318,10 +318,6 @@ final class AppSettings: ObservableObject {
 
     static let defaultHotKey = (code: kVK_ANSI_B, modifiers: controlKey | optionKey, label: "B")
 
-    var hotKeyIsDefault: Bool {
-        hotKeyCode == Self.defaultHotKey.code && hotKeyModifiers == Self.defaultHotKey.modifiers
-    }
-
     func resetHotKey() {
         hotKeyCode = Self.defaultHotKey.code
         hotKeyModifiers = Self.defaultHotKey.modifiers

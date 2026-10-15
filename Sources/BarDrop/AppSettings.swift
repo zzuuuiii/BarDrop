@@ -464,8 +464,9 @@ final class AppSettings: ObservableObject {
         showOutline = defaults.bool(forKey: Key.showOutline)
         openDelay = max(0.1, defaults.double(forKey: Key.openDelay))
         clickToOpenEarly = defaults.bool(forKey: Key.clickToOpenEarly)
-        language = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
-        AppLanguage.current = language
+        let storedLanguage = AppLanguage(rawValue: defaults.string(forKey: Key.language) ?? "") ?? .english
+        language = storedLanguage
+        AppLanguage.current = storedLanguage
         generousHitArea = defaults.bool(forKey: Key.generousHitArea)
         twoActionRows = defaults.bool(forKey: Key.twoActionRows)
         actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)

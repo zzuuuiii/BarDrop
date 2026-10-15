@@ -1,11 +1,11 @@
-* Introduction: drag the image from the shelf back into the window
-* Dropped items, including web images, appear right away
-* ⌘, ⌘W and ⌘Q work in Settings
-* Several fixes for undo, shortcuts and updates
+* The strip briefly shows at the edge after launch, so you can see BarDrop is running
+* Introduction appears again if it didn’t finish on first launch
+* Fewer info buttons in Settings
+* Add actions with the new row at the end of the list, remove them right on the row
 
 <!-- de -->
 
-* Einführung: Das Bild ziehst du aus der Ablage zurück ins Fenster
-* Abgelegte Objekte, auch Web-Bilder, erscheinen sofort
-* ⌘, ⌘W und ⌘Q funktionieren in den Einstellungen
-* Mehrere Korrekturen bei Widerrufen, Kurzbefehlen und Updates
+* Nach dem Start zeigt sich kurz der Streifen am Rand, so siehst du, dass BarDrop läuft
+* Die Einführung erscheint erneut, wenn sie beim ersten Start nicht fertig wurde
+* Weniger Info-Symbole in den Einstellungen
+* Aktionen über die neue Zeile am Ende der Liste hinzufügen, direkt an der Zeile entfernen

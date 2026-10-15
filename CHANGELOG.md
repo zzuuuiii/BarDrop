@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.18.1
+* After launch the strip shows briefly at the edge, so you can see BarDrop is running
+* The introduction only counts as seen once it’s closed; if anything goes wrong it appears again on the next launch
+* Settings: fewer info buttons, only where a label alone isn’t enough
+* Actions: “Add Action” as the last row of the list; remove an action with the button that appears when you hover over it
+
 ## 1.18.0
 * Introduction: you now drag the image from the shelf back into the window
 * Dropped items appear right away, also web images that arrive after a download

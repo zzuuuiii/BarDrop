@@ -364,6 +364,14 @@ final class EdgeController: NSObject {
         }
     }
 
+    /// Beim Start kurz den Streifen am Rand zeigen, damit man sieht, dass BarDrop läuft
+    /// und wo die Ablage wartet.
+    func greet() {
+        previewLevel = .hint
+        previewUntil = Date().addingTimeInterval(1.6)
+        wake()
+    }
+
     func toggle() {
         if ui.level == .expanded {
             close()

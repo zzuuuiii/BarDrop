@@ -159,6 +159,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
     private func finish(completed: Bool) {
         guard !finished else { return }
         finished = true
+        settings.didLaunchBefore = true
         // Die Beispieldatei hat ihren Zweck erfüllt
         let leftovers = sampleEntries.intersection(Set(store.entries.map(\.id)))
         if !leftovers.isEmpty { store.discard(leftovers) }

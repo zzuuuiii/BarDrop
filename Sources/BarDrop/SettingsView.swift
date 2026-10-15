@@ -13,8 +13,6 @@ struct GeneralSettings: View {
     var body: some View {
         SettingsPage {
             SettingsSection(L("Startup", "Start"),
-                            info: L("BarDrop has no menu bar icon. Right-click an empty spot in the shelf for Settings and Quit, or open BarDrop again to show Settings.",
-                                    "BarDrop hat kein Symbol in der Menüleiste. Ein Rechtsklick auf eine leere Stelle der Ablage öffnet Einstellungen und Beenden, BarDrop erneut öffnen zeigt ebenfalls die Einstellungen."),
                             note: loginError, noteColor: .red) {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $launchAtLogin)
             }
@@ -35,9 +33,7 @@ struct GeneralSettings: View {
                           options: AppLanguage.allCases.map { ($0, $0.title) })
             }
 
-            SettingsSection(L("Opening", "Öffnen"),
-                            info: L("Move the pointer to the edge and a thin strip appears. Keep it there for the delay and the shelf opens. With “On click” a slightly larger handle appears instead, and a click opens the shelf. When you drag a file to the edge, the shelf always opens by itself.",
-                                    "Fährt der Zeiger an den Rand, erscheint zuerst ein schmaler Streifen. Bleibt er dort für die eingestellte Wartezeit, öffnet sich die Ablage. Bei „Per Klick“ erscheint stattdessen ein etwas größerer Griff, ein Klick darauf öffnet die Ablage. Ziehst du eine Datei an den Rand, öffnet sie sich immer von selbst.")) {
+            SettingsSection(L("Opening", "Öffnen")) {
                 PickerRow(L("Open shelf", "Ablage öffnen"), selection: $settings.openMode,
                           options: OpenMode.allCases.map { ($0, $0.title) })
                 PickerRow(L("Delay", "Wartezeit"), selection: $settings.openDelay,
@@ -46,8 +42,6 @@ struct GeneralSettings: View {
                 if settings.openMode == .automatic
                     && settings.openDelay >= AppSettings.clickToOpenMinDelay - 0.01 {
                     ToggleRow(L("Click the strip to open right away", "Klick auf den Streifen öffnet sofort"),
-                              info: L("With a delay of one second or more you don’t have to wait: clicking the black strip opens the shelf immediately. Without a click it opens after the delay as usual.",
-                                      "Bei einer Wartezeit ab einer Sekunde musst du nicht warten: Ein Klick auf den schwarzen Streifen öffnet die Ablage sofort. Ohne Klick öffnet sie wie gewohnt nach der Wartezeit."),
                               isOn: $settings.clickToOpenEarly)
                 }
                 ToggleRow(L("Larger hit area", "Größerer Trefferbereich"),
@@ -60,15 +54,11 @@ struct GeneralSettings: View {
 
             SettingsSection(L("Feedback", "Rückmeldung")) {
                 ToggleRow(L("Haptic feedback", "Haptisches Feedback"),
-                          info: L("A subtle tap on the trackpad when the strip appears, when you drop something, when you drag over an action and when a slider or row snaps into place.",
-                                  "Ein dezenter Impuls auf dem Trackpad, wenn der Streifen erscheint, beim Ablegen, beim Ziehen über eine Aktion und wenn ein Regler oder eine Zeile einrastet."),
                           isOn: $settings.hapticsEnabled)
             }
 
             SettingsSection(L("Reset", "Zurücksetzen")) {
-                SettingsRow(L("All settings", "Alle Einstellungen"),
-                            info: L("Puts every setting back to its default, including the shortcut, the action bar and “Open at login”. The language and the items in the shelf stay as they are.",
-                                    "Setzt alle Einstellungen auf den Standard zurück, auch Kurzbefehl, Aktionsleiste und „Beim Anmelden öffnen“. Sprache und Objekte in der Ablage bleiben, wie sie sind.")) {
+                SettingsRow(L("All settings", "Alle Einstellungen")) {
                     Button(L("Reset", "Zurücksetzen")) { confirmReset() }
                         .buttonStyle(KlackButtonStyle(destructive: true))
                 }
@@ -131,9 +121,7 @@ struct KeyboardSettings: View {
                 ShortcutRow(L("Clear selection, then close", "Auswahl aufheben, dann schließen"), "esc")
             }
 
-            SettingsSection(L("Stacks", "Stapel"),
-                            info: L("These commands are also in the context menu of the items.",
-                                    "Die Befehle stehen auch im Kontextmenü der Objekte.")) {
+            SettingsSection(L("Stacks", "Stapel")) {
                 ShortcutRow(L("Open stack", "Stapel öffnen"), L("Click", "Klick"))
                 ShortcutRow(L("Back to the shelf", "Zurück zur Ablage"), L("esc or ⌘↑", "esc oder ⌘↑"))
             }
@@ -214,18 +202,14 @@ struct ShelfSettings: View {
                 }
             }
 
-            SettingsSection(L("Size", "Größe"),
-                            info: L("While you adjust it, the open shelf appears at the edge so you can see the new size right away.",
-                                    "Beim Verändern zeigt sich die offene Ablage am Rand, so siehst du die neue Größe sofort.")) {
+            SettingsSection(L("Size", "Größe")) {
                 SliderRow(L("Width", "Breite"), value: $settings.shelfWidth, range: 240...400, step: 10,
                           format: SliderRow.points)
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: 280...680, step: 10,
                           format: SliderRow.points)
             }
 
-            SettingsSection(L("Strip at the edge", "Streifen am Rand"),
-                            info: L("The strip curves out of the screen edge before the shelf opens. “Edge curve” sets how softly it blends into the edge. While you adjust it, the strip appears at the edge.",
-                                    "Der Streifen wölbt sich aus dem Bildschirmrand, bevor die Ablage aufgeht. „Rundung zum Rand“ bestimmt, wie weich er in den Rand übergeht. Beim Verändern zeigt sich der Streifen am Rand.")) {
+            SettingsSection(L("Strip at the edge", "Streifen am Rand")) {
                 HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill",
                                  help: L("Reset position, size and strip", "Position, Größe und Streifen zurücksetzen")) {
                     settings.resetShelfLayout()
@@ -241,15 +225,13 @@ struct ShelfSettings: View {
 
             SettingsSection(L("Appearance", "Aussehen")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
-                          info: L("A thin light line around the black strip and the open shelf. It makes the shape visible on dark backgrounds and is barely noticeable on light ones. When off, the shape is pure black.",
-                                  "Eine feine helle Linie um den schwarzen Streifen und die offene Ablage. Auf dunklem Hintergrund macht sie die Form sichtbar, auf hellem fällt sie kaum auf. Ausgeschaltet ist die Form rein schwarz."),
                           isOn: $settings.showOutline)
                 PickerRow(L("Animation", "Animation"),
+                          // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
                           info: AnimationStyle.reduceMotion
                               ? L("“Reduce motion” is on in Accessibility: BarDrop only fades.",
                                   "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv: BarDrop blendet nur weich über.")
-                              : L("How lively the strip and the shelf open and close.",
-                                  "Wie lebhaft Streifen und Ablage auf- und zuklappen."),
+                              : nil,
                           selection: $settings.animationStyle,
                           options: AnimationStyle.allCases.map { ($0, $0.title) })
                     .disabled(AnimationStyle.reduceMotion)
@@ -422,43 +404,31 @@ struct ActionSettings: View {
     var body: some View {
         SettingsPage {
             VStack(alignment: .leading, spacing: 8) {
-                SettingsHeader(L("Action bar", "Aktionsleiste"),
-                               info: L("Drag items onto an action at the bottom of the shelf, or select them and click the action. Drag a row to reorder it; with two rows you can also drag it into the other row. Up to \(limit) actions.",
-                                       "Objekte auf eine Aktion unten in der Ablage ziehen oder auswählen und die Aktion anklicken. Zum Anordnen eine Zeile ziehen; bei zwei Reihen auch in die andere Reihe. Höchstens \(limit) Aktionen.")) {
-                    HStack(spacing: 8) {
-                        addMenu
-                        HeaderIconButton(symbol: "minus.circle.fill", help: L("Remove selected action", "Ausgewählte Aktion entfernen"),
-                                         disabled: selection == nil) {
-                            if let action = settings.quickActions.first(where: { $0.id == selection }) { remove(action) }
-                        }
-                        HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore defaults", "Standard wiederherstellen")) {
+                SettingsHeader(L("Action bar", "Aktionsleiste")) {
+                    HeaderIconButton(symbol: "arrow.counterclockwise.circle.fill", help: L("Restore defaults", "Standard wiederherstellen")) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
                             settings.quickActions = QuickAction.defaults
                             settings.actionRowSplit = QuickAction.perRow
-                            selection = nil
                         }
+                        selection = nil
                     }
                 }
                 .padding(.horizontal, 8)
 
                 ActionListEditor(settings: settings, selection: $selection,
                                  onRemove: remove, onMove: move)
+
+                AddActionRow(count: settings.quickActions.count, limit: limit, frame: $addButtonFrame) {
+                    showAddMenu()
+                }
+                .padding(.top, 4)
             }
 
             SettingsSection(L("Layout", "Darstellung")) {
                 ToggleRow(L("Two rows", "Zwei Reihen"),
-                          info: L("Shows the action bar in two rows of up to five actions each, so up to ten fit. Drag an action into the row where you want it. With one row there is room for six.",
-                                  "Zeigt die Aktionsleiste in zwei Reihen mit je bis zu fünf Aktionen, so passen bis zu zehn hinein. Zieh eine Aktion in die Reihe, in der du sie haben willst. Mit einer Reihe ist Platz für sechs."),
                           isOn: $settings.twoActionRows.animation(.spring(response: 0.3, dampingFraction: 0.88)))
             }
         }
-    }
-
-    private var addMenu: some View {
-        HeaderIconButton(symbol: "plus.circle.fill", help: L("Add action", "Aktion hinzufügen"),
-                         disabled: settings.quickActions.count >= limit) {
-            showAddMenu()
-        }
-        .readFrame($addButtonFrame)
     }
 
     private func showAddMenu() {
@@ -693,7 +663,9 @@ private struct ActionListEditor: View {
                 ActionRow(action: action,
                           selected: selection == action.id,
                           lifted: isDragged,
-                          hidden: !twoRows && index >= hiddenFrom)
+                          hidden: !twoRows && index >= hiddenFrom,
+                          dragging: dragging != nil,
+                          onRemove: { onRemove(action) })
                     .frame(height: Self.rowHeight)
                     .offset(y: isDragged ? dragStartY + dragTranslation : y(of: action.id, in: a))
                     .zIndex(isDragged ? 2 : 1)
@@ -806,6 +778,10 @@ private struct ActionRow: View {
     let selected: Bool
     let lifted: Bool
     let hidden: Bool
+    /// Irgendeine Zeile wird gerade gezogen: dann keine Knöpfe einblenden
+    let dragging: Bool
+    let onRemove: () -> Void
+    @State private var hovering = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -822,6 +798,18 @@ private struct ActionRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
+            // Entfernen direkt an der Zeile, sichtbar beim Darüberfahren
+            Button(action: onRemove) {
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.secondary)
+                    .frame(width: 26, height: 40)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(L("Remove", "Entfernen"))
+            .opacity(hovering && !dragging ? 1 : 0)
+            .allowsHitTesting(hovering && !dragging)
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(selected ? Color.white.opacity(0.75) : Color.secondary.opacity(lifted ? 1 : 0.6))
@@ -844,5 +832,50 @@ private struct ActionRow: View {
         .shadow(color: .black.opacity(lifted ? 0.4 : 0), radius: 10, y: 4)
         .scaleEffect(lifted ? 1.02 : 1)
         .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
+}
+
+/// Letzte Zeile unter der Aktionsliste: neue Aktion hinzufügen, wie in den Listen
+/// der Systemeinstellungen. Ist die Leiste voll, steht das dort.
+private struct AddActionRow: View {
+    let count: Int
+    let limit: Int
+    @Binding var frame: CGRect
+    let action: () -> Void
+    @State private var hovering = false
+
+    private var full: Bool { count >= limit }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(full ? Color.secondary : Color(nsColor: .controlAccentColor))
+                    .frame(width: 26)
+                Text(full ? L("The bar is full (\(count) of \(limit))", "Die Leiste ist voll (\(count) von \(limit))")
+                          : L("Add Action", "Aktion hinzufügen"))
+                    .font(.system(size: 13.5, weight: .medium))
+                    .foregroundStyle(full ? Color.secondary : Color(nsColor: .controlAccentColor))
+                Spacer()
+            }
+            .padding(.horizontal, SettingsTheme.rowPadding)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                    .fill(SettingsTheme.card.opacity(hovering && !full ? 1 : 0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                    .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(full)
+        .onHover { hovering = $0 }
+        .readFrame($frame)
     }
 }

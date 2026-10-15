@@ -42,9 +42,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         Updater.shared.start()
 
+        // Erster Start: Einführung. Als erledigt gilt sie erst, wenn sie geschlossen
+        // wurde; geht vorher etwas schief, erscheint sie beim nächsten Start wieder.
+        // Sonst zeigt sich kurz der Streifen am Rand: Ohne Dock- und Menüleistensymbol
+        // sähe man sonst gar nicht, dass BarDrop läuft.
         if !settings.didLaunchBefore {
-            settings.didLaunchBefore = true
-            showOnboarding()
+            DispatchQueue.main.async { [weak self] in self?.showOnboarding() }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.controller.greet() }
         }
     }
 

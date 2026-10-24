@@ -8,10 +8,11 @@
         "en": "Separate Vocals",
         "de": "Gesang und Musik trennen"
       },
-      "url": "https://raw.githubusercontent.com/zzuuuiii/BarDrop/plugin-katalog/plugins/io.github.richard2007-21.stems/io.github.richard2007-21.stems-1.0.0.bdrop",
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.stems-1.0.0.bdrop",
       "sha256": "66bed2a8173b284526246e703105652f23a26a918bbf318be37516446232f84d",
       "size": 3993,
       "updated": "2026-10-23",
+      "added": "2026-10-23",
       "permissions": [
         "run"
       ],
@@ -25,7 +26,36 @@
         "color": "#FF9500"
       },
       "author": "Richard",
-      "minAppVersion": "1.31.0"
+      "minAppVersion": "1.31.0",
+      "downloads": 0
+    },
+    {
+      "id": "io.github.zzuuuiii.clean-links",
+      "version": "1.0.0",
+      "name": {
+        "en": "Clean Links",
+        "de": "Links bereinigen"
+      },
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.clean-links-1.0.0.bdrop",
+      "sha256": "9544edab6d323d46a8109060641487069a0ce46a491cc2ae8af88e9b910dbc6f",
+      "size": 8178,
+      "updated": "2026-10-24",
+      "added": "2026-10-24",
+      "permissions": [],
+      "tools": [],
+      "description": {
+        "en": "Removes tracking from links: UTM and ad parameters, share IDs, redirect wrappers, AMP addresses and site specific junk. Works fully offline.",
+        "de": "Entfernt Tracking aus Links: UTM- und Werbeparameter, Share-IDs, Weiterleitungen, AMP-Adressen und seitenspezifischen Ballast. Arbeitet vollständig offline."
+      },
+      "icon": {
+        "symbol": "link",
+        "color": "#30B0C7"
+      },
+      "author": "zzuuuiii",
+      "homepage": "https://github.com/zzuuuiii/BarDrop",
+      "minAppVersion": "1.31.0",
+      "category": "links",
+      "downloads": 0
     }
   ]
 }

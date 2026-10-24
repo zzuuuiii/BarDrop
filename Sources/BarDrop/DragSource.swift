@@ -433,7 +433,10 @@ enum ShelfMenu {
             // aktiviert wird danach
             menu.popUp(positioning: nil, at: view.convert(event.locationInWindow, from: nil), in: view)
             activate()
-            view.window?.makeKey()
+            // Hat ein Eintrag bewusst ein Fenster geöffnet (Einstellungen), behält es den Fokus.
+            // Sonst nahm ihn die Ablage gleich wieder, und die Einstellungen waren grau wie im
+            // Hintergrund (Protokoll: „key+ Einstellungen“, 0,1 s später „key+ Ablage“)
+            if !openedWindow { view.window?.makeKey() }
         }
         // Nach dem Menü gab macOS den Fokus dem Hauptfenster von BarDrop, den Einstellungen,
         // und holte sie nach vorn (Diagnoseprotokoll: „key+ Einstellungen“ gleich danach,

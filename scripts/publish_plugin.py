@@ -194,6 +194,8 @@ def publish(args, options):
         # Größe der .bdrop-Datei in Bytes (nachgeladene Programme kommen dazu, siehe „tools“)
         "size": target.stat().st_size,
         "updated": datetime.date.today().isoformat(),
+        # Seit wann in der Galerie: bleibt bei neuen Versionen gleich (BarDrop zeigt zwei Monate „neu“)
+        "added": (old or {}).get("added") or (old or {}).get("updated") or datetime.date.today().isoformat(),
         "permissions": [p for p in manifest.get("permissions", []) if isinstance(p, str)],
         "tools": [t.get("name") or t.get("id") for t in manifest.get("tools", []) if isinstance(t, dict)],
     }

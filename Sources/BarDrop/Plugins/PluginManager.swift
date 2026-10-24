@@ -42,6 +42,9 @@ struct PluginState: Codable, Equatable {
     var isStandard = false
     /// Aus dem Katalog geladen (nicht importiert): bekommt neue Versionen von dort
     var fromCatalog = false
+    /// Stand in der Aktionsleiste, als das Plugin ausgeschaltet wurde: kommt beim
+    /// Einschalten wieder dorthin
+    var parkedInActionBar = false
 
     init() {}
 
@@ -59,6 +62,7 @@ struct PluginState: Codable, Equatable {
         approvedTools = try c.decodeIfPresent([String].self, forKey: .approvedTools) ?? []
         isStandard = try c.decodeIfPresent(Bool.self, forKey: .isStandard) ?? false
         fromCatalog = try c.decodeIfPresent(Bool.self, forKey: .fromCatalog) ?? false
+        parkedInActionBar = try c.decodeIfPresent(Bool.self, forKey: .parkedInActionBar) ?? false
     }
 }
 
@@ -88,10 +92,33 @@ struct PluginCatalogEntry: Codable, Equatable, Identifiable {
     var tools: [String]?
     /// Datum der Veröffentlichung dieser Version, JJJJ-MM-TT
     var updated: String?
+    /// Seit wann das Plugin in der Galerie steht, JJJJ-MM-TT (`build_gallery.py` behält es bei
+    /// neuen Versionen bei)
+    var added: String?
+    /// Wie oft das Plugin geladen wurde, alle Versionen zusammen (zählt GitHub an den Dateien
+    /// des Releases `plugin-galerie`, siehe scripts/gallery_downloads.py)
+    var downloads: Int?
     /// Größe der .bdrop-Datei in Bytes (ohne nachgeladene Programme)
     var size: Int?
     /// Größe der Programme aus `tools`, wie sie auf dem Mac liegen (Bytes)
     var toolsSize: Int?
+}
+
+extension PluginCatalogEntry {
+    /// So lange gilt ein Plugin in der Galerie als neu (Nutzerwunsch: zwei Monate)
+    static let newPeriod: TimeInterval = 61 * 24 * 3600
+
+    /// Neu in der Galerie: höchstens zwei Monate seit `added`. Ältere Kataloge ohne `added`
+    /// nehmen das Datum der Version
+    var isNew: Bool {
+        guard let text = added ?? updated else { return false }
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.timeZone = TimeZone(identifier: "UTC")
+        format.dateFormat = "yyyy-MM-dd"
+        guard let date = format.date(from: text) else { return false }
+        return Date().timeIntervalSince(date) < Self.newPeriod
+    }
 }
 
 struct PluginCatalog: Codable, Equatable {
@@ -121,9 +148,22 @@ final class PluginManager: ObservableObject {
     @Published private(set) var missingStandard: [PluginCatalogEntry] = []
     /// Weitere Plugins im Katalog (nicht Standard, noch nicht installiert)
     @Published private(set) var catalogExtras: [PluginCatalogEntry] = []
+    /// Die meistgeladenen noch nicht installierten Plugins für die Startseite (ohne Zahlen in
+    /// der Reihenfolge des Katalogs)
+    func popularExtras(_ count: Int = 5) -> [PluginCatalogEntry] {
+        let extras = catalogExtras.enumerated().sorted { a, b in
+            let da = a.element.downloads ?? 0, db = b.element.downloads ?? 0
+            return da != db ? da > db : a.offset < b.offset
+        }
+        return Array(extras.prefix(count).map(\.element))
+    }
+
     /// Alles, was die Galerie zeigt (auch schon installierte Plugins), in der Reihenfolge des Katalogs
     @Published private(set) var catalogEntries: [PluginCatalogEntry] = []
     @Published private(set) var syncing = false
+    /// Gerade aus der Galerie aktualisiert (bis zum Beenden): id → neue Version. Die Liste
+    /// zeigt dann „Aktualisiert auf …“ statt Version und Größe.
+    @Published private(set) var recentlyUpdated: [String: String] = [:]
     /// Der letzte Abgleich mit dem Katalog ist gescheitert (kein Internet)
     @Published private(set) var syncFailed = false
     /// Plugins, deren Ordner nicht mehr lesbar ist (z. B. nach dem Bearbeiten): Fehlertext
@@ -189,16 +229,37 @@ final class PluginManager: ObservableObject {
     }
 
     /// Beim Start der App: Katalog abgleichen, wenn die Plugins an sind (höchstens täglich)
+    /// Nur der Manager der App räumt die Aktionsleiste auf (nicht die in Tests)
+    private var managesActionBar = false
+
     func start(settings: AppSettings = .shared) {
+        managesActionBar = true
+        syncActionBar()
         enabledObserver = settings.$pluginsEnabled
             .removeDuplicates()
             .dropFirst()
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] on in if on { self?.syncCatalog(force: true) } }
+            .sink { [weak self] on in
+                self?.syncActionBar()
+                if on { self?.syncCatalog(force: true) }
+            }
+        // Gespeicherten Katalog sofort zeigen: Vorher blieb „Weitere Plugins“ leer, bis man
+        // „Aktualisieren“ drückte, weil der tägliche Abgleich den Speicher nicht anwendete
+        applyCatalog(cachedCatalog, online: false)
         if settings.pluginsEnabled {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.syncCatalog() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.syncCatalog(maxAge: Self.syncInterval) }
         }
+        // Neue Versionen aus der Galerie kommen von selbst (kein Knopf mehr): alle paar Stunden
+        // eine kleine Abfrage (index.json, wenige KB)
+        syncTimer = Timer.scheduledTimer(withTimeInterval: Self.syncInterval, repeats: true) { [weak self] _ in
+            self?.syncCatalog(maxAge: Self.syncInterval)
+        }
+        syncTimer?.tolerance = 600
     }
+
+    /// Abstand der Abgleiche im Hintergrund
+    static let syncInterval: TimeInterval = 3 * 3600
+    private var syncTimer: Timer?
 
     // MARK: Lesen
 
@@ -284,21 +345,65 @@ final class PluginManager: ObservableObject {
 
     func update(_ id: String, _ change: (inout PluginState) -> Void) {
         var state = states[id] ?? PluginState()
+        let wasActive = isActive(id)
         change(&state)
         guard state != states[id] else { return }
         states[id] = state
         saveState()
+        // Auch Erlauben und Entziehen schalten ein Plugin an oder aus (siehe isOn)
+        if isActive(id) != wasActive { syncActionBar() }
+    }
+
+    /// Aktionen ausgeschalteter Plugins stehen weder in der Ablage noch in Einstellungen →
+    /// Aktionen und zählen nicht zur Grenze der Leiste. Das Plugin merkt sich, dass es dort
+    /// stand, und kommt beim Einschalten wieder ans Ende (wenn Platz ist).
+    func syncActionBar(settings: AppSettings = .shared) {
+        guard managesActionBar else { return }
+        var actions = settings.quickActions
+        var changed = false
+        // Nur installierte Plugins: Ein Standard-Plugin, das gerade nicht geladen ist, oder
+        // eines, das sich nicht lesen lässt, behält seinen Platz (Entfernen räumt selbst auf)
+        for action in actions where action.kind == .plugin {
+            guard let id = action.path, plugin(id) != nil, !isActive(id, settings: settings) else { continue }
+            var s = states[id] ?? PluginState()
+            s.parkedInActionBar = true
+            states[id] = s
+            actions.removeAll { $0.id == action.id }
+            changed = true
+        }
+        var returning: [QuickAction] = []
+        for plugin in plugins where state(plugin.id).parkedInActionBar && isActive(plugin.id, settings: settings) {
+            var s = state(plugin.id)
+            s.parkedInActionBar = false
+            states[plugin.id] = s
+            changed = true
+            guard actions.count + returning.count < QuickAction.limit,
+                  !actions.contains(where: { $0.kind == .plugin && $0.path == plugin.id }) else { continue }
+            returning.append(QuickAction(kind: .plugin, path: plugin.id))
+        }
+        guard changed else { return }
+        saveState()
+        if actions != settings.quickActions { settings.quickActions = actions }
+        // Zurück in die obere Reihe wie jede neue Aktion
+        returning.forEach { settings.addQuickAction($0) }
+    }
+
+    /// Eingeschaltet und erlaubt. Ein Plugin ohne Erlaubnis gilt als aus: Vorher stand in den
+    /// Einstellungen „Ein“ und zugleich „Braucht deine Erlaubnis“, es lief aber nicht. Einschalten
+    /// fragt erst nach der Erlaubnis (PluginDialogs.authorize)
+    func isOn(_ plugin: InstalledPlugin) -> Bool {
+        state(plugin.id).enabled && isFullyAuthorized(plugin)
     }
 
     /// Ist das Plugin eingeschaltet (und die Plugins überhaupt)?
     func isActive(_ id: String?, settings: AppSettings = .shared) -> Bool {
-        guard settings.pluginsEnabled, let id, plugin(id) != nil else { return false }
-        return state(id).enabled
+        guard settings.pluginsEnabled, let plugin = plugin(id) else { return false }
+        return isOn(plugin)
     }
 
     var activePlugins: [InstalledPlugin] {
         guard AppSettings.shared.pluginsEnabled else { return [] }
-        return plugins.filter { state($0.id).enabled }
+        return plugins.filter { isOn($0) }
     }
 
     /// Braucht ein eingeschaltetes Plugin gezielt diese Adresse als Link? (Beim Hineinziehen
@@ -396,7 +501,7 @@ final class PluginManager: ObservableObject {
             let settings = AppSettings.shared
             let present = settings.quickActions.contains { $0.kind == .plugin && $0.path == plugin.id }
             if !present, settings.quickActions.count < QuickAction.limit {
-                settings.quickActions.append(QuickAction(kind: .plugin, path: plugin.id))
+                settings.addQuickAction(QuickAction(kind: .plugin, path: plugin.id))
             }
         }
         PluginLog.shared.record(plugin.id, "install", "eingeschaltet")
@@ -451,6 +556,23 @@ final class PluginManager: ObservableObject {
         let item = list.remove(at: from)
         guard let to = list.firstIndex(where: { $0.id == other }) else { return }
         list.insert(item, at: offset < 0 ? to : to + 1)
+        plugins = list
+        order = list.map(\.id)
+        saveState()
+    }
+
+    /// Neue Reihenfolge der automatischen Plugins nach dem Ziehen (Einstellungen → Plugins →
+    /// Reihenfolge beim Ablegen). Sie nehmen die Plätze ein, die automatische Plugins schon
+    /// hatten; Standard-Plugins bleiben vor den eigenen
+    func setAutomaticOrder(_ ids: [String]) {
+        var list = plugins
+        let slots = list.indices.filter { isAutomatic(list[$0]) }
+        let byID = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
+        let ordered = ids.compactMap { byID[$0] }
+        guard ordered.count == slots.count,
+              ordered.map(\.isStandard) == slots.map({ list[$0].isStandard }) else { return }
+        for (slot, plugin) in zip(slots, ordered) { list[slot] = plugin }
+        guard list != plugins else { return }
         plugins = list
         order = list.map(\.id)
         saveState()
@@ -553,6 +675,9 @@ final class PluginManager: ObservableObject {
         states.removeValue(forKey: id)
         order.removeAll { $0 == id }
         reload()
+        // Steht es in der Galerie, gehört es wieder zu den ladbaren (Top 5 auf der Startseite);
+        // vorher wurde die Liste erst beim nächsten Abgleich neu gebildet (Nutzer, 24.10.2026)
+        catalogExtras = catalogEntries.filter { $0.standard != true && plugin($0.id) == nil }
         // Aktionen dieses Plugins aus der Leiste nehmen
         let settings = AppSettings.shared
         if settings.quickActions.contains(where: { $0.kind == .plugin && $0.path == id }) {
@@ -618,7 +743,9 @@ final class PluginManager: ObservableObject {
             // Aus der Galerie geladene Plugins bekommen neue Versionen ebenfalls
             guard standard || state(entry.id).fromCatalog else { return false }
             guard let installed = plugin(entry.id) else { return standard }
-            return Updater.isNewer(entry.version, than: installed.manifest.version)
+            // Plugins aus der Galerie brauchen keine Erlaubnis. Fehlt sie trotzdem (Dateien
+            // geändert, ältere Installation), wird die geprüfte Fassung neu geladen und erlaubt
+            return Updater.isNewer(entry.version, than: installed.manifest.version) || !isFullyAuthorized(installed)
         }
         guard online, !needed.isEmpty else {
             missingStandard = live.filter { $0.standard == true && plugin($0.id) == nil }
@@ -627,10 +754,18 @@ final class PluginManager: ObservableObject {
         let group = DispatchGroup()
         for entry in needed {
             group.enter()
+            let oldVersion = plugin(entry.id)?.manifest.version
             download(entry) { [weak self] result in
-                if let self, let unpacked = result {
-                    _ = try? self.install(unpacked, standard: entry.standard == true || self.state(entry.id).isStandard,
-                                          keepPermissions: true)
+                if let self, let unpacked = result,
+                   let installed = try? self.install(unpacked, standard: entry.standard == true || self.state(entry.id).isStandard,
+                                                     keepPermissions: true) {
+                    // Aus dem eigenen Katalog (geprüft, Prüfsumme stimmt): braucht keine Erlaubnis
+                    self.grantAll(installed)
+                    // Nur echte neue Versionen melden, nicht das Neuladen ohne Erlaubnis
+                    if let oldVersion, oldVersion != unpacked.manifest.version {
+                        self.recentlyUpdated[entry.id] = unpacked.manifest.version
+                        PluginLog.shared.record(entry.id, "install", "aktualisiert auf \(unpacked.manifest.version)")
+                    }
                 }
                 group.leave()
             }
@@ -661,10 +796,16 @@ final class PluginManager: ObservableObject {
         }.resume()
     }
 
-    /// Installiert ein weiteres Plugin aus dem Katalog (nicht Standard)
+    /// Installiert ein weiteres Plugin aus dem Katalog (nicht Standard). Plugins aus dem
+    /// eigenen Katalog sind geprüft und kommen mit Prüfsumme: Sie bekommen gleich alles, was
+    /// sie angeben, ohne Erlauben-Fenster. Ändert jemand danach ihre Dateien, gilt das nicht
+    /// mehr (Rechte hängen am Fingerabdruck) und es wird wie sonst gefragt.
     func installFromCatalog(_ entry: PluginCatalogEntry, completion: @escaping (Bool) -> Void) {
         download(entry) { [weak self] unpacked in
-            guard let self, let unpacked, (try? self.install(unpacked, standard: false)) != nil else { return completion(false) }
+            guard let self, let unpacked, let installed = try? self.install(unpacked, standard: false) else {
+                return completion(false)
+            }
+            self.grantAll(installed)
             self.update(entry.id) { $0.fromCatalog = true }
             self.catalogExtras.removeAll { $0.id == entry.id }
             completion(true)

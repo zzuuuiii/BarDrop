@@ -845,6 +845,41 @@ final class PluginTests: XCTestCase {
         guard case .failure = run(plugin, on: makeFile("a.txt")) else { return XCTFail("file:-Link darf nicht entstehen") }
     }
 
+    /// createLink: nur der letzte Teil des Titels zählt, „.webloc“ bleibt auch bei langen Titeln (Issue #58)
+    func testCreateLinkKeepsLastPartAndExtension() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let plugin = try installed(manager, script: """
+        function run(item) {
+          bardrop.createLink('https://example.com/', 'Ordner/Titel');
+          bardrop.createLink('https://example.com/', 'x'.repeat(100));
+        }
+        """)
+        let names = try run(plugin, on: makeFile("a.txt")).get().map(\.lastPathComponent)
+        XCTAssertTrue(names.contains("Titel.webloc"), "\(names)")
+        let long = try XCTUnwrap(names.first { $0.hasPrefix("xxx") })
+        XCTAssertTrue(long.hasSuffix(".webloc"), long)
+        XCTAssertLessThanOrEqual(long.count, 80)
+        XCTAssertEqual(long, String(repeating: "x", count: 80 - ".webloc".count) + ".webloc")
+    }
+
+    /// Lange Namen werden auf 80 Zeichen gekürzt, die Endung bleibt
+    func testWriteFileShortensLongNameButKeepsExtension() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let plugin = try installed(manager, script: "function run(item) { bardrop.writeFile('L'.repeat(200) + '.txt', 'ok'); }")
+        let urls = try run(plugin, on: makeFile("a.txt")).get()
+        let name = try XCTUnwrap(urls.first?.lastPathComponent)
+        XCTAssertEqual(name, String(repeating: "L", count: 76) + ".txt")
+        XCTAssertEqual(try String(contentsOf: urls[0], encoding: .utf8), "ok")
+    }
+
+    func testSanitizeKeepsExtensionWhenShortening() {
+        XCTAssertEqual(ContentImporter.sanitize("kurz.txt"), "kurz.txt")
+        XCTAssertEqual(ContentImporter.sanitize(String(repeating: "a", count: 100) + ".pdf"), String(repeating: "a", count: 76) + ".pdf")
+        // Ohne echte Endung wird einfach abgeschnitten
+        let plain = "Mr. " + String(repeating: "b", count: 100)
+        XCTAssertEqual(ContentImporter.sanitize(plain), String(plain.prefix(80)))
+    }
+
     /// Eine kleine ZIP-Datei, die ausgepackt riesig wäre, wird gar nicht erst entpackt
     func testUnpackRejectsHugeArchiveWithoutLeftovers() throws {
         let folder = makePluginFolder(script: "function run(item) {}")

@@ -38,9 +38,7 @@ enum EdgeTear {
     /// Ecken auf seiner Seite. Angedockt hat sie dort keine Rundung, sondern geht in den Bogen
     /// zum Bildschirmrand über; so gibt es am Ende des Andockens keinen Sprung.
     static func bodyPath(_ body: CGRect, attach: CGFloat, side: ScreenEdge, grow: CGFloat = 0) -> Path {
-        let t = max(0, min(1, (attach - 0.55) / 0.45))
-        let square = t * t * (3 - 2 * t)
-        let edge = cornerRadius * (1 - square) + grow
+        let edge = edgeRadius(attach: attach) + grow
         let far = cornerRadius + grow
         let left = side == .left
         return UnevenRoundedRectangle(topLeadingRadius: left ? edge : far,
@@ -49,6 +47,13 @@ enum EdgeTear {
                                       topTrailingRadius: left ? far : edge,
                                       style: .continuous)
             .path(in: body.insetBy(dx: -grow, dy: -grow))
+    }
+
+    /// Rundung der Ecken auf der Randseite
+    static func edgeRadius(attach: CGFloat) -> CGFloat {
+        let t = max(0, min(1, (attach - 0.55) / 0.45))
+        let square = t * t * (3 - 2 * t)
+        return cornerRadius * (1 - square)
     }
 }
 
@@ -178,9 +183,16 @@ struct TearGoo: View, Animatable {
             // Überlappende Ränder wurden doppelt dunkel und zeigten sich als Streifen
             let rowHeight: CGFloat = 2
             let rows = Int((size.height / rowHeight).rounded(.up))
+            // Nur die Streifen, unter denen die schwarze Form liegen kann (Rahmen plus Platz für
+            // die Unschärfe): Der Bereich darüber und darunter (`beyond`, für den Schatten) wurde
+            // sonst in jedem Bild mitgezeichnet, gut ein Drittel der Arbeit, ohne dass man ihn
+            // sah. Das kostete gerade beim Lösen (Übergang zu Glas) Bilder, und die Ablage hing
+            // dem Zeiger hinterher.
+            let firstRow = max(0, Int(((frame.minY - 12) / rowHeight).rounded(.down)))
+            let lastRow = min(rows, Int(((frame.maxY + 12) / rowHeight).rounded(.up)))
             context.drawLayer { layer in
             layer.addFilter(.blur(radius: 4))
-            for row in 0..<rows {
+            for row in firstRow..<max(firstRow, lastRow) {
                 let y0 = CGFloat(row) * rowHeight
                 let y1 = y0 + rowHeight
                 let mid = (y0 + y1) / 2

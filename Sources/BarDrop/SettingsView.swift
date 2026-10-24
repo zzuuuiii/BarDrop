@@ -24,10 +24,10 @@ struct GeneralSettings: View {
     var body: some View {
         SettingsPage {
             // Start, Sprache und Impuls in einer Karte: je eine Zeile, eigene Abschnitte lohnen nicht
-            SettingsSection(note: loginError, noteColor: .red) {
+            SettingsSection(L("App", "App"), note: loginError, noteColor: .red) {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $launchAtLogin)
                 if launchAtLogin && needsApproval {
-                    SettingsRow(L("Needs approval in System Settings", "Muss in den Systemeinstellungen erlaubt werden")) {
+                    SettingsRow(L("Allow in System Settings", "In den Systemeinstellungen erlauben")) {
                         Button(L("Open", "Öffnen")) { SMAppService.openSystemSettingsLoginItems() }
                             .buttonStyle(KlackButtonStyle())
                     }
@@ -63,8 +63,8 @@ struct GeneralSettings: View {
     private func confirmReset() {
         let alert = NSAlert()
         alert.messageText = L("Reset all settings?", "Alle Einstellungen zurücksetzen?")
-        alert.informativeText = L("All settings go back to their defaults, including the language, the shortcut, the action bar, updates and beta versions. Only the items in the shelf are kept. This can’t be undone.",
-                                  "Alle Einstellungen werden auf die Standardwerte zurückgesetzt, auch Sprache, Kurzbefehl, Aktionsleiste, Updates und Beta-Versionen. Nur die Objekte in der Ablage bleiben. Das lässt sich nicht widerrufen.")
+        alert.informativeText = L("All settings go back to their defaults, including the language, the shortcut, the action bar, updates and beta versions. Plugins stay installed but are turned off and lose their permissions. Only the items in the shelf are kept. This can’t be undone.",
+                                  "Alle Einstellungen werden auf die Standardwerte zurückgesetzt, auch Sprache, Kurzbefehl, Aktionsleiste, Updates und Beta-Versionen. Plugins bleiben installiert, sind aber aus und ohne Berechtigungen. Nur die Objekte in der Ablage bleiben. Das lässt sich nicht widerrufen.")
         alert.alertStyle = .warning
         alert.addButton(withTitle: L("Reset", "Zurücksetzen"))
         alert.addButton(withTitle: L("Cancel", "Abbrechen"))
@@ -85,7 +85,7 @@ struct KeyboardSettings: View {
 
     var body: some View {
         SettingsPage {
-            SettingsSection(L("Show or hide the shelf", "Ablage ein- oder ausblenden"),
+            SettingsSection(L("Show or hide shelf", "Ablage ein- und ausblenden"),
                             info: L("Click ⌃, ⌥, ⇧ or ⌘ to add or remove a modifier key. To change the key, click it on the right and press a new one.",
                                     "Klick auf ⌃, ⌥, ⇧ oder ⌘, um eine Sondertaste hinzuzufügen oder wegzunehmen. Für eine andere Taste klick rechts auf die Taste und drück die neue."),
                             note: hotKeyStatus.available ? nil : L("Another app already uses this shortcut. Choose a different combination.",
@@ -110,22 +110,23 @@ struct KeyboardSettings: View {
                 }
                 .buttonStyle(.plain)
                 if showShortcuts {
+                    // Geordnet wie in Menüs: ansehen, auswählen, bearbeiten, bewegen
                     ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
                     ShortcutRow(L("Open", "Öffnen"), ["↩"])
-                    ShortcutRow(L("Remove from shelf", "Aus der Ablage entfernen"), ["⌫"])
-                    ShortcutRow(L("Move to Trash", "In den Papierkorb legen"), ["⌘", "⌫"])
-                    ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
-                    ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
-                    ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
-                    ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
-                    ShortcutRow(L("Paste from clipboard", "Aus der Zwischenablage einfügen"), ["⌘", "V"])
-                    ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
                     ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
                     ShortcutRow(L("Get Info", "Informationen"), ["⌘", "I"])
-                    ShortcutRow(L("Select all", "Alle auswählen"), ["⌘", "A"])
+                    ShortcutRow(L("Select All", "Alle auswählen"), ["⌘", "A"])
                     ShortcutRow(L("Move selection", "Auswahl bewegen"), ["←", "→", "↑", "↓"])
                     ShortcutRow(L("Extend selection", "Auswahl erweitern"), ["⇧", "←"])
-                    ShortcutRow(L("Back from a stack or folder", "Zurück aus Stapel oder Ordner"), ["⌘", "↑"])
+                    ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
+                    ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
+                    ShortcutRow(L("Paste", "Einsetzen"), ["⌘", "V"])
+                    ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
+                    ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
+                    ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
+                    ShortcutRow(L("Remove", "Entfernen"), ["⌫"])
+                    ShortcutRow(L("Move to Trash", "In den Papierkorb legen"), ["⌘", "⌫"])
+                    ShortcutRow(L("Leave stack or folder", "Stapel oder Ordner verlassen"), ["⌘", "↑"])
                     ShortcutRow(L("Move or remove an action", "Aktion verschieben oder entfernen"), ["⌘", L("Drag", "Ziehen")])
                     ShortcutRow(L("Settings", "Einstellungen"), ["⌘", ","])
                     ShortcutRow(L("Go back or close", "Zurück oder schließen"), ["esc"])
@@ -143,24 +144,21 @@ struct ShortcutRow: View {
         self.title = title
         self.keys = keys
     }
+    /// Wie Kürzel in macOS-Menüs: die Zeichen zusammen in einer ruhigen Kapsel, so wie die Werte
+    /// der Regler. Vorher stand jede Taste in einer eigenen dunklen Kappe; in der langen Liste
+    /// wirkte das unruhig (Nutzer, 24.10.2026)
     var body: some View {
         SettingsRow(title) {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
                     label(key)
-                        .foregroundStyle(.secondary)
-                        .frame(minWidth: 22, minHeight: 22)
-                        .padding(.horizontal, key.count > 1 ? 5 : 0)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(SettingsTheme.shortcutKey)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .strokeBorder(SettingsTheme.separator, lineWidth: 1)
-                        )
                 }
             }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 9)
+            .frame(minWidth: 34, minHeight: 22)
+            .background(Capsule().fill(Color.primary.opacity(0.03)))
+            .overlay(Capsule().strokeBorder(SettingsTheme.separator, lineWidth: 1))
         }
     }
 
@@ -195,7 +193,7 @@ private enum HeightMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .fixed: return L("Fixed", "Fest")
-        case .adaptive: return L("Follows pointer", "Folgt dem Zeiger")
+        case .adaptive: return L("At pointer", "Am Zeiger")
         }
     }
 }
@@ -213,7 +211,7 @@ struct OpeningSettings: View {
 
     var body: some View {
         SettingsPage {
-            SettingsCard {
+            SettingsSection(L("Preview", "Vorschau")) {
                 ScreenPreview(settings: settings)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
@@ -242,19 +240,26 @@ struct OpeningSettings: View {
 
             SettingsSection(L("When", "Wann")) {
                 PickerRow(L("Open shelf", "Ablage öffnen"),
-                          info: L("With a delay, clicking the strip still opens the shelf right away.",
-                                  "Mit Wartezeit öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
+                          info: L("From a 1 second delay on, clicking the strip still opens the shelf right away.",
+                                  "Ab 1 Sekunde Wartezeit öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
                           selection: $settings.openChoice,
                           options: OpenChoice.all.map { ($0, $0.title) })
-                ToggleRow(L("Open only at the strip", "Nur direkt am Streifen öffnen"),
+                ToggleRow(L("Only at the strip", "Nur am Streifen"),
                           info: L("The shelf only opens when the pointer or a dragged item reaches the strip itself, not the area around it.",
                                   "Die Ablage öffnet sich erst, wenn der Zeiger oder ein gezogenes Objekt den Streifen selbst erreicht, nicht schon den Bereich darum."),
                           isOn: $settings.exactPointer)
                 // Als Menü: Für einen Umschalter sind die Texte zu lang, er drückte den Titel
                 // auf mehrere Zeilen zusammen
-                PickerRow(L("Strip while dragging", "Streifen beim Ziehen"), selection: $settings.dragReveal,
+                // „Nur direkt am Streifen“ gilt auch beim Ziehen: Dann gibt es keinen Streifen in
+                // Randnähe, die Wahl hier wirkt nicht und ist grau
+                PickerRow(L("Strip while dragging", "Streifen beim Ziehen"),
+                          info: settings.exactPointer
+                              ? L("Has no effect while “Only at the strip” is on.",
+                                  "Wirkt nicht, solange „Nur am Streifen“ an ist.") : nil,
+                          selection: $settings.dragReveal,
                           options: DragReveal.selectable.map { ($0, $0.title) }, menu: true)
-                ToggleRow(L("Open where you left off", "An letzter Stelle öffnen"),
+                    .disabled(settings.exactPointer)
+                ToggleRow(L("Reopen where you left off", "Dort öffnen, wo du warst"),
                           info: L("The shelf opens where you were last: at the same place in the list, in the same stack or folder.",
                                   "Die Ablage öffnet sich dort, wo du zuletzt warst: an derselben Stelle in der Liste, im selben Stapel oder Ordner."),
                           isOn: $settings.reopenWhereLeft)
@@ -264,7 +269,7 @@ struct OpeningSettings: View {
             VStack(alignment: .leading, spacing: 8) {
                 // Ausnahmen: Vollbild und einzelne Apps, in denen der Rand die Ablage nicht öffnet
                 SettingsSection(L("Exceptions", "Ausnahmen")) {
-                    ToggleRow(L("Open over full-screen apps", "Auch über Apps im Vollbild öffnen"),
+                    ToggleRow(L("Over full-screen apps", "Über Apps im Vollbild"),
                               isOn: $settings.openInFullScreen)
                     if settings.excludedApps.isEmpty {
                         Text(L("No apps excluded", "Keine Apps ausgenommen"))
@@ -300,7 +305,7 @@ struct AppearanceSettings: View {
                           format: SliderRow.points)
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: 280...680, step: 10,
                           format: SliderRow.points)
-                SliderRow(L("Item size", "Größe der Objekte"), value: $settings.tileIconSize, range: 40...96, step: 4,
+                SliderRow(L("Items", "Objekte"), value: $settings.tileIconSize, range: 40...96, step: 4,
                           format: SliderRow.points)
             }
 
@@ -314,9 +319,9 @@ struct AppearanceSettings: View {
             SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
-                ToggleRow(L("Translucent when detached", "Durchscheinend, wenn losgelöst"),
-                          info: L("When you pull the shelf away from the edge, it turns translucent like glass. When off, it stays black.",
-                                  "Ziehst du die Ablage vom Rand weg, wird sie durchscheinend wie Glas. Ist das aus, bleibt sie schwarz."),
+                ToggleRow(L("Glass when detached", "Glas, wenn losgelöst"),
+                          info: L("Pulled away from the edge, the shelf turns translucent like glass. When off, it stays black.",
+                                  "Vom Rand weggezogen wird die Ablage durchscheinend wie Glas. Aus: Sie bleibt schwarz."),
                           isOn: $settings.detachedGlass)
                 PickerRow(L("Animation", "Animation"),
                           // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
@@ -387,8 +392,8 @@ private enum FinderFiles: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .original: return L("Use original", "Original verwenden")
-        case .copy: return L("Keep a copy", "Kopie behalten")
+        case .original: return L("Original", "Original")
+        case .copy: return L("Copy", "Kopie")
         }
     }
 }
@@ -400,8 +405,8 @@ private enum AfterUse: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .keep: return L("Keep in the shelf", "In der Ablage behalten")
-        case .afterDragOut: return L("Remove after dragging out", "Nach dem Herausziehen entfernen")
+        case .keep: return L("Keep", "Behalten")
+        case .afterDragOut: return L("Remove after dragging out", "Nach Herausziehen entfernen")
         case .always: return L("Always remove", "Immer entfernen")
         }
     }
@@ -447,17 +452,15 @@ struct ItemSettings: View {
     /// Erklärung passend zur gewählten Option
     private var afterUseNote: String {
         // Kurz: was mit dem Objekt geschieht, und nur bei Bedarf, wie man es zurückholt
-        let copy = settings.dragOutCopyOnly ? ""
-            : L(" The Finder may move files you drag out.", " Der Finder darf herausgezogene Dateien verschieben.")
         switch afterUse.wrappedValue {
         case .keep:
-            return L("Items stay until you remove them.", "Objekte bleiben, bis du sie entfernst.") + copy
+            return L("Items stay until you remove them or file them in a folder.", "Objekte bleiben, bis du sie entfernst oder in einen Ordner legst.")
         case .afterDragOut:
-            return L("Items leave the shelf when you drag them out, but stay after actions. ⌘Z brings them back.",
-                     "Herausgezogene Objekte verschwinden, nach Aktionen bleiben sie. ⌘Z holt sie zurück.") + copy
+            return L("Items dragged out or filed in a folder leave the shelf; after other actions they stay. ⌘Z brings them back.",
+                     "Herausgezogene und in Ordner gelegte Objekte verschwinden, nach anderen Aktionen bleiben sie. ⌘Z holt sie zurück.")
         case .always:
             return L("Items leave the shelf after dragging out and after actions. ⌘Z brings them back.",
-                     "Objekte verschwinden nach dem Herausziehen und nach Aktionen. ⌘Z holt sie zurück.") + copy
+                     "Objekte verschwinden nach dem Herausziehen und nach Aktionen. ⌘Z holt sie zurück.")
         }
     }
 
@@ -473,55 +476,55 @@ struct ItemSettings: View {
 
     var body: some View {
         SettingsPage {
-            SettingsSection(L("Arrangement", "Anordnung")) {
+            SettingsSection(L("Stacks", "Stapel")) {
                 PickerRow(L("Group into a stack", "Stapel bilden"),
-                          info: L("When this many items are dropped at once, they become a stack. You can also select several items, right-click and choose “Group as Stack”. Click a stack to open it.",
-                                  "Werden so viele Objekte auf einmal abgelegt, entsteht ein Stapel. Du kannst auch mehrere Objekte auswählen und per Rechtsklick „Als Stapel zusammenfassen“ wählen. Ein Klick öffnet einen Stapel."),
+                          info: L("Items dropped together become a stack. Or select several, right-click and choose “Group as Stack”.",
+                                  "Zusammen abgelegte Objekte werden zum Stapel. Oder mehrere auswählen, Rechtsklick, „Als Stapel zusammenfassen“."),
                           selection: stackFrom,
                           options: [(0, L("Never", "Nie"))] + stackThresholds.map { ($0, L("\($0) or more items", "Ab \($0) Objekten")) })
             }
 
-            SettingsSection(L("Using items", "Objekte verwenden"), info: afterUseNote) {
-                PickerRow(L("After use", "Nach dem Verwenden"), selection: afterUse,
+            // Alles, was Objekte aus der Ablage nimmt, an einer Stelle: nach dem Verwenden
+            // und nach Zeit (vorher zwei Abschnitte mit ähnlichen Namen)
+            SettingsSection(L("Removing", "Entfernen")) {
+                PickerRow(L("After use", "Nach dem Verwenden"), info: afterUseNote, selection: afterUse,
                           options: AfterUse.allCases.map { ($0, $0.title) })
-                ToggleRow(L("Always copy when dragging out", "Beim Herausziehen immer kopieren"), isOn: $settings.dragOutCopyOnly)
+                PickerRow(L("Automatically", "Automatisch"),
+                          info: L("⌫ only takes items out of the shelf; files stay in the Finder. What exists only in BarDrop is deleted once ⌘Z can’t bring it back, at the latest after 15 minutes. ⌘⌫ moves files to the Trash.",
+                                  "⌫ nimmt Objekte nur aus der Ablage, Dateien im Finder bleiben. Was nur in BarDrop liegt, wird gelöscht, sobald ⌘Z es nicht mehr zurückholt, spätestens nach 15 Minuten. ⌘⌫ legt Dateien in den Papierkorb."),
+                          selection: autoRemove,
+                          options: AutoRemoveOption.allCases.map { ($0, $0.title) })
+                ToggleRow(L("Always copy when dragging out", "Beim Herausziehen kopieren"),
+                          info: L("When off, the Finder may move files you drag out.",
+                                  "Aus: Der Finder darf herausgezogene Dateien verschieben."),
+                          isOn: $settings.dragOutCopyOnly)
             }
 
-            SettingsSection(L("Storage", "Speicherung"),
-                            info: L("Images from the web, text, links and files from browsers or other apps are always stored in BarDrop.",
-                                    "Bilder aus dem Web, Texte, Links und Dateien aus Browsern oder anderen Apps werden immer in BarDrop gespeichert.")) {
+            SettingsSection(L("Adding", "Hinzufügen")) {
                 PickerRow(L("Files from the Finder", "Dateien aus dem Finder"),
-                          info: L("Use original: The shelf remembers where the file is and always uses its latest version. Keep a copy: The shelf stores its own copy, which doesn’t change.",
-                                  "Original verwenden: Die Ablage merkt sich, wo die Datei liegt, und verwendet immer die aktuelle Version. Kopie behalten: Die Ablage legt eine eigene Kopie an, die sich nicht mehr ändert."),
+                          info: L("Original: The shelf uses the file where it is, always in its latest version. Copy: The shelf keeps its own copy, which doesn’t change. Images from the web, text and links are always stored in BarDrop.",
+                                  "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
                           selection: finderFiles,
-                          options: FinderFiles.allCases.map { ($0, $0.title) },
-                          menu: true)
-                ToggleRow(L("Convert web images to PNG or JPEG", "Bilder aus dem Web in PNG oder JPEG umwandeln"),
-                          info: L("Images in WebP, AVIF or HEIC format are converted so any app can open them.",
-                                  "Bilder im Format WebP, AVIF oder HEIC werden umgewandelt, damit jede App sie öffnen kann."),
+                          options: FinderFiles.allCases.map { ($0, $0.title) })
+                ToggleRow(L("Convert web images", "Webbilder umwandeln"),
+                          info: L("WebP, AVIF and HEIC become PNG or JPEG, so any app can open them.",
+                                  "WebP, AVIF und HEIC werden zu PNG oder JPEG, damit jede App sie öffnen kann."),
                           isOn: $settings.convertWebImages)
-                ToggleRow(L("Add new screenshots", "Neue Bildschirmfotos hinzufügen"),
+                ToggleRow(L("Screenshots", "Bildschirmfotos"),
                           isOn: $settings.addScreenshots)
-                ToggleRow(L("Add files received with AirDrop", "Mit AirDrop empfangene Dateien hinzufügen"),
-                          info: L("Files that arrive in the Downloads folder via AirDrop also appear in the shelf. They stay there.",
-                                  "Dateien, die per AirDrop im Ordner „Downloads“ ankommen, erscheinen auch in der Ablage. Sie bleiben dort liegen."),
+                ToggleRow(L("AirDrop files", "AirDrop-Dateien"),
+                          info: L("Received files go straight into the shelf instead of the Downloads folder.",
+                                  "Empfangene Dateien kommen direkt in die Ablage statt in den Ordner „Downloads“."),
                           isOn: $settings.addAirDrop)
                 // macOS lässt BarDrop den Ordner nicht lesen: sagen, welcher, und wohin
                 ForEach(deniedFolders, id: \.self) { folder in
                     SettingsRow(L("No access to “\(FolderAccess.displayName(folder))”", "Kein Zugriff auf „\(FolderAccess.displayName(folder))“"),
-                                subtitle: L("Allow access in System Settings → Privacy & Security → Files & Folders.",
-                                            "Erlaube den Zugriff unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner.")) {
+                                info: L("Allow access in System Settings → Privacy & Security → Files & Folders.",
+                                        "Erlaube den Zugriff unter Systemeinstellungen → Datenschutz & Sicherheit → Dateien und Ordner.")) {
                         Button(L("Open", "Öffnen")) { FolderAccess.openPrivacySettings() }
                             .buttonStyle(KlackButtonStyle())
                     }
                 }
-            }
-
-            SettingsSection(L("Cleanup", "Aufräumen"),
-                            info: L("Removing (⌫) only takes items out of the shelf; files stay in the Finder. Copies, images, links and text that exist only in BarDrop are deleted once ⌘Z can no longer bring them back, at the latest 15 minutes after you drag them out or use them in an action. ⌘⌫ moves files to the Trash; ⌘Z puts them back.",
-                                    "Entfernen (⌫) nimmt Objekte nur aus der Ablage, Dateien im Finder bleiben. Was nur in BarDrop liegt (Kopien, Bilder, Links, Texte), wird gelöscht, sobald ⌘Z es nicht mehr zurückholen kann, spätestens 15 Minuten nach dem Herausziehen oder einer Aktion. ⌘⌫ legt Dateien in den Papierkorb, ⌘Z legt sie zurück.")) {
-                PickerRow(L("Remove automatically", "Automatisch entfernen"), selection: autoRemove,
-                          options: AutoRemoveOption.allCases.map { ($0, $0.title) })
             }
         }
     }
@@ -576,9 +579,8 @@ struct ActionSettings: View {
     var body: some View {
         SettingsPage {
             VStack(alignment: .leading, spacing: 8) {
-                SettingsHeader(L("Action bar", "Aktionsleiste"))
-                .padding(.horizontal, 8)
-
+                // Nur eine Überschriftenebene wie auf den anderen Seiten: „Obere Reihe“ und
+                // „Untere Reihe“ stehen selbst als Überschrift über ihrer Karte
                 ActionListEditor(settings: settings, selection: $selection,
                                  onRemove: remove, onMove: move)
                     .zIndex(1)   // gezogene Zeile liegt über allem darunter
@@ -591,7 +593,7 @@ struct ActionSettings: View {
             .zIndex(1)
 
             SettingsSection(L("Layout", "Darstellung")) {
-                SliderRow(L("Action size", "Größe der Aktionen"), value: $settings.actionIconSize, range: 24...54, step: 2,
+                SliderRow(L("Size", "Größe"), value: $settings.actionIconSize, range: 24...54, step: 2,
                           format: SliderRow.points)
                 PickerRow(L("Show names", "Namen anzeigen"), selection: labelMode,
                           options: ActionLabelMode.allCases.map { ($0, $0.title) })
@@ -599,53 +601,66 @@ struct ActionSettings: View {
 
             SettingsSection(L("In the shelf", "In der Ablage")) {
                 ToggleRow(L("Pin by dragging", "Per Ziehen anheften"),
-                          info: L("Drag a folder or app over the open shelf and drop it on “Pin” at the end of the action bar. Hold ⌘ and drag an action out of the shelf to remove it.",
-                                  "Zieh einen Ordner oder eine App über die offene Ablage und lass sie auf „Anheften“ am Ende der Aktionsleiste los. Halt ⌘ gedrückt und zieh eine Aktion aus der Ablage heraus, um sie zu entfernen."),
+                          info: L("Drop a folder or app on “Pin” at the end of the action bar. To remove an action, hold ⌘ and drag it out.",
+                                  "Ordner oder App auf „Anheften“ am Ende der Aktionsleiste ziehen. Zum Entfernen ⌘ halten und die Aktion herausziehen."),
                           isOn: $settings.pinFromShelf)
             }
         }
     }
 
+    /// Menü des Systems wie alle anderen Auswahlen der Einstellungen, aber mit Symbolen und
+    /// Gruppen-Überschriften. Ein eigenes breites Auswahlfeld (Popover) wirkte fremd (Nutzer,
+    /// 24.10.2026). Schon vorhandene Aktionen stehen mit Haken und sind ausgegraut
     private func showAddMenu() {
-        let menu = NSMenu()
-        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share, .trash] {
-            let item = ClosureMenuItem(QuickAction(kind: kind).title) { add(QuickAction(kind: kind)) }
-            if settings.quickActions.contains(where: { $0.kind == kind }) {
-                item.action = nil   // schon vorhanden: ausgegraut
+        let present = settings.quickActions
+        func has(_ kind: QuickAction.Kind, _ path: String? = nil) -> Bool {
+            present.contains { $0.kind == kind && (path == nil || $0.path == path) }
+        }
+        func item(_ action: QuickAction, added: Bool) -> NSMenuItem {
+            let entry = ClosureMenuItem(action.title) { add(action) }
+            entry.image = MenuIcon.of(action)
+            if added {
+                entry.action = nil
+                entry.state = .on
             }
-            menu.addItem(item)
+            return entry
+        }
+        let menu = NSMenu()
+        // „Senden“ statt „Teilen“: Eine Gruppe „Teilen“ mit dem Eintrag „Teilen“ wirkte doppelt
+        menu.addItem(.sectionHeader(title: L("Send", "Senden")))
+        for kind in [QuickAction.Kind.airdrop, .mail, .messages, .share] {
+            menu.addItem(item(QuickAction(kind: kind), added: has(kind)))
         }
         menu.addItem(.separator())
-        menu.addItem(ClosureMenuItem(L("Folder", "Ordner")) { chooseFolder() })
-        menu.addItem(ClosureMenuItem("App") { chooseApp() })
-        // Kurzbefehle aus der App Kurzbefehle: Objekte darauf ziehen führt sie aus
+        menu.addItem(.sectionHeader(title: L("Move or open", "Ablegen oder öffnen")))
+        menu.addItem(item(QuickAction(kind: .trash), added: has(.trash)))
+        let folder = ClosureMenuItem(L("Folder", "Ordner")) { chooseFolder() }
+        folder.image = MenuIcon.file(NSWorkspace.shared.icon(for: .folder))
+        menu.addItem(folder)
+        let app = ClosureMenuItem("App") { chooseApp() }
+        app.image = MenuIcon.file(NSWorkspace.shared.icon(forFile: "/Applications"))
+        menu.addItem(app)
+        // Kurzbefehle aus der App Kurzbefehle als Untermenü (können viele sein); beim Öffnen
+        // gelesen (etwa 30 ms)
         let shortcuts = NSMenu()
         let names = ShortcutRunner.list()
         if names.isEmpty {
-            let none = NSMenuItem(title: L("No shortcuts found", "Keine Kurzbefehle gefunden"), action: nil, keyEquivalent: "")
-            shortcuts.addItem(none)
+            shortcuts.addItem(NSMenuItem(title: L("No shortcuts found", "Keine Kurzbefehle gefunden"), action: nil, keyEquivalent: ""))
         }
         for name in names {
-            let item = ClosureMenuItem(name) { add(QuickAction(kind: .shortcut, path: name)) }
-            if settings.quickActions.contains(where: { $0.kind == .shortcut && $0.path == name }) {
-                item.action = nil
-            }
-            shortcuts.addItem(item)
+            shortcuts.addItem(item(QuickAction(kind: .shortcut, path: name), added: has(.shortcut, name)))
         }
         let shortcutItem = NSMenuItem(title: L("Shortcut", "Kurzbefehl"), action: nil, keyEquivalent: "")
+        shortcutItem.image = MenuIcon.of(QuickAction(kind: .shortcut, path: names.first))
         shortcutItem.submenu = shortcuts
         menu.addItem(shortcutItem)
         // Eingeschaltete Plugins, die in der Aktionsleiste laufen können
         let plugins = PluginManager.shared.activePlugins.filter { $0.manifest.allTriggers.contains(.action) }
         if !plugins.isEmpty {
             menu.addItem(.separator())
+            menu.addItem(.sectionHeader(title: L("Plugins", "Plugins")))
             for plugin in plugins {
-                let item = ClosureMenuItem(plugin.manifest.title) { add(QuickAction(kind: .plugin, path: plugin.id)) }
-                item.image = PluginMenuIcons.image(for: plugin)
-                if settings.quickActions.contains(where: { $0.kind == .plugin && $0.path == plugin.id }) {
-                    item.action = nil
-                }
-                menu.addItem(item)
+                menu.addItem(item(QuickAction(kind: .plugin, path: plugin.id), added: has(.plugin, plugin.id)))
             }
         }
         MenuPresenter.show(menu, below: addButtonFrame)
@@ -685,7 +700,7 @@ struct ActionSettings: View {
     private func add(_ action: QuickAction) {
         guard settings.quickActions.count < limit else { return }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
-            settings.quickActions.append(action)
+            settings.addQuickAction(action)
         }
         selection = action.id
     }
@@ -745,7 +760,7 @@ private struct ActionListEditor: View {
 
     private static let rowHeight: CGFloat = 52
     private static let pitch: CGFloat = rowHeight + 1      // Zeile plus Trennlinie
-    private static let labelHeight: CGFloat = 26           // „Obere Reihe“ über der Karte
+    private static let labelHeight: CGFloat = 25           // „Obere Reihe“ über der Karte (wie SettingsHeader + 8 pt)
     private static let rowGap: CGFloat = 14                // Abstand zwischen den Karten
     private static let space = "actionList"
 
@@ -874,11 +889,12 @@ private struct ActionListEditor: View {
     }
 
     private func rowLabel(_ text: String, y: CGFloat) -> some View {
+        // Wie SettingsHeader: gleiche Schrift und Einrückung wie die Überschriften anderer Seiten
         Text(text)
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 13.5, weight: .semibold))
             .foregroundStyle(.secondary)
             .padding(.leading, 8)
-            .frame(height: Self.labelHeight, alignment: .center)
+            .frame(height: Self.labelHeight - 8, alignment: .center)
             .offset(y: y)
     }
 
@@ -979,16 +995,12 @@ private struct ActionRow: View {
     var body: some View {
         HStack(spacing: 10) {
             QuickActionIcon(action: action, size: 26)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(action.title)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(selected ? Color.white : Color.primary)
-                    .lineLimit(1)
-                Text(action.help)
-                    .font(.system(size: 11))
-                    .foregroundStyle(selected ? Color.white.opacity(0.8) : Color.secondary)
-                    .lineLimit(1)
-            }
+            // Nur der Name; was die Aktion tut, steht beim Darüberfahren (weniger kleine Texte)
+            Text(action.title)
+                .font(.system(size: 13.5))
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .lineLimit(1)
+                .help(action.help)
             Spacer(minLength: 8)
             // Entfernen direkt an der Zeile, sichtbar beim Darüberfahren
             Button(action: onRemove) {
@@ -1039,7 +1051,7 @@ private struct AddActionRow: View {
 
     var body: some View {
         let full = count >= limit
-        AddListRow(title: full ? L("Action bar is full (\(count) of \(limit))", "Aktionsleiste ist voll (\(count) von \(limit))")
+        AddListRow(title: full ? L("Action bar full (\(count) of \(limit))", "Aktionsleiste voll (\(count) von \(limit))")
                                : L("Add Action", "Aktion hinzufügen"),
                    enabled: !full, frame: $frame, action: action)
     }
@@ -1069,7 +1081,11 @@ struct AddListRow: View {
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                    .fill(SettingsTheme.card.opacity(hovering && enabled ? 1 : 0.6))
+                    // Dieselbe Fläche wie die Karten darüber (vorher 60 %: wirkte wie eine andere
+                    // Farbe, Nutzer 24.10.2026); beim Darüberfahren ein Hauch heller
+                    .fill(SettingsTheme.card)
+                    .overlay(RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                        .fill(Color.primary.opacity(hovering && enabled ? 0.03 : 0)))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
@@ -1149,11 +1165,10 @@ private struct AddExcludedAppRow: View {
         AddListRow(title: L("Add App", "App hinzufügen"), frame: $frame, action: showMenu)
     }
 
+    /// Menü des Systems: die zuletzt gestarteten Apps mit Symbol (sonst wird es zu lang), dazu
+    /// jede andere per Auswahl
     private func showMenu() {
-        let menu = NSMenu()
         let own = Bundle.main.bundleIdentifier
-        // Nur die zuletzt gestarteten Apps vorschlagen, sonst wird das Menü zu lang;
-        // alle anderen über „Andere App wählen“
         let running = NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .sorted { ($0.launchDate ?? .distantPast) > ($1.launchDate ?? .distantPast) }
@@ -1163,16 +1178,19 @@ private struct AddExcludedAppRow: View {
             }
             .prefix(8)
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        for app in running {
-            let item = ClosureMenuItem(app.name) { add(app.id) }
-            if let icon = app.icon?.copy() as? NSImage {
-                icon.size = NSSize(width: 16, height: 16)
-                item.image = icon
+        let menu = NSMenu()
+        if !running.isEmpty {
+            menu.addItem(.sectionHeader(title: L("Open apps", "Geöffnete Apps")))
+            for app in running {
+                let item = ClosureMenuItem(app.name) { add(app.id) }
+                if let icon = app.icon { item.image = MenuIcon.file(icon) }
+                menu.addItem(item)
             }
-            menu.addItem(item)
+            menu.addItem(.separator())
         }
-        if !running.isEmpty { menu.addItem(.separator()) }
-        menu.addItem(ClosureMenuItem(L("Choose Another App", "Andere App wählen")) { choose() })
+        let other = ClosureMenuItem(L("Choose Another App", "Andere App wählen")) { choose() }
+        other.image = MenuIcon.file(NSWorkspace.shared.icon(forFile: "/Applications"))
+        menu.addItem(other)
         MenuPresenter.show(menu, below: frame)
     }
 
@@ -1197,5 +1215,27 @@ private struct AddExcludedAppRow: View {
         for url in panel.urls {
             if let id = Bundle(url: url)?.bundleIdentifier { add(id) }
         }
+    }
+}
+
+// MARK: Symbole in Menüs
+
+/// Symbole für Menüeinträge, so groß wie App-Symbole in macOS-Menüs (16 pt)
+enum MenuIcon {
+    static let size: CGFloat = 16
+
+    /// Datei- oder App-Symbol verkleinert (Kopie, das Original bleibt für andere Stellen)
+    static func file(_ icon: NSImage) -> NSImage {
+        let copy = (icon.copy() as? NSImage) ?? icon
+        copy.size = NSSize(width: size, height: size)
+        return copy
+    }
+
+    /// Dasselbe Symbol wie in der Aktionsleiste
+    @MainActor
+    static func of(_ action: QuickAction) -> NSImage? {
+        let renderer = ImageRenderer(content: QuickActionIcon(action: action, size: size))
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        return renderer.nsImage ?? action.icon.map(file)
     }
 }

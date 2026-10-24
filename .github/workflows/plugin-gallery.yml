@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
     paths: ['Plugins/**']
+  # Einmal am Tag die Downloads neu zählen (scripts/gallery_downloads.py)
+  schedule:
+    - cron: '23 4 * * *'
   workflow_dispatch:
 
 permissions:
@@ -38,6 +41,12 @@ jobs:
           echo "status=${STATUS:-0}" >> "$GITHUB_OUTPUT"
           [ "${STATUS:-0}" = 0 ] || [ "${STATUS:-0}" = 3 ]
 
+      - name: Downloads zählen
+        # Dateien zusätzlich als Release-Dateien ablegen: Nur dort zählt GitHub die Downloads
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/gallery_downloads.py --katalog katalog
+
       - name: Hochladen
         working-directory: katalog
         run: |
@@ -48,7 +57,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -q -m "Galerie: aus Plugins/ aktualisiert"
+          git commit -q -m "Galerie: aus Plugins/ aktualisiert, Downloads gezählt"
           git push origin HEAD:plugin-katalog
           echo "::notice title=Galerie::aktualisiert ($(git rev-parse --short HEAD))"
 

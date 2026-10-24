@@ -570,7 +570,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             finishAction(urls)
         case .folder:
             guard let folder = action.url else { return }
-            file(urls, into: folder, modifiers: modifiers) { [weak self] used in self?.finishAction(used) }
+            // Wie Verschieben im Finder: Was im Ordner gelandet ist, verlässt die Ablage immer,
+            // auch beim Kopieren (andere Platte, ⌥) und unabhängig von „Nach Aktion behalten“
+            file(urls, into: folder, modifiers: modifiers) { [weak self] used in self?.finishAction(used, always: true) }
         case .convert:
             break   // gibt es nicht mehr als Aktion
         case .trash:
@@ -698,8 +700,8 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     }
 
     /// Nach einer Schnellaktion: Objekte aus der Ablage nehmen, außer „Nach Aktionen behalten“ ist an.
-    private func finishAction(_ urls: [URL]) {
-        guard !settings.keepAfterAction else { return }
+    private func finishAction(_ urls: [URL], always: Bool = false) {
+        guard always || !settings.keepAfterAction else { return }
         ui.selection = []
         store.removeFiles(at: urls, deleteOwnedAfter: 15 * 60)
     }

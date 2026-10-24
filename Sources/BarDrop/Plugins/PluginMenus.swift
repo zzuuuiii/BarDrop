@@ -24,16 +24,3 @@ final class LiveMenuItem: NSMenuItem {
 
     deinit { timer?.invalidate() }
 }
-
-/// Symbole der Plugins für Menüs, einmal gezeichnet und gemerkt
-enum PluginMenuIcons {
-    private static var cache: [String: NSImage] = [:]
-
-    static func image(for plugin: InstalledPlugin) -> NSImage? {
-        let key = plugin.id + "|" + plugin.fingerprint
-        if let image = cache[key] { return image }
-        guard let image = PluginIconView.image(plugin.manifest.icon, size: 16) else { return nil }
-        cache[key] = image
-        return image
-    }
-}

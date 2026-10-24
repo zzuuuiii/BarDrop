@@ -38,9 +38,8 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
 
-echo "==> Signiere (ad hoc)"
-codesign --force --deep --sign - "$APP_DIR"
-codesign --verify --verbose "$APP_DIR"
+# Feste Signatur, wenn das Zertifikat da ist (Geheimnisse in GitHub), sonst ad hoc
+scripts/sign_app.sh "$APP_DIR"
 
 echo "==> Erzeuge DMG"
 # Installationsfenster mit Hintergrund und Pfeil (dmgbuild schreibt die Anordnung

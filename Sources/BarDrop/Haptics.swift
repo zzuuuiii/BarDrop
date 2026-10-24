@@ -13,7 +13,8 @@ enum Haptics {
     private static var lastTap = Date.distantPast
 
     static func tap() {
-        guard AppSettings.shared.hapticsEnabled else { return }
+        // Auf dem Sperrbildschirm nie, egal wer auslöst
+        guard AppSettings.shared.hapticsEnabled, !ScreenLock.shared.isLocked else { return }
         // Zwei Auslöser im selben Moment (z. B. Ablage erreicht und Aktion darunter) zählen einmal
         let now = Date()
         guard now.timeIntervalSince(lastTap) > 0.08 else { return }

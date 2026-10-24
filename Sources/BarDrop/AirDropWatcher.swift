@@ -1,8 +1,8 @@
 import AppKit
 import Combine
 
-/// Legt mit AirDrop empfangene Dateien automatisch in die Ablage (Einstellung „Mit AirDrop
-/// empfangene Dateien hinzufügen“). AirDrop legt sie in den Ordner Downloads und kennzeichnet
+/// Legt mit AirDrop empfangene Dateien automatisch in die Ablage (Einstellung „AirDrop-Dateien
+/// hinzufügen“) und nimmt sie dabei aus „Downloads“ heraus. AirDrop legt sie in den Ordner Downloads und kennzeichnet
 /// sie wie jeden Download mit der Quarantäne von macOS; als Absender steht dort der Dienst
 /// von AirDrop („sharingd“). Nur so erkannte Dateien kommen in die Ablage, andere Downloads
 /// nicht. Läuft nur, solange die Einstellung an ist.
@@ -17,7 +17,6 @@ final class AirDropWatcher {
     private var seen = Set<String>()
     /// Größe beim letzten Nachsehen: übernommen wird erst, wenn sie gleich bleibt
     private var sizes: [String: Int64] = [:]
-    private let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.airdrop"))
 
     init(store: ShelfStore, onAdded: @escaping () -> Void) {
         self.store = store
@@ -99,11 +98,13 @@ final class AirDropWatcher {
         ready.forEach { seen.insert($0.path); sizes[$0.path] = nil }
         guard AppSettings.shared.addAirDrop else { return }
         Diagnostics.shared.record("airdrop", "übernehme \(ready.count)")
-        pasteboard.clearContents()
-        pasteboard.writeObjects(ready as [NSURL])
-        store.ingest(from: pasteboard) { [weak self] files in
-            if !files.isEmpty { self?.onAdded() }
-        }
+        // Nur in die Ablage, nicht auch in „Downloads“: BarDrop nimmt die Dateien heraus und
+        // behält sie selbst (wie Ergebnisse von Plugins). Herausziehen legt sie dann ab, wo
+        // man will; Entfernen löscht sie wie andere eigene Objekte erst nach dem Widerrufen.
+        let adopted = store.adoptResults(ready)
+        guard !adopted.isEmpty else { return }
+        store.add(adopted)
+        onAdded()
     }
 
     /// Absender aus der Quarantäne von macOS („0083;65f1…;sharingd;“ → „sharingd“)

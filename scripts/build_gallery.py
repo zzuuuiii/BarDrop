@@ -136,6 +136,9 @@ def build_entry(path, manifest, old, katalog, measure):
         "sha256": digest,
         "size": target.stat().st_size,
         "updated": old["updated"] if same and old.get("updated") else datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
+        # Seit wann das Plugin in der Galerie steht: bleibt bei neuen Versionen gleich. BarDrop
+        # zeigt es zwei Monate lang als neu (ältere Einträge übernehmen ihr Datum `updated`)
+        "added": old.get("added") or old.get("updated") or datetime.datetime.now(datetime.timezone.utc).date().isoformat(),
         "permissions": [p for p in manifest.get("permissions", []) if isinstance(p, str)],
         "tools": [t.get("name") or t.get("id") for t in manifest.get("tools", []) if isinstance(t, dict)],
     }

@@ -71,4 +71,16 @@ final class ActionOrderTests: XCTestCase {
         XCTAssertEqual(order, ["A", "B", "C", "D", "E", "F", "G"])
         XCTAssertEqual(AppSettings.shared.actionRowSplit, 5)
     }
+
+    /// Neue Aktionen kommen ans Ende der oberen Reihe, solange dort Platz ist
+    func testNewActionGoesToTopRow() {
+        let settings = AppSettings.shared
+        settings.removeQuickAction(ids["B"]!)
+        var action = QuickAction(kind: .folder)
+        action.path = "/tmp/BarDropOrder-H"
+        ids["H"] = action.id
+        settings.addQuickAction(action)
+        XCTAssertEqual(rows.top, ["A", "C", "D", "E", "H"])
+        XCTAssertEqual(rows.bottom, ["F", "G"])
+    }
 }

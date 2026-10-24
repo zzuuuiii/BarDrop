@@ -96,7 +96,7 @@ private struct PluginPreview: View {
     var hovering = false
     @State private var breathing = false
 
-    static let barHeight: CGFloat = 3
+    static let barHeight: CGFloat = 4
 
     /// Abstand vom unteren Rand des Bildes bis zur Mitte des Balkens: die Hälfte der Lücke
     /// bis zum Namen. Die Lücke ergibt sich aus TileLabel: 2 pt Rahmen um das Bild, der Rand
@@ -113,10 +113,13 @@ private struct PluginPreview: View {
     /// erste Fortschritt, springt die Vorschau nicht erst zurück und flackert
     private static let progressOpacity = 0.45
 
+    /// Atmet, solange der Lauf arbeitet: auch mit Fortschritt und auch, wenn schon das
+    /// Ergebnis zu sehen ist (vorher stand das Bild dann still, als wäre nichts los)
     private var breathes: Bool {
-        job.isStarted && !job.paused && job.progress == nil && !AnimationStyle.reduceMotion
+        job.isStarted && !job.paused && !AnimationStyle.reduceMotion
     }
 
+    /// Grund-Deckkraft: mit dem Fortschritt deckender
     private var opacity: Double {
         let base: Double
         if !job.isStarted {
@@ -124,11 +127,15 @@ private struct PluginPreview: View {
         } else if let progress = job.progress {
             base = Self.progressOpacity + (1 - Self.progressOpacity) * progress
         } else {
-            base = breathing ? 0.6 : Self.startOpacity
+            base = 0.6
         }
         // Angehalten etwas blasser, aber nie fast unsichtbar
         return job.paused ? max(base * 0.75, Self.startOpacity) : base
     }
+
+    /// Das Atmen als eigener Faktor darüber: Fortschritt und Atmen haben je ihre eigene
+    /// Animation und unterbrechen sich nicht gegenseitig
+    private var breath: Double { breathes && !breathing ? 0.55 : 1 }
 
     /// Welches Bild: das fertige Ergebnis, sonst das Symbol der Datei, die gerade entsteht,
     /// sonst die Datei, an der das Plugin arbeitet
@@ -174,11 +181,12 @@ private struct PluginPreview: View {
                     .id(pictureKey)
                     .transition(.opacity)
             }
+            .opacity(breath)
+            .animation(breathes ? .easeInOut(duration: 2.4).repeatForever(autoreverses: true) : .easeOut(duration: 0.4),
+                       value: breathing)
             .opacity(opacity)
             .animation(.easeOut(duration: 0.3), value: job.progress)
             .animation(.easeOut(duration: 0.3), value: job.paused)
-            .animation(breathes ? .easeInOut(duration: 2.4).repeatForever(autoreverses: true) : .easeOut(duration: 0.4),
-                       value: breathing)
             centerGlyph
                 .animation(.easeOut(duration: 0.12), value: hovering)
         }

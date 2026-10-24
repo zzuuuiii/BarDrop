@@ -76,6 +76,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * Files flung quickly at the edge are still caught
 * Thin light outline so it stays visible on dark backgrounds
 * Pull it off the edge by its handle: it floats above all windows, optionally as dark glass, and docks again at either edge
+* Hold `⌘` and drag a corner or side to change its size, like a window
 * On all displays, or only the built-in or external ones
 * Uses practically no energy while idle
 
@@ -101,8 +102,8 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 
 **Plugins** (optional, off by default)
 * Small add-ons that teach BarDrop new things: in the right-click menu, in the action bar, or automatically when you drop a matching file type or link
-* Get them from the gallery in Settings or install a `.bdrop` file; each plugin shows whether it works offline and how big it is, and asks once for its permissions before its first run
-* Written in JavaScript; results appear right next to the original. BarDrop doesn’t come with any plugin. How to write and publish one: [docs/PLUGINS.md](docs/PLUGINS.md)
+* Get them from the gallery in Settings (the five most downloaded are on the start page) or install a `.bdrop` file; each plugin shows whether it works offline and how big it is; gallery plugins get their permissions right away and update by themselves, an imported file shows its permissions before installing. A plugin without permission stays off
+* Written in JavaScript, so you can also create your own; results appear right next to the original. BarDrop doesn’t come with any plugin. How to write and publish one: [docs/PLUGINS.md](docs/PLUGINS.md)
 
 **Settings**
 * A short introduction on first launch: dropping, opening with the pointer, dragging back out, actions and the shortcut
@@ -146,7 +147,7 @@ cd BarDrop
 swift test                    # automated tests
 ```
 
-BarDrop runs on macOS 14 or later; building it requires Xcode 26 or later. Every push to `main` builds the app, runs the tests and publishes the DMG as a release of the version in [`VERSION`](Resources/VERSION).
+BarDrop runs on macOS 14 or later; building it requires Xcode 26 or later. Every push to `main` builds the app, runs the tests and publishes the DMG as a release of the version in [`VERSION`](Resources/VERSION). With the repository secrets `BARDROP_SIGNING_P12` and `BARDROP_SIGNING_PASSWORD` (created by `scripts/create_signing_identity.sh`), releases are signed with a fixed certificate, so macOS keeps permissions such as Desktop access across updates; without them they are signed ad hoc.
 
 ### Development
 

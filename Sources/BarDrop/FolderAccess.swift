@@ -45,6 +45,40 @@ final class FolderAccess: ObservableObject {
         }
     }
 
+    /// Beim Start, bevor irgendetwas anderes auf Dateien zugreift: In jeden geschützten Ordner
+    /// (Schreibtisch, Dokumente, Downloads), den BarDrop gleich braucht, einmal hineinsehen.
+    ///
+    /// Fehlte die Erlaubnis (neue Fassung, nach einem Update), griffen sonst gleich mehrere
+    /// Stellen fast gleichzeitig darauf zu: Ablage (Dateien vom Schreibtisch), Aktionsleiste
+    /// (Symbol eines Ordners im Schreibtisch) und die Vorschaubilder in einem eigenen Prozess von
+    /// macOS. Die Abfrage „BarDrop möchte auf den Schreibtisch zugreifen“ kam dann doppelt.
+    /// Hier wartet der Start, bis sie beantwortet ist; danach kennt macOS die Antwort.
+    static func askOnceAtLaunch(store: URL, settings: AppSettings) {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser
+        var paths = settings.quickActions.compactMap(\.path)
+        if settings.addScreenshots { paths.append(ScreenshotWatcher.screenshotFolder().path) }
+        if settings.addAirDrop, let downloads = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first {
+            paths.append(downloads.path)
+        }
+        // Die Liste der Ablage nur als Text durchsuchen (JSON schreibt „/“ teils als „\/“)
+        let shelf = (try? String(contentsOf: store, encoding: .utf8))?.replacingOccurrences(of: "\\/", with: "/") ?? ""
+        for name in ["Desktop", "Documents", "Downloads"] {
+            let folder = home.appendingPathComponent(name, isDirectory: true).path
+            let used = paths.contains { $0 == folder || $0.hasPrefix(folder + "/") } || shelf.contains(folder + "/")
+            guard used else { continue }
+            let start = Date()
+            let result: String
+            do {
+                result = "ok \(try fm.contentsOfDirectory(atPath: folder).count)"
+            } catch {
+                let e = error as NSError
+                result = "\(e.domain) \(e.code)"
+            }
+            Diagnostics.shared.record("access", "Start \(name): \(result) nach \(Int(Date().timeIntervalSince(start) * 1000)) ms")
+        }
+    }
+
     /// Name des Ordners, wie ihn der Finder zeigt („Schreibtisch“)
     static func displayName(_ folder: URL) -> String {
         FileManager.default.displayName(atPath: folder.path)

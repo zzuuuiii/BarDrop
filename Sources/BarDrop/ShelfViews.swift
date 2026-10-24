@@ -206,6 +206,11 @@ struct ShelfContent: View {
     private var tileFrames: [UUID: CGRect] { frameStore.frames }
     /// Höhe des sichtbaren Bereichs der Kacheln (bis unter die Aktionsleiste)
     @State private var viewportHeight: CGFloat = 0
+    /// Lage der Ablage, bevor ein Stapel oder Ordner aufging: Zurück steht sie wieder genau so
+    @State private var scrollBeforeOpen: (id: UUID, top: CGFloat, height: CGFloat)?
+    /// Kurz nach dem Wechsel zwischen Ablage und Stapel/Ordner: kein Einblenden des Übergangs
+    /// oben (der Wechsel meldete kurz eine andere Scrollhöhe, oben blitzte ein Band auf)
+    @State private var switchingView = false
     /// Wie weit gescrollt ist; ändert die Ansicht nur, wenn sich `scrolled` ändert
     @StateObject private var scroll = ScrollTracker()
     @State private var band: CGRect?
@@ -353,8 +358,8 @@ struct ShelfContent: View {
                     .overlay(alignment: .top) {
                         // Auf Glas (losgelöst) nur angedeutet, sonst läge ein dunkles Band darüber
                         topFade
-                            .opacity(scroll.scrolled ? 1 - 0.6 * ui.tearGlass : 0)
-                            .animation(.easeOut(duration: 0.15), value: scroll.scrolled)
+                            .opacity(scroll.scrolled && !switchingView ? 1 - 0.6 * ui.tearGlass : 0)
+                            .animation(switchingView ? nil : .easeOut(duration: 0.15), value: scroll.scrolled)
                     }
                     .coordinateSpace(name: "viewport")
                     .onAppear {
@@ -370,9 +375,25 @@ struct ShelfContent: View {
                     }
                     // Stapel oder Ordner geöffnet (oder Unterordner): oben beginnen, ohne
                     // sichtbares Scrollen, egal wie weit die Ablage vorher gescrollt war
-                    .onChange(of: ui.openStack) { _, opened in
-                        guard opened != nil else { return }
-                        scrollToTop(proxy)
+                    .onChange(of: ui.openStack) { old, opened in
+                        switchingView = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { switchingView = false }
+                        if opened != nil {
+                            // Aus der Ablage hinein: ihre Lage merken
+                            if old == nil { scrollBeforeOpen = topVisibleTile() }
+                            scrollToTop(proxy)
+                        } else {
+                            // Zurück: genau dorthin, wo die Ablage vorher stand, ohne Bewegung.
+                            // Vorher blieb die Scrollhöhe des Ordners stehen, und die Ablage
+                            // rutschte kurz von oben nach.
+                            let saved = scrollBeforeOpen
+                            scrollBeforeOpen = nil
+                            if let saved {
+                                restore(saved, proxy: proxy, viewport: geo.size.height)
+                            } else {
+                                scrollToTop(proxy)
+                            }
+                        }
                     }
                     .onChange(of: folder.folder) { _, shown in
                         guard shown != nil else { return }
@@ -569,16 +590,19 @@ struct ShelfContent: View {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 11, weight: .semibold))
-                Text(folder.name)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(11.0 / 13.0)
-                    .truncationMode(.middle)
+                // Erst kleiner, wenn der Name in voller Größe wirklich nicht passt (vorher
+                // schrumpfte er schon, sobald rechts „2 ausgewählt“ stand, obwohl Platz war)
+                ViewThatFits(in: .horizontal) {
+                    folderName(size: 13)
+                    folderName(size: 12)
+                    folderName(size: 11).truncationMode(.middle)
+                }
             }
             .foregroundStyle(Color.primary.opacity(0.92))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .layoutPriority(1)
         .help(folder.name + "\n" + backHelp)
         Spacer(minLength: 8)
         let selected = ui.memberSelection.intersection(stack.files.map(\.id)).count
@@ -595,11 +619,25 @@ struct ShelfContent: View {
             }
         }
         .fixedSize()
-        .layoutPriority(1)
+        .layoutPriority(2)
+    }
+
+    private func folderName(size: CGFloat) -> some View {
+        Text(folder.name)
+            .font(.system(size: size, weight: .semibold))
+            .lineLimit(1)
+    }
+
+    /// Höchstens so viele Zeichen oben rechts; Längeres wird gekürzt, damit der Titel links
+    /// immer genug Platz hat
+    static let statusLimit = 24
+
+    static func limited(_ text: String) -> String {
+        text.count > statusLimit ? String(text.prefix(statusLimit - 1)).trimmingCharacters(in: .whitespaces) + "…" : text
     }
 
     private func countLabel(_ text: String) -> some View {
-        Text(text)
+        Text(Self.limited(text))
             .font(.system(size: 11, weight: .medium))
             .monospacedDigit()
             .foregroundStyle(Color.primary.opacity(0.5))
@@ -807,24 +845,34 @@ struct ShelfContent: View {
     /// Beim Schließen: oberste sichtbare Kachel und ihre Lage merken
     private func saveScroll() {
         guard !shelfDemo else { return }
-        guard settings.reopenWhereLeft, scroll.scrolled else {
+        guard settings.reopenWhereLeft else {
             ui.savedScroll = nil
             return
         }
+        ui.savedScroll = topVisibleTile()
+    }
+
+    /// Oberste sichtbare Kachel und ihre Lage im sichtbaren Bereich (nil: ganz oben)
+    private func topVisibleTile() -> (id: UUID, top: CGFloat, height: CGFloat)? {
+        guard scroll.scrolled else { return nil }
         let offset = scroll.offset
         let visible = tileFrames.filter { $0.value.maxY + offset > 0 }
         guard let top = visible.min(by: { ($0.value.minY, $0.value.minX) < ($1.value.minY, $1.value.minX) }) else {
-            ui.savedScroll = nil
-            return
+            return nil
         }
-        ui.savedScroll = (top.key, top.value.minY + offset, top.value.height)
+        return (top.key, top.value.minY + offset, top.value.height)
     }
 
     /// Beim Öffnen: dieselbe Kachel wieder an dieselbe Stelle scrollen, ohne Bewegung
     private func restoreScroll(proxy: ScrollViewProxy, viewport: CGFloat) {
         guard !shelfDemo, settings.reopenWhereLeft, let saved = ui.savedScroll else { return }
+        restore(saved, proxy: proxy, viewport: viewport)
+    }
+
+    /// Kachel `saved.id` wieder an ihre gemerkte Lage, ohne Bewegung
+    private func restore(_ saved: (id: UUID, top: CGFloat, height: CGFloat), proxy: ScrollViewProxy, viewport: CGFloat) {
         let ids = stack.map { $0.files.map(\.id) } ?? actions.orderedEntries.map(\.id)
-        guard ids.contains(saved.id) else { return }
+        guard ids.contains(saved.id) else { return scrollToTop(proxy) }
         let span = viewport - saved.height
         let anchor = UnitPoint(x: 0.5, y: span > 0 ? min(max(saved.top / span, 0), 1) : 0)
         DispatchQueue.main.async {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.31.0-beta.10
+* **New: Popular plugins on the start page.** Settings → Plugins shows the five most downloaded gallery plugins with “Get”; a new plugin opens its page right away, and plugins count as new for two months
+* **New: Plugins update by themselves.** Gallery plugins are checked every few hours and when you open Settings → Plugins, so “More plugins” is always ready. A plugin without permission is off instead of “On” with “Needs your permission”
+* **New:** Hold `⌘` and drag a corner or side of the shelf to change its size, like a window, docked and detached
+* **Changed: Calmer, more compact settings.** Explanations moved into info buttons, shorter and consistent names, one heading per card everywhere, short choices as segmented controls and the rest as menus, and better contrast in Dark Mode, also over light desktops
+* **Changed:** “Add Action” and “Add App” are menus with icons and groups; new actions go to the top row. “Order when dropped” is reordered by dragging like the actions, and import and plugin log sit in an “Advanced” card
+* **Changed:** Pulling the shelf off the edge, opening it and resizing it are smoother. From macOS 26, the settings use the system’s own controls with Liquid Glass, including a real glass Back button
+* **Fixed:** The Back button no longer moves the Settings window, `⌘C`, `⌘V` and `⌘A` work in Settings, the bar under the title stays on plugin pages, and the lock screen no longer reacts at the screen edge
+* **Fixed:** `bardrop.createLink` uses only the last part of a title, and long file names keep their extension (#58)
+* Releases can be signed with a fixed certificate so macOS keeps permissions such as Desktop access across updates (`scripts/sign_app.sh`)
+
 ## 1.31.0-beta.9
 * **New: AirDrop into the shelf.** “Add files received with AirDrop” (Settings → Items) puts files that arrive via AirDrop into the shelf right away. They stay in the Downloads folder
 * **New: Plugins start ready to use.** A plugin can come with default settings (action bar, automatically when dropped, replace original). After you install and allow it, it is turned on with these settings, and the gallery opens its page

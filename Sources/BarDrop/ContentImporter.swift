@@ -505,7 +505,26 @@ final class ContentImporter {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         // Kein versteckter Name („.…“) und nicht zu lang
         let visible = cleaned.hasPrefix(".") ? String(cleaned.drop { $0 == "." }) : cleaned
-        return visible.isEmpty ? L("Item", "Objekt") : String(visible.prefix(80))
+        return visible.isEmpty ? L("Item", "Objekt") : shortened(visible, to: maxNameLength)
+    }
+
+    /// Höchstlänge eines Dateinamens (in Zeichen, mit Endung)
+    static let maxNameLength = 80
+
+    /// Kürzt einen Namen auf höchstens `limit` Zeichen. Eine Endung („.txt“, „.webloc“)
+    /// bleibt erhalten, gekürzt wird nur der Name davor. Als Endung zählt nur ein kurzes
+    /// Stück aus Buchstaben und Ziffern nach dem letzten Punkt („Mr. Smith …“ hat keine).
+    static func shortened(_ name: String, to limit: Int) -> String {
+        guard name.count > limit else { return name }
+        let ext = (name as NSString).pathExtension
+        let hasExtension = !ext.isEmpty && ext.count <= 10 && ext.count + 1 < limit
+            && ext.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        guard hasExtension else { return String(name.prefix(limit)) }
+        var stem = String(name.dropLast(ext.count + 1).prefix(limit - ext.count - 1))
+        // Kein Leerzeichen oder Punkt direkt vor der Endung
+        while let last = stem.last, last.isWhitespace || last == "." { stem.removeLast() }
+        if stem.isEmpty { return String(name.prefix(limit)) }
+        return stem + "." + ext
     }
 
     static var timestamp: String {

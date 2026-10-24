@@ -44,6 +44,10 @@ jobs:
           done
 
       - name: App und DMG bauen
+        # Feste Signatur, sobald die Geheimnisse angelegt sind (scripts/sign_app.sh); ohne sie ad hoc
+        env:
+          BARDROP_SIGNING_P12: ${{ secrets.BARDROP_SIGNING_P12 }}
+          BARDROP_SIGNING_PASSWORD: ${{ secrets.BARDROP_SIGNING_PASSWORD }}
         run: |
           chmod +x scripts/build_app.sh
           set -o pipefail

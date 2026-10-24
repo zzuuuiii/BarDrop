@@ -76,6 +76,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Auch schnell an den Rand geworfene Dateien werden sicher aufgenommen
 * Feiner heller Rahmen, damit sie auch auf dunklem Hintergrund zu sehen ist
 * Am Griff vom Rand ziehen: Sie schwebt über allen Fenstern, auf Wunsch als dunkles Glas, und dockt an beiden Rändern wieder an
+* Mit gedrücktem `⌘` an einer Ecke oder Seite ziehen ändert ihre Größe wie bei einem Fenster
 * Auf allen Bildschirmen oder nur auf dem integrierten bzw. den externen
 * Verbraucht im Ruhezustand praktisch keine Energie
 
@@ -101,8 +102,8 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 
 **Plugins** (optional, standardmäßig aus)
 * Kleine Erweiterungen, die BarDrop Neues beibringen: im Rechtsklick-Menü, in der Aktionsleiste oder automatisch beim Ablegen passender Dateitypen und Links
-* Aus der Galerie in den Einstellungen oder als `.bdrop`-Datei; jedes Plugin zeigt, ob es offline läuft und wie groß es ist, und fragt einmal vor dem ersten Lauf nach seinen Rechten
-* In JavaScript geschrieben; Ergebnisse erscheinen direkt neben dem Original. BarDrop bringt selbst kein Plugin mit. So schreibst und veröffentlichst du eins: [PLUGINS.de.md](PLUGINS.de.md)
+* Aus der Galerie in den Einstellungen (die fünf meistgeladenen stehen auf der Startseite) oder als `.bdrop`-Datei; jedes Plugin zeigt, ob es offline läuft und wie groß es ist; Plugins aus der Galerie bekommen ihre Rechte sofort und aktualisieren sich von selbst, eine importierte Datei zeigt ihre Rechte vor dem Installieren. Ein Plugin ohne Erlaubnis bleibt aus
+* In JavaScript geschrieben, du kannst also auch eigene erstellen; Ergebnisse erscheinen direkt neben dem Original. BarDrop bringt selbst kein Plugin mit. So schreibst und veröffentlichst du eins: [PLUGINS.de.md](PLUGINS.de.md)
 
 **Einstellungen**
 * Kurze Einführung beim ersten Start: Ablegen, Öffnen mit dem Zeiger, wieder Herausziehen, Aktionen und Kurzbefehl
@@ -146,7 +147,7 @@ cd BarDrop
 swift test                    # automatische Tests
 ```
 
-BarDrop läuft ab macOS 14; zum Bauen braucht es Xcode 26 oder neuer. Jeder Push auf `main` baut die App, führt die Tests aus und veröffentlicht die DMG als Release der Version in [`VERSION`](../Resources/VERSION).
+BarDrop läuft ab macOS 14; zum Bauen braucht es Xcode 26 oder neuer. Jeder Push auf `main` baut die App, führt die Tests aus und veröffentlicht die DMG als Release der Version in [`VERSION`](../Resources/VERSION). Mit den Repository-Geheimnissen `BARDROP_SIGNING_P12` und `BARDROP_SIGNING_PASSWORD` (angelegt mit `scripts/create_signing_identity.sh`) werden Releases mit einem festen Zertifikat signiert, und macOS behält Freigaben wie den Zugriff auf den Schreibtisch über Updates; ohne sie wird ad hoc signiert.
 
 ### Entwicklung
 

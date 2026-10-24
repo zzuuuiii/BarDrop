@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 import Quartz
+import QuartzCore
 
 /// Steuert, wann und wo die Ablage am Rand auftaucht: beim Ziehen von Dateien,
 /// beim Berühren des Rands mit dem Mauszeiger und per Kurzbefehl.
@@ -71,7 +72,8 @@ final class EdgeController: NSObject {
     private var appearanceObservation: NSKeyValueObservation?
     /// Letzte Prüfung, ob ein fremdes Fenster über der schwebenden Ablage liegt
     var coverCheck: (time: Date, point: NSPoint, covered: Bool) = (.distantPast, .zero, false)
-    var tearTimer: Timer?
+    /// Takt beim Ziehen, Einrasten und Andocken: im Bildtakt des Bildschirms (siehe startTearTimer)
+    var tearLink: CADisplayLink?
     /// Der Rand wurde durch Andocken gewechselt: ohne Verschwinden und neu Erscheinen
     var dockingEdgeChange = false
     private var settingsObserver: AnyCancellable?
@@ -111,6 +113,25 @@ final class EdgeController: NSObject {
     }
     /// Fokus zurückgeben, sobald ein eigener Drag beendet ist.
     private var pendingResignFocus = false
+    /// Seit dem letzten Aufräumen war die Ablage offen (siehe tidyWhileHidden)
+    private var tidyPending = false
+
+    /// Laufendes Ändern der Größe: Ausgangswerte und woran gezogen wird
+    private struct CornerResize {
+        let start: NSPoint
+        let width: Double
+        let height: Double
+        let handle: ResizeHandle
+        let floating: Bool
+    }
+    /// Ecke oder Seite: x −1 links, 1 rechts, 0 keine; y 1 oben, −1 unten, 0 keine
+    private struct ResizeHandle: Equatable {
+        let x: Int
+        let y: Int
+    }
+    private var cornerResize: CornerResize?
+    /// Der Zeiger zeigt gerade den Pfeil zum Ändern der Größe
+    private var showsResizeCursor = false
     /// Der Zeiger war im letzten Takt über der offenen Ablage
     private var pointerInside = false
     /// Die Übersicht war im letzten Takt offen
@@ -150,6 +171,14 @@ final class EdgeController: NSObject {
         let dropHandler = ShelfDropHandler(store: store, ui: ui)
         dropHandler.actions = actions
         host.dropHandler = dropHandler
+        // Die Größe des Fensters bestimmt allein der Controller (layoutPanel, applyTearFrame).
+        // Mit den Vorgaben von NSHostingView rechnete SwiftUI bei jeder Änderung (jedes Bild der
+        // Öffnen-Animation, jedes Ereignis beim Ziehen oder beim Ändern der Größe mit ⌘) die
+        // Mindest- und Höchstgröße des Fensters neu und setzte sie: zusätzliche Layout-Durchläufe
+        // auf dem Hauptthread, und wurde die Ablage breiter als das Fenster, vergrößerte AppKit
+        // das Fenster kurz selbst, bevor layoutPanel es zurücksetzte (Flackern beim schnellen
+        // Ziehen an einer Ecke)
+        host.sizingOptions = []
         panel.contentView = host
 
         panel.ignoresMouseEvents = true
@@ -262,6 +291,8 @@ final class EdgeController: NSObject {
         }
         if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
             guard let self else { return event }
+            // ⌘ an einer Ecke: Größe ändern (siehe resizeEvent)
+            guard let event = self.resizeEvent(event) else { return nil }
             // Ziehen an der Kopfzeile behält BarDrop für sich (siehe tearEvent)
             guard let passed = self.tearEvent(event) else { return nil }
             self.handle(passed, global: false)
@@ -368,10 +399,11 @@ final class EdgeController: NSObject {
         case .leftMouseDragged:
             // Nur wecken; ausgewertet wird im Takt. Zieh-Ereignisse anderer Apps werden
             // nur beobachtet, nie verzögert oder verändert.
-            guard tickTimer == nil, dragPasteboard.changeCount != dragBaseline, hasDroppableContent() else { return }
+            guard tickTimer == nil, !ScreenLock.shared.isLocked, dragPasteboard.changeCount != dragBaseline,
+                  hasDroppableContent() else { return }
             wake()
         case .mouseMoved:
-            guard tickTimer == nil, isNearEdge(NSEvent.mouseLocation) else { return }
+            guard tickTimer == nil, !ScreenLock.shared.isLocked, isNearEdge(NSEvent.mouseLocation) else { return }
             wake()
         default:
             break
@@ -606,7 +638,13 @@ final class EdgeController: NSObject {
         // Auf ganze Bildpunkte des Bildschirms, genau wie beim Ziehen (applyTearFrame): Nach
         // dem Andocken sprang die Ablage sonst um einen Punkt
         let frame = NSRect(x: x, y: pixelAligned(center - h / 2, on: screen), width: w, height: h)
-        if panel.frame != frame { panel.setFrame(frame, display: true) }
+        if panel.frame.size == frame.size {
+            // Nur verschoben (adaptive Höhe folgt dem Zeiger am Rand): ohne erzwungenes
+            // Neuzeichnen, das mit display: true in jedem Takt den ganzen Inhalt neu zeichnete
+            if panel.frame.origin != frame.origin { panel.setFrameOrigin(frame.origin) }
+        } else {
+            panel.setFrame(frame, display: true)
+        }
 
         // Versatz der kleinen Stufen gegenüber der Fenstermitte (SwiftUI: y nach unten)
         let offset = center - desiredY(on: screen)
@@ -661,11 +699,31 @@ final class EdgeController: NSObject {
         logic.outsideSince = nil
 
         if new == .expanded {
-            Thumbnails.forgetIcons()
-            TrashState.shared.refresh()
-            store.pruneMissingFiles()
+            // Fenster für die Dauer der Animation auf die volle Bildrate des Bildschirms (siehe
+            // FrameRateBoost)
+            FrameRateBoost.shared.hold(on: panel, for: 0.7)
+            // Aufräumen (fehlende Dateien, Papierkorb) erst nach der Öffnen-Animation: Das lief
+            // bisher im selben Durchlauf wie ihr Start (Dateizugriffe, Lesezeichen, Einstellungen
+            // des Docks) und hielt das erste Bild auf (laut Diagnose bis über 100 ms, „perf open
+            // worst“). Die Symbole werden schon beim Verbergen frisch geladen (siehe tidyWhileHidden)
+            let opened = logic.levelSince
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self, self.ui.level == .expanded, self.logic.levelSince == opened else { return }
+                TrashState.shared.refresh()
+                self.store.pruneMissingFiles()
+            }
             // Vorschau beim Verstellen in den Einstellungen: den Fokus dort lassen
             if previewUntil == nil { takeFocus() }
+        }
+        if new == .expanded { tidyPending = true }
+        if new == .hidden && tidyPending {
+            // Ganz zu (nach der Schließanimation): Symbole verwerfen und für das nächste Öffnen
+            // gleich neu laden, solange niemand hinsieht. Nur nach einem Öffnen, nicht nach
+            // jedem Streifen am Rand
+            DispatchQueue.main.asyncAfter(deadline: .now() + collapseDuration + 0.05) { [weak self] in
+                guard let self, self.ui.level == .hidden, self.tidyPending else { return }
+                self.tidyWhileHidden()
+            }
         }
         if new < .expanded && old == .expanded {
             // Während eines eigenen Drags darf das Fenster nicht vom Bildschirm,
@@ -680,6 +738,17 @@ final class EdgeController: NSObject {
             logic.manualOpen = false
             logic.manualHovered = false
         }
+    }
+
+    /// Was bisher beim Öffnen geschah, jetzt bei verborgener Ablage: Symbole neu laden (eine
+    /// Datei kann durch eine andere gleichen Namens ersetzt worden sein), fehlende Dateien und
+    /// Papierkorb prüfen. So muss das erste Bild der Öffnen-Animation nichts davon tun.
+    private func tidyWhileHidden() {
+        tidyPending = false
+        Thumbnails.forgetIcons()
+        for file in store.entries.flatMap(\.files) { _ = Thumbnails.icon(file.url) }
+        TrashState.shared.refresh()
+        store.pruneMissingFiles()
     }
 
     /// Offene Ablage bekommt den Tastaturfokus, damit ⌘A, Pfeiltasten & Co. hier
@@ -781,7 +850,12 @@ final class EdgeController: NSObject {
                 panel.orderFrontRegardless()
             }
         }
-        let keep = keepAppActive() && (before?.appActive ?? true)
+        // War BarDrop vor dem Öffnen nicht aktiv, gibt die Ablage den Fokus beim Schließen ab.
+        // Nicht aber, wenn aus ihr gerade die Einstellungen (⌘, oder Menü) bzw. die Einführung
+        // geöffnet wurden und den Fokus haben: Sonst verloren sie ihn 50 ms später wieder
+        // (Protokoll: „key+ Einstellungen“, dann „key- Einstellungen“, alles grau)
+        let ownWindowKey = NSApp.keyWindow.map { $0 !== panel && !($0 is NSPanel) } ?? false
+        let keep = keepAppActive() && ((before?.appActive ?? true) || ownWindowKey)
         if NSApp.isActive && !keep && !actions.isQuickLookVisible {
             NSApp.deactivate()
         }
@@ -889,8 +963,17 @@ final class EdgeController: NSObject {
             }
             return
         }
+        // Sperrbildschirm oder anderer Benutzer: Der Rand gehört nicht BarDrop (vorher vibrierte
+        // das Trackpad dort). Ablage zu und Takt aus, bis wieder entsperrt ist
+        if ScreenLock.shared.isLocked {
+            logic.manualOpen = false
+            if ui.level != .hidden { setLevel(.hidden) }
+            pauseTicking()
+            return
+        }
         let now = Date()
         let loc = NSEvent.mouseLocation
+        updateResizeCursor(at: loc)
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         let dragCount = dragPasteboard.changeCount
         if !mouseDown { dragBaseline = dragCount }
@@ -1047,7 +1130,8 @@ final class EdgeController: NSObject {
         let expandedBody = bodyRect(.expanded, on: screen)
         ui.expandedBody = expandedBody
         let quickLookVisible = actions.isQuickLookVisible
-        let locked = ui.isLocked || quickLookVisible
+        // Beim Ändern der Größe läuft der Zeiger über die Ablage hinaus: Sie bleibt offen
+        let locked = ui.isLocked || quickLookVisible || cornerResize != nil
         // Übersicht geschlossen: Steht der Zeiger außerhalb der Ablage, schließt sie wie sonst
         // nach kurzer Zeit. Die Frist beginnt erst jetzt, so trifft eine schnell folgende
         // Leertaste noch die Ablage und öffnet die Übersicht wieder.
@@ -1258,6 +1342,163 @@ extension EdgeController {
     /// BarDrop zunächst für sich: Wird daraus ein Ziehen, löst sich die Ablage vom Rand (oder
     /// wandert, wenn sie schwebt); bleibt es ein Klick, wird er unverändert nachgereicht.
     /// nil: Das Ereignis ist verbraucht.
+    // MARK: Größe mit ⌘ an einer Ecke
+
+
+    /// Grenzen wie die Regler in Einstellungen → Aussehen
+    static let widthRange = 220.0...400.0
+    static let heightRange = 280.0...680.0
+
+    /// ⌘ gedrückt und an einer Ecke oder Seite der offenen Ablage gezogen: An Ecken ändern sich
+    /// Breite und Höhe, oben und unten nur die Höhe, an der Seite nur die Breite. Angedockt geht
+    /// das nicht an der Seite am Bildschirmrand. Der Wert landet direkt in den Einstellungen (die
+    /// Regler laufen mit), beim Loslassen auf deren 10er-Schritten.
+    func resizeEvent(_ event: NSEvent) -> NSEvent? {
+        switch event.type {
+        case .leftMouseDown:
+            guard event.modifierFlags.contains(.command), event.window === panel,
+                  !ui.isLocked, !ui.ownDragActive, !actions.isQuickLookVisible,
+                  let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
+            cornerResize = CornerResize(start: NSEvent.mouseLocation, width: settings.shelfWidth,
+                                        height: settings.shelfHeight, handle: handle,
+                                        floating: tearDrag?.phase == .floating)
+            // Volle Bildrate, solange gezogen wird (siehe FrameRateBoost)
+            FrameRateBoost.shared.hold(on: panel)
+            Diagnostics.shared.record("resize", "start x=\(handle.x) y=\(handle.y)")
+            return nil
+        case .leftMouseDragged:
+            guard let r = cornerResize else { return event }
+            applyResize(r, at: NSEvent.mouseLocation, snap: false)
+            return nil
+        case .leftMouseUp:
+            guard let r = cornerResize else { return event }
+            applyResize(r, at: NSEvent.mouseLocation, snap: true)
+            cornerResize = nil
+            FrameRateBoost.shared.release()
+            // Erst jetzt einmal nachzeichnen lassen (während des Ziehens zeichnete applyResize
+            // selbst, siehe dort)
+            redrawContent()
+            Diagnostics.shared.record("resize", "ende \(Int(settings.shelfWidth))x\(Int(settings.shelfHeight))")
+            return nil
+        default:
+            return event
+        }
+    }
+
+    /// Mit ⌘ an einer Ecke oder Seite (und während des Ziehens) zeigt der Zeiger den Pfeil zum
+    /// Ändern der Größe wie an einem Fenster; danach wieder den normalen Zeiger
+    private func updateResizeCursor(at p: NSPoint) {
+        let handle: ResizeHandle?
+        if let r = cornerResize {
+            handle = r.handle
+        } else if NSEvent.modifierFlags.contains(.command) {
+            handle = resizeHandle(at: p)
+        } else {
+            handle = nil
+        }
+        guard let handle else {
+            if showsResizeCursor {
+                showsResizeCursor = false
+                NSCursor.arrow.set()
+            }
+            return
+        }
+        showsResizeCursor = true
+        if #available(macOS 15.0, *) {
+            let position: NSCursor.FrameResizePosition
+            switch (handle.x, handle.y) {
+            case (-1, 1): position = .topLeft
+            case (1, 1): position = .topRight
+            case (-1, -1): position = .bottomLeft
+            case (1, -1): position = .bottomRight
+            case (0, 1): position = .top
+            case (0, -1): position = .bottom
+            case (-1, 0): position = .left
+            default: position = .right
+            }
+            NSCursor.frameResize(position: position, directions: .all).set()
+        } else {
+            NSCursor.crosshair.set()
+        }
+    }
+
+    /// Ecke oder Seite der offenen Ablage unter dem Zeiger (angedockt nicht am Bildschirmrand)
+    private func resizeHandle(at p: NSPoint) -> ResizeHandle? {
+        let floating = tearDrag?.phase == .floating
+        guard floating || (tearDrag == nil && ui.level == .expanded) else { return nil }
+        // Angedockt enthält der Rahmen oben und unten die Bögen zum Bildschirmrand: die
+        // sichtbaren Ecken liegen um diese Bögen weiter innen
+        let fillet = ShelfMetrics.for(.expanded, settings: settings).fillet
+        let body = floating ? tearDrag!.body : ui.expandedBody.insetBy(dx: 0, dy: fillet)
+        // Ecken etwas großzügiger als die Seiten (dort nur ein schmaler Streifen am Rand)
+        let corner: CGFloat = 26, side: CGFloat = 8, outside: CGFloat = 4
+        guard body.insetBy(dx: -outside, dy: -outside).contains(p) else { return nil }
+        // Angedockt liegt eine Seite am Bildschirmrand: Dort gibt es nichts zu ziehen
+        let edgeX = settings.edge == .right ? 1 : -1
+        func near(_ distance: CGFloat, _ zone: CGFloat) -> Bool { distance < zone }
+        let toLeft = p.x - body.minX, toRight = body.maxX - p.x
+        let toBottom = p.y - body.minY, toTop = body.maxY - p.y
+        var x = near(toLeft, corner) ? -1 : near(toRight, corner) ? 1 : 0
+        var y = near(toBottom, corner) ? -1 : near(toTop, corner) ? 1 : 0
+        if !floating && x == edgeX { x = 0 }
+        // Ecke nur, wenn beides nah ist; sonst zählt nur eine Seite und nur ganz am Rand
+        if x == 0 || y == 0 {
+            x = near(toLeft, side) ? -1 : near(toRight, side) ? 1 : 0
+            y = near(toBottom, side) ? -1 : near(toTop, side) ? 1 : 0
+            if !floating && x == edgeX { x = 0 }
+            if x != 0 && y != 0 { y = 0 }
+        }
+        return x == 0 && y == 0 ? nil : ResizeHandle(x: x, y: y)
+    }
+
+    private func applyResize(_ r: CornerResize, at p: NSPoint, snap: Bool) {
+        let dx = Double(p.x - r.start.x), dy = Double(p.y - r.start.y)
+        // Losgelöst wächst die Ablage um ihre Mitte, angedockt die Breite nur vom Rand weg und
+        // die Höhe um die Mitte: so bleibt die gezogene Ecke unter dem Zeiger
+        let widthFactor = r.floating ? 2.0 : 1.0
+        var width = r.width + dx * Double(r.handle.x) * widthFactor
+        var height = r.height + dy * Double(r.handle.y) * 2
+        // Nie höher, als der Bildschirm Platz hat: Sonst passte die Ablage (angedockt samt
+        // Bögen zum Rand) nicht mehr ganz darauf, und das Fenster sprang beim Zurechtrücken
+        var maxHeight = Self.heightRange.upperBound
+        let floatingDrag = r.floating ? tearDrag.flatMap { $0.phase == .floating ? $0 : nil } : nil
+        let resizeScreen = floatingDrag.map { tearScreen(at: NSPoint(x: $0.body.midX, y: $0.body.midY)) } ?? screen
+        if let vf = resizeScreen?.visibleFrame {
+            maxHeight = min(maxHeight, Double(vf.height - 2 * (ShelfMetrics.maxFillet + 8)))
+        }
+        width = min(max(width, Self.widthRange.lowerBound), Self.widthRange.upperBound)
+        height = max(min(height, maxHeight), Self.heightRange.lowerBound)
+        if snap {
+            width = (width / 10).rounded() * 10
+            height = (height / 10).rounded() * 10
+            // Auf 10er-Schritte gerundet, aber nicht über den Platz hinaus
+            if height > maxHeight { height = max(Self.heightRange.lowerBound, (maxHeight / 10).rounded(.down) * 10) }
+        } else {
+            width = width.rounded()
+            height = height.rounded()
+        }
+        guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
+        if settings.shelfWidth != width { settings.shelfWidth = width }
+        if settings.shelfHeight != height { settings.shelfHeight = height }
+        // Fenster und Inhalt sofort und im selben Bild umstellen, nicht erst im nächsten Takt:
+        // Bisher kam die neue Größe zuerst im Inhalt an und das Fenster bis zu einem Takt
+        // später. Jede Änderung startete außerdem die Größen-Vorschau mit mehreren verzögerten
+        // Neuzeichnungen; beim schnellen Ziehen stauten sich die, und die Ablage flackerte
+        // oder sprang.
+        if let drag = floatingDrag {
+            floatingSettingsChanged(drag, live: true)
+        } else {
+            layoutDirty = false
+            lastLayoutSignature = settings.layoutSignature
+            lastSizeSignature = settings.sizeSignature
+            panel.disableScreenUpdatesUntilFlush()
+            layoutPanel()
+            if let screen { ui.expandedBody = bodyRect(.expanded, on: screen) }
+            panel.contentView?.layoutSubtreeIfNeeded()
+            panel.displayIfNeeded()
+        }
+    }
+
     func tearEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
@@ -1374,10 +1615,13 @@ extension EdgeController {
         guard tear != ui.tear else { return }
         let linked = { (t: ShelfUIModel.Tear?) in (t?.attach ?? 0) > 0.01 }
         let relink = linked(tear) != linked(ui.tear)
+        // Das Glas reicht auf der Seite zum Rand hinaus und rundet dort wie die Ablage
+        let reshape = tear.side != ui.tear?.side || tear.attach != ui.tear?.attach
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) { ui.tear = tear }
         if relink, glassWindow != nil { syncGlassWindow() }
+        else if reshape, glassWindow != nil { syncGlassWindow(shapeOnly: true) }
     }
 
     private func setGrabbing(_ on: Bool) {
@@ -1401,6 +1645,8 @@ extension EdgeController {
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
         startTearTimer()
+        // Diagnose: wie gleichmäßig die Bilder beim Ziehen kommen
+        FramePacer.shared.start(on: panel, label: "tear", duration: 30)
     }
 
     /// Aus dem Schweben heraus gegriffen: sie folgt gleich dem Zeiger
@@ -1412,18 +1658,30 @@ extension EdgeController {
         drag.velocity = .zero
         setGrabbing(true)
         startTearTimer()
+        FramePacer.shared.start(on: panel, label: "tear", duration: 30)
     }
 
+    /// Takt fürs Ziehen im Bildtakt des Bildschirms statt mit einem eigenen 60-Hz-Timer: Der lief
+    /// neben den Bildern her (mal zwei Schritte in einem Bild, mal keiner), auf ProMotion-
+    /// Bildschirmen nur mit halber Rate, und macOS ließ den Bildschirm beim bloßen Verschieben
+    /// des Fensters teils auf niedriger Bildrate. Die Ablage hing dadurch sichtbar hinter dem
+    /// Zeiger her. Der Bildtakt fordert die volle Rate an und fragt den Zeiger direkt vor jedem Bild ab.
     private func startTearTimer() {
-        tearTimer?.invalidate()
-        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in self?.tearTick() }
-        RunLoop.main.add(timer, forMode: .common)
-        tearTimer = timer
+        stopTearTimer()
+        guard let view = panel.contentView else { return }
+        let link = view.displayLink(target: self, selector: #selector(tearFrame(_:)))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        tearLink = link
     }
 
     private func stopTearTimer() {
-        tearTimer?.invalidate()
-        tearTimer = nil
+        tearLink?.invalidate()
+        tearLink = nil
+    }
+
+    @objc private func tearFrame(_ link: CADisplayLink) {
+        tearTick()
     }
 
     private func tearTick() {
@@ -1620,22 +1878,22 @@ extension EdgeController {
     }
 
     /// Begleitfenster mit dem Glas an Lage und Stärke der losgelösten Ablage anpassen
-    private func syncGlassWindow(duration: TimeInterval = 0) {
+    /// `shapeOnly`: nur Lage und Form, die Stärke nicht anfassen (läuft sie gerade weich
+    /// über, sprang sie sonst bei jeder Bewegung ans Ziel)
+    private func syncGlassWindow(duration: TimeInterval = 0, shapeOnly: Bool = false) {
         guard tearDrag != nil, ui.tearGlass > 0 || glassWindow != nil else { return }
         let window = glassWindow ?? ShelfGlassWindow()
         glassWindow = window
         let m = ShelfMetrics.for(.expanded, settings: settings)
         let size = panel.frame.size
-        var body = NSRect(x: ((size.width - m.width) / 2).rounded(), y: ((size.height - m.height) / 2).rounded(),
+        let body = NSRect(x: ((size.width - m.width) / 2).rounded(), y: ((size.height - m.height) / 2).rounded(),
                           width: m.width, height: m.height)
-        // Mit dem Rand verbunden: Die helle Kante des Glases auf der Randseite lag als dünne
-        // Linie zwischen Ablage und Verbindung. Dort ein Stück schmaler, unter dem Dunkel
-        if let tear = ui.tear, tear.attach > 0.01 {
-            let cut: CGFloat = 6
-            body.size.width -= cut
-            if tear.side == .left { body.origin.x += cut }
-        }
-        window.follow(panel, body: body)
+        // Mit dem Rand verbunden: Die helle Kante des Glases liegt auf der Randseite außerhalb
+        // (siehe ShelfGlassWindow.follow)
+        let edge = ui.tear.flatMap { $0.attach > 0.01 ? $0.side : nil }
+        window.follow(panel, body: body, edge: edge,
+                      edgeRadius: EdgeTear.edgeRadius(attach: ui.tear?.attach ?? 0))
+        if shapeOnly { return }
         // Hell kommt das Glas vor dem Rückzug des Schwarz (siehe EdgeTear.lightCover)
         let amount = ui.systemLight ? EdgeTear.lightCover(ui.tearGlass) : ui.tearGlass
         window.show(CGFloat(amount), duration: duration)
@@ -1698,6 +1956,7 @@ extension EdgeController {
     /// sie an einen Rand zieht, esc oder den Kurzbefehl drückt
     private func float(_ drag: TearDrag) {
         stopTearTimer()
+        FramePacer.shared.stop()
         drag.phase = .floating
         drag.inZone = false
         drag.floatDisplay = tearScreen(at: NSPoint(x: drag.body.midX, y: drag.body.midY))?.displayID
@@ -1764,6 +2023,7 @@ extension EdgeController {
             Diagnostics.shared.record("tear", "angedockt Fenster \(Int(before.minX)),\(before.minY) \(Int(before.width))x\(before.height) → \(Int(panel.frame.minX)),\(panel.frame.minY) \(Int(panel.frame.width))x\(panel.frame.height)")
         }
         stopTearTimer()
+        FramePacer.shared.stop()
         tearDrag = nil
         if let s = drag.dockScreen { screen = s }
         panel.disableScreenUpdatesUntilFlush()
@@ -1854,7 +2114,9 @@ extension EdgeController {
     /// Größe, während der Inhalt schon die neue hatte, und die Änderungen wurden erst nach dem
     /// Andocken nachgeholt (Vorschauen am Rand). (Den Rand selbst umzustellen holt sie an den
     /// neuen Rand, siehe edgeObserver.)
-    func floatingSettingsChanged(_ drag: TearDrag) {
+    /// `live`: beim Ziehen an einer Ecke (⌘), dann nur Fenster und Inhalt umstellen, ohne die
+    /// verzögerten Neuzeichnungen (die kommen einmal beim Loslassen)
+    func floatingSettingsChanged(_ drag: TearDrag, live: Bool = false) {
         layoutDirty = false
         // Gilt als gesehen: Nach dem Andocken nichts mehr nachholen
         let sizeChanged = settings.layoutSignature != lastLayoutSignature
@@ -1865,7 +2127,7 @@ extension EdgeController {
         // Glas ein- oder ausgeschaltet
         setGlass(settings.detachedGlass)
         guard sizeChanged, let screen = tearScreen(at: NSPoint(x: drag.body.midX, y: drag.body.midY)) else {
-            redrawContent()
+            if !live { redrawContent() }
             return
         }
         let size = bodyRect(.expanded, on: screen).size
@@ -1890,12 +2152,13 @@ extension EdgeController {
             panel.contentView?.layoutSubtreeIfNeeded()
             panel.displayIfNeeded()
         }
-        redrawContent()
+        if !live { redrawContent() }
     }
 
     /// Schwebend: statt Rand und Takt nur Maus und Fokus über der Ablage
     func floatTick(_ drag: TearDrag) {
         let loc = NSEvent.mouseLocation
+        updateResizeCursor(at: loc)
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         if !mouseDown { dragBaseline = dragPasteboard.changeCount }
         // Wo die Ablage wirklich liegt, aus dem Fenster selbst: Hat macOS oder SwiftUI das
@@ -1910,7 +2173,7 @@ extension EdgeController {
         }
         let body = drag.body
         ui.expandedBody = body
-        let locked = ui.isLocked || actions.isQuickLookVisible
+        let locked = ui.isLocked || actions.isQuickLookVisible || cornerResize != nil
         // Liegt etwas anderes darüber (Kontrollzentrum, Menüs anderer Apps), ist der Zeiger
         // nicht über der Ablage: sonst holte sie sich den Fokus und schloss das Kontrollzentrum
         let inside = body.contains(loc) && !coveredByOtherWindow(at: loc)
@@ -1960,5 +2223,42 @@ extension EdgeController {
                 }
             }
         }
+    }
+}
+
+// MARK: Volle Bildrate für Bewegungen
+
+/// Bittet macOS für eine Bewegung der Ablage um die volle Bildrate des Bildschirms. Laut
+/// Diagnose („perf open … median=20.9ms“) kamen die Bilder beim Öffnen nur mit etwa 48 Hz:
+/// ProMotion-Bildschirme senken die Rate, solange niemand mehr verlangt, und die Federbewegung
+/// wirkte ruckelig. Ein Bildtakt mit gewünschter Rate hebt sie für die Dauer an; er tut sonst
+/// nichts und endet von selbst.
+final class FrameRateBoost: NSObject {
+    static let shared = FrameRateBoost()
+
+    private var link: CADisplayLink?
+    private var until: CFTimeInterval = 0
+
+    /// Für `duration` Sekunden (nil: bis `release`) die volle Rate anfordern
+    func hold(on window: NSWindow, for duration: TimeInterval? = nil) {
+        let end = duration.map { CACurrentMediaTime() + $0 } ?? .infinity
+        // Eine laufende, längere Anforderung nicht verkürzen
+        until = link == nil ? end : max(until, end)
+        guard link == nil, let view = window.contentView else { return }
+        let link = view.displayLink(target: self, selector: #selector(frame(_:)))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        self.link = link
+    }
+
+    /// Unbefristete Anforderung beenden
+    func release() {
+        until = CACurrentMediaTime()
+    }
+
+    @objc private func frame(_ link: CADisplayLink) {
+        guard CACurrentMediaTime() >= until else { return }
+        link.invalidate()
+        self.link = nil
     }
 }

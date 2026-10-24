@@ -32,6 +32,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func launch() {
         endOtherInstances()
         Updater.cleanUpAfterUpdate()
+        // Geschützte Ordner einmal vorab: sonst kam die Abfrage für den Schreibtisch doppelt
+        FolderAccess.askOnceAtLaunch(store: ShelfStore.defaultDatabaseURL, settings: settings)
         store = ShelfStore()
         ui = ShelfUIModel()
         controller = EdgeController(store: store, ui: ui, settings: settings)
@@ -164,6 +166,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         })
         appItem.submenu = appMenu
         main.addItem(appItem)
+
+        // Bearbeiten mit den Befehlen des Systems: Ohne dieses Menü ging ⌘C in den Einstellungen
+        // nicht, etwa beim markierten Commit unter „Über BarDrop“ (Nutzer, 24.10.2026), und auch
+        // nicht ⌘V in Textfeldern von Plugins. Die Ablage behandelt ihre Kürzel vorher selbst
+        // (ShelfPanel.performKeyEquivalent)
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: L("Edit", "Bearbeiten"))
+        editMenu.addItem(withTitle: L("Cut", "Ausschneiden"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: L("Copy", "Kopieren"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: L("Paste", "Einsetzen"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: L("Select All", "Alles auswählen"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        main.addItem(editItem)
 
         let windowItem = NSMenuItem()
         let windowMenu = NSMenu(title: L("Window", "Fenster"))

@@ -213,6 +213,13 @@ final class ShelfStore: ObservableObject {
     private let logsDiagnostics: Bool
     private var diagnostics: Diagnostics? { logsDiagnostics ? Diagnostics.shared : nil }
 
+    /// Liste der Ablage am üblichen Ort (FolderAccess.askOnceAtLaunch liest sie vor dem Start)
+    static var defaultDatabaseURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("BarDrop", isDirectory: true)
+            .appendingPathComponent("shelf.json")
+    }
+
     /// `baseDirectory` nur für Tests und die Vorführung der Einführung;
     /// normal: ~/Library/Application Support/BarDrop
     init(baseDirectory: URL? = nil) {

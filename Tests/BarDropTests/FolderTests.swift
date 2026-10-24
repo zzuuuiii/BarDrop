@@ -59,6 +59,35 @@ final class FolderTests: XCTestCase {
         XCTAssertEqual(actions.folder.root?.standardizedFileURL, folder.standardizedFileURL)
     }
 
+    /// Auf eine Ordner-Aktion gelegt: Die Objekte verlassen die Ablage wie beim Verschieben im
+    /// Finder, auch wenn „Nach Aktion behalten“ an ist und auch beim Kopieren (⌥)
+    func testFolderActionAlwaysRemovesFromShelf() {
+        let settings = AppSettings.shared
+        let keep = settings.keepAfterAction
+        settings.keepAfterAction = true
+        defer { settings.keepAfterAction = keep }
+        let source = base.appendingPathComponent("Quelle", isDirectory: true)
+        try? FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        let moved = makeFile("verschoben.txt", in: source)
+        let copied = makeFile("kopiert.txt", in: source)
+        store.add([ShelfFile(url: moved, owned: false)])
+        store.add([ShelfFile(url: copied, owned: false)])
+        XCTAssertEqual(store.entries.count, 2)
+        let anchor = NSView()
+        actions.perform(folderAction, urls: [moved], anchor: anchor, modifiers: [])
+        actions.perform(folderAction, urls: [copied], anchor: anchor, modifiers: [.option])
+        let deadline = Date().addingTimeInterval(5)
+        while !store.entries.isEmpty, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertTrue(store.entries.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("verschoben.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: moved.path))
+        // Kopiert: Das Original bleibt an seinem Ort, nur die Ablage gibt es frei
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("kopiert.txt").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: copied.path))
+    }
+
     func testClickOnSameFolderFromSubfolderGoesToTop() {
         let sub = folder.appendingPathComponent("Unterordner", isDirectory: true)
         try? FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)

@@ -425,7 +425,10 @@ final class PluginRuntime {
                 return JSValue(undefinedIn: ctx)
             }
             let name = title.isString ? title.toString()! : (link.host ?? "Link")
-            let target = self.newOutputURL(ContentImporter.sanitize(name) + ".webloc")
+            // Wie bei writeFile zählt nur der letzte Teil eines Pfads. Die Endung bleibt beim
+            // Kürzen auf 80 Zeichen erhalten (newOutputURL kürzt nur den Namen davor).
+            let base = ContentImporter.sanitize((name as NSString).lastPathComponent)
+            let target = self.newOutputURL(base + ".webloc")
             let plist = ["URL": link.absoluteString]
             if let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0) {
                 try? data.write(to: target)
@@ -647,7 +650,8 @@ final class PluginRuntime {
         return job.items.contains { path == $0.url.standardizedFileURL.path } || roots.contains { path.hasPrefix($0 + "/") }
     }
 
-    /// Neuer Name im Ausgabeordner, ohne etwas zu überschreiben
+    /// Neuer Name im Ausgabeordner, ohne etwas zu überschreiben. Nur der letzte Teil eines
+    /// Pfads zählt; zu lange Namen werden gekürzt, die Endung bleibt (ContentImporter.sanitize).
     private func newOutputURL(_ name: String) -> URL {
         var clean = ContentImporter.sanitize((name as NSString).lastPathComponent)
         if clean.isEmpty { clean = "Item" }

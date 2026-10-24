@@ -429,12 +429,25 @@ final class AppSettings: ObservableObject {
             && !quickActions.contains { $0.path == url.path }
     }
 
-    /// Ordner oder App hinten an die Aktionsleiste anheften
+    /// Ordner oder App an die Aktionsleiste anheften
     @discardableResult
     func pin(_ url: URL) -> Bool {
         guard canPin(url), let kind = QuickAction.pinnableKind(url) else { return false }
-        quickActions.append(QuickAction(kind: kind, path: url.path))
+        addQuickAction(QuickAction(kind: kind, path: url.path))
         return true
+    }
+
+    /// Neue Aktion ans Ende der oberen Reihe; erst wenn die voll ist, in die untere
+    /// (Nutzerwunsch 24.10.2026: Aktionen stehen standardmäßig oben)
+    func addQuickAction(_ action: QuickAction) {
+        guard quickActions.count < QuickAction.limit else { return }
+        let split = effectiveActionSplit
+        if split < QuickAction.perRow {
+            quickActions.insert(action, at: split)
+            actionRowSplit = Self.clampSplit(split + 1, count: quickActions.count)
+        } else {
+            quickActions.append(action)
+        }
     }
 
     /// In der Aktionsleiste mit ⌘ gezogen: Die Aktion nimmt den Platz von `target` ein, die
@@ -629,7 +642,8 @@ final class AppSettings: ObservableObject {
         reopenWhereLeft = defaults.bool(forKey: Key.reopenWhereLeft)
         exactPointer = defaults.bool(forKey: Key.exactPointer)
         diagnosticsEnabled = defaults.bool(forKey: Key.diagnosticsEnabled)
-        actionRowSplit = defaults.integer(forKey: Key.actionRowSplit)
+        // Ohne gespeicherten Wert: alles in die obere Reihe
+        actionRowSplit = defaults.object(forKey: Key.actionRowSplit) as? Int ?? QuickAction.perRow
         pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         addAirDrop = defaults.bool(forKey: Key.addAirDrop)
@@ -710,7 +724,7 @@ final class AppSettings: ObservableObject {
         reopenWhereLeft = false
         exactPointer = false
         diagnosticsEnabled = false
-        actionRowSplit = 0
+        actionRowSplit = QuickAction.perRow
         pinFromShelf = true
         addScreenshots = false
         addAirDrop = false

@@ -27,7 +27,7 @@
       },
       "author": "Richard",
       "minAppVersion": "1.31.0",
-      "downloads": 3,
+      "downloads": 5,
       "removed": true
     },
     {
@@ -61,15 +61,15 @@
     },
     {
       "id": "io.github.zzuuuiii.stems",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "name": {
         "en": "Separate Vocals",
         "de": "Gesang und Musik trennen"
       },
-      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.stems-1.1.0.bdrop",
-      "sha256": "5b2af8bf450a297fdc003442627d25ecdf2208f0c758854d40e3c19f58c42f88",
-      "size": 4558,
-      "updated": "2026-10-24",
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.stems-1.1.1.bdrop",
+      "sha256": "4a9c880968dd2fbf3596bc78339167637abac31802dcc7c88c3564851f330299",
+      "size": 4582,
+      "updated": "2026-10-25",
       "added": "2026-10-24",
       "permissions": [
         "run"
@@ -85,7 +85,7 @@
       },
       "author": "zzuuuiii",
       "minAppVersion": "1.31.0",
-      "downloads": 0
+      "downloads": 1
     }
   ]
 }

@@ -1,5 +1,6 @@
 {
   "plugins": [
+    "io.github.richard2007-21.api-test",
     "io.github.richard2007-21.convert",
     "io.github.richard2007-21.gif",
     "io.github.richard2007-21.stems",

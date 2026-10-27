@@ -2,6 +2,35 @@
   "schema": 1,
   "plugins": [
     {
+      "id": "io.github.richard2007-21.convert",
+      "version": "1.0.0",
+      "name": {
+        "en": "Convert",
+        "de": "Konvertieren"
+      },
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.convert-1.0.0.bdrop",
+      "sha256": "e4fc20547593e6c0a565385437736c60223b63c71da472f079a2bfca64059b61",
+      "size": 12974,
+      "updated": "2026-10-27",
+      "added": "2026-10-27",
+      "permissions": [
+        "run"
+      ],
+      "tools": [],
+      "description": {
+        "en": "Converts videos, audio, images, PDFs and documents into many formats (MP4, GIF, MP3, PNG, WebP, HEIC, PDF, Word …). You pick the format after right-clicking.",
+        "de": "Wandelt Videos, Ton, Bilder, PDFs und Dokumente in viele Formate um (MP4, GIF, MP3, PNG, WebP, HEIC, PDF, Word …). Das Format wählst du nach dem Rechtsklick."
+      },
+      "icon": {
+        "symbol": "arrow.triangle.2.circlepath",
+        "color": "#5856D6"
+      },
+      "author": "Richard",
+      "homepage": "https://github.com/C4illin/ConvertX",
+      "minAppVersion": "1.31.0",
+      "downloads": 0
+    },
+    {
       "id": "io.github.richard2007-21.gif",
       "version": "1.0.0",
       "name": {

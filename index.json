@@ -2,6 +2,34 @@
   "schema": 1,
   "plugins": [
     {
+      "id": "io.github.richard2007-21.gif",
+      "version": "1.0.0",
+      "name": {
+        "en": "Video to GIF",
+        "de": "Video zu GIF"
+      },
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.gif-1.0.0.bdrop",
+      "sha256": "a6cae047671d77c602787cc6324a3c9a46f13875d6927573946e23ee235ded09",
+      "size": 3131,
+      "updated": "2026-10-27",
+      "added": "2026-10-27",
+      "permissions": [
+        "run"
+      ],
+      "tools": [],
+      "description": {
+        "en": "Turns videos into high-quality GIFs with gifski (github.com/ImageOptim/gifski)",
+        "de": "Macht aus Videos GIFs in Top-Qualität, mit gifski (github.com/ImageOptim/gifski)"
+      },
+      "icon": {
+        "symbol": "photo.stack.fill",
+        "color": "#5856D6"
+      },
+      "author": "Richard",
+      "minAppVersion": "1.31.0",
+      "downloads": 0
+    },
+    {
       "id": "io.github.richard2007-21.stems",
       "version": "1.0.0",
       "name": {

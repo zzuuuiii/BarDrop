@@ -1,5 +1,6 @@
 {
   "plugins": [
+    "io.github.richard2007-21.gif",
     "io.github.richard2007-21.stems",
     "io.github.zzuuuiii.clean-links",
     "io.github.zzuuuiii.stems"

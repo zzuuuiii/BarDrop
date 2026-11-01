@@ -227,6 +227,33 @@ final class PluginTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
     }
 
+    /// Ordner aus `installs`, die es schon vor dem Plugin gab, gehören ihm nicht: Entfernen lässt
+    /// sie liegen. Ordner, die erst danach entstehen (vom Plugin eingerichtet), gehen mit
+    func testRemoveKeepsInstallFoldersThatExistedBefore() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let before = "BarDropTestVorher-\(UUID().uuidString)", after = "BarDropTestNachher-\(UUID().uuidString)"
+        let beforeURL = home.appendingPathComponent("Library/Caches/\(before)", isDirectory: true)
+        let afterURL = home.appendingPathComponent("Library/Caches/\(after)", isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: beforeURL)
+            try? FileManager.default.removeItem(at: afterURL)
+        }
+        try FileManager.default.createDirectory(at: beforeURL, withIntermediateDirectories: true)
+        let extra = #", "installs": ["~/Library/Caches/"# + before + #"", "~/Library/Caches/"# + after + #""]"#
+        let file = base.appendingPathComponent("installs.bdrop")
+        try PluginPackage.pack(makePluginFolder(permissions: ["run"], script: "function run(item) {}", extra: extra), to: file)
+        let plugin = try manager.install(try manager.inspect(file), standard: false)
+        // Danach „vom Plugin“ eingerichtet
+        try FileManager.default.createDirectory(at: afterURL, withIntermediateDirectories: true)
+
+        let installed = manager.components(of: plugin).installed.map(\.standardizedFileURL.path)
+        XCTAssertEqual(installed, [afterURL.standardizedFileURL.path])
+        // Auch nach einem Update derselben Fassung bleibt der fremde Ordner fremd
+        let again = try manager.install(try manager.inspect(file), standard: false)
+        XCTAssertEqual(manager.components(of: again).installed.map(\.standardizedFileURL.path), [afterURL.standardizedFileURL.path])
+    }
+
     /// Braucht eine neue Fassung ein Programm nicht mehr, verschwindet sein Ordner mit dem
     /// Aktualisieren; ein Programm, das ein anderes Plugin noch nennt, bleibt
     func testUpdateRemovesProgramsNoLongerUsed() throws {

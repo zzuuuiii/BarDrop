@@ -45,6 +45,10 @@ struct PluginState: Codable, Equatable {
     /// Stand in der Aktionsleiste, als das Plugin ausgeschaltet wurde: kommt beim
     /// Einschalten wieder dorthin
     var parkedInActionBar = false
+    /// Ordner aus `installs`, die es schon gab, bevor das Plugin sie hätte einrichten können
+    /// (andere App, von Hand, ein anderes Plugin). Sie gehören nicht dem Plugin und bleiben beim
+    /// Entfernen liegen (Nutzer, 01.11.2026)
+    var foreignInstalls: [String] = []
 
     init() {}
 
@@ -63,6 +67,7 @@ struct PluginState: Codable, Equatable {
         isStandard = try c.decodeIfPresent(Bool.self, forKey: .isStandard) ?? false
         fromCatalog = try c.decodeIfPresent(Bool.self, forKey: .fromCatalog) ?? false
         parkedInActionBar = try c.decodeIfPresent(Bool.self, forKey: .parkedInActionBar) ?? false
+        foreignInstalls = try c.decodeIfPresent([String].self, forKey: .foreignInstalls) ?? []
     }
 }
 
@@ -717,6 +722,12 @@ final class PluginManager: ObservableObject {
         // Programme der bisherigen Fassung: Braucht die neue eines nicht mehr (oder lädt es von
         // einer neuen Adresse), blieb sein Ordner sonst für immer liegen (Prüfung 28.10.2026)
         let previousTools = plugin(id).flatMap { $0.manifest.tools } ?? []
+        // Ordner aus `installs`, die es jetzt schon gibt und die nicht von einer früheren Fassung
+        // dieses Plugins stammen können: merken, damit Entfernen sie nie anfasst
+        let home = fm.homeDirectoryForCurrentUser
+        let earlier = Set((plugin(id)?.manifest.installPaths(home: home) ?? []).map(\.standardizedFileURL.path))
+        let foreign = unpacked.manifest.installPaths(home: home).map(\.standardizedFileURL.path)
+            .filter { fm.fileExists(atPath: $0) && !earlier.contains($0) }
         do {
             try fm.copyItem(at: unpacked.directory, to: staging)
             if fm.fileExists(atPath: target.path) {
@@ -732,6 +743,7 @@ final class PluginManager: ObservableObject {
         let stamp = PluginPackage.fingerprint(directory: target)
         update(id) { s in
             s.isStandard = standard
+            for path in foreign where !s.foreignInstalls.contains(path) { s.foreignInstalls.append(path) }
             if keepPermissions, s.grantedFingerprint != nil {
                 // Aktualisierung aus dem Katalog: Rechte, die es noch braucht, bleiben
                 s.granted = s.granted.filter { unpacked.manifest.allPermissions.contains($0) }
@@ -800,8 +812,10 @@ final class PluginManager: ObservableObject {
                 }
             }
         }
+        let foreign = Set(state(plugin.id).foreignInstalls)
         parts.installed = plugin.manifest.installPaths(home: fm.homeDirectoryForCurrentUser)
-            .filter { fm.fileExists(atPath: $0.path) && !usedPaths.contains($0) }
+            .filter { fm.fileExists(atPath: $0.path) && !usedPaths.contains($0)
+                && !foreign.contains($0.standardizedFileURL.path) }
         return parts
     }
 

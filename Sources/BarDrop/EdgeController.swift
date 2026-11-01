@@ -73,6 +73,8 @@ final class EdgeController: NSObject {
     var tearDrag: TearDrag?
     /// Begleitfenster mit dem Glas der losgelösten Ablage (erst bei Bedarf angelegt)
     var glassWindow: ShelfGlassWindow?
+    /// Zeigt beim Ziehen über die Grenze zweier Bildschirme den Teil, den macOS ausblendet
+    let spanMirror = SpanMirror()
     /// Beobachtet das helle oder dunkle Erscheinungsbild des Systems
     private var appearanceObservation: NSKeyValueObservation?
     /// Letzte Prüfung, ob ein fremdes Fenster über der schwebenden Ablage liegt
@@ -1402,6 +1404,8 @@ final class TearDrag {
     var dockAttach: CGFloat = 0
     var dockStarted = Date()
     var closeAfterDock = false
+    /// Kein Andocken, nur ganz auf einen Bildschirm rutschen (losgelassen auf der Grenze)
+    var settling = false
     /// Nur für die Diagnose (Befehl „tear“): Zeiger vorgegeben statt der echten Maus
     var pointer: NSPoint?
     /// Abstand zum Zeiger beim Lösen, der in kurzer Zeit auf null ausläuft
@@ -1752,6 +1756,7 @@ extension EdgeController {
             syncGlassWindow()
         }
         ui.expandedBody = body
+        spanMirror.update(for: panel)
     }
 
     private func setTear(gap: CGFloat, attach: CGFloat? = nil, side: ScreenEdge, dock: CGFloat? = nil) {
@@ -1892,13 +1897,9 @@ extension EdgeController {
     /// Grenzen beim freien Ziehen: Liegt über, unter oder neben der Ablage ein weiterer Bildschirm,
     /// darf sie hinübergleiten. Bisher hielt sie der Bildschirm unter dem Zeiger fest (oben an der
     /// Menüleiste), und beim Wechsel sprang sie auf den anderen (Nutzer, 01.11.2026). Auf einem
-    /// einzelnen Bildschirm bleibt alles wie vorher.
-    /// Mit „Bildschirme verwenden verschiedene Spaces“ zeigt macOS ein Fenster nur auf einem
-    /// Bildschirm, der Teil auf dem anderen bliebe unsichtbar (Ablage halb abgeschnitten, dann
-    /// weg). Dann bleibt sie ganz auf dem Bildschirm unter dem Zeiger und wechselt mit ihm.
-    static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen],
-                              separateSpaces: Bool = NSScreen.screensHaveSeparateSpaces) -> NSRect {
-        let screens = separateSpaces ? [screen] : screens
+    /// einzelnen Bildschirm bleibt alles wie vorher. Mit getrennten Spaces zeigt `SpanMirror`
+    /// den Teil auf dem anderen Bildschirm.
+    static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen]) -> NSRect {
         var result = target
         // Senkrecht: alle Bildschirme in derselben Spalte wie die Ablage
         let column = screens.filter { $0.frame.maxX > target.minX && $0.frame.minX < target.maxX }
@@ -2180,12 +2181,42 @@ extension EdgeController {
             // schwungvoll zurückgeschoben wurde (sonst bliebe sie halb am Rand schweben)
             if let near = nearestDock(for: drag.body), near.distance < EdgeTear.attachZone {
                 dock(drag, side: drag.leftZone ? near.side : drag.origin, screen: drag.leftZone ? near.screen : liveOrigin(drag))
+            } else if let (screen, target) = settleTarget(drag.body) {
+                settle(drag, to: target, on: screen)
             } else {
                 float(drag)
             }
         default:
             break
         }
+    }
+
+    /// Losgelassen auf der Grenze zweier Bildschirme mit getrennten Spaces: Dort bliebe ein Teil
+    /// unsichtbar (oder nur als Bild im Spiegelfenster). Ziel ganz auf dem Bildschirm, auf dem
+    /// der größere Teil liegt; nil, wenn sie schon ganz auf einem liegt.
+    private func settleTarget(_ body: NSRect) -> (NSScreen, NSRect)? {
+        guard NSScreen.screensHaveSeparateSpaces else { return nil }
+        let screens = allowedScreens()
+        guard screens.count > 1 else { return nil }
+        let area = { (s: NSScreen) -> CGFloat in
+            let part = s.frame.intersection(body)
+            return part.isNull ? 0 : part.width * part.height
+        }
+        guard let screen = screens.max(by: { area($0) < area($1) }), !screen.frame.contains(body) else { return nil }
+        let target = Self.clampFloating(body, around: screen, among: [screen])
+        return target == body ? nil : (screen, target)
+    }
+
+    /// Kurzes, weiches Rutschen wie beim Andocken, danach schwebt sie dort
+    private func settle(_ drag: TearDrag, to target: NSRect, on screen: NSScreen) {
+        drag.phase = .docking
+        drag.settling = true
+        drag.dockScreen = screen
+        drag.dockFrom = drag.body
+        drag.dockTo = target
+        drag.dockStarted = Date()
+        Diagnostics.shared.record("tear", "settle onto one display")
+        startTearTimer()
     }
 
     /// Losgelassen fern der Ränder: Sie bleibt dort liegen, über allen Fenstern, bis man
@@ -2198,6 +2229,8 @@ extension EdgeController {
         drag.floatDisplay = tearScreen(at: NSPoint(x: drag.body.midX, y: drag.body.midY))?.displayID
         setTear(gap: 0, attach: 0, side: ui.tear?.side ?? drag.origin)
         applyTearFrame(drag.body)
+        // Sie liegt ganz auf einem Bildschirm (siehe settle); höchstens der Schattenrand ragte hinüber
+        spanMirror.hide()
         logic.outsideSince = nil
         lastActivity = Date()
         Diagnostics.shared.record("tear", "float")
@@ -2244,6 +2277,14 @@ extension EdgeController {
         let body = NSRect(x: from.minX + (to.minX - from.minX) * e, y: from.minY + (to.minY - from.minY) * e,
                           width: to.width, height: to.height)
         drag.body = body
+        if drag.settling {
+            applyTearFrame(body)
+            if t >= 1 {
+                drag.settling = false
+                float(drag)
+            }
+            return
+        }
         if let screen = drag.dockScreen {
             let gap = drag.dockSide == .right ? screen.frame.maxX - body.maxX : body.minX - screen.frame.minX
             // Der Rand greift etwas früher nach ihr, als sie ankommt
@@ -2265,6 +2306,7 @@ extension EdgeController {
         stopTearTimer()
         FramePacer.shared.stop()
         tearDrag = nil
+        spanMirror.hide()
         // Am Rand immer auf ihrer eigenen Ebene (siehe settingsKeyChanged)
         if panel.level != ShelfPanel.shelfLevel { panel.level = ShelfPanel.shelfLevel }
         if let s = drag.dockScreen { screen = s }
@@ -2303,6 +2345,7 @@ extension EdgeController {
         guard tearDrag != nil else { return }
         stopTearTimer()
         tearDrag = nil
+        spanMirror.hide()
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {

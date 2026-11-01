@@ -39,7 +39,7 @@ enum PluginDialogs {
         if let consent { text.append(consent.text) }
         if !onlyConsent { text.append(L("Only allow plugins you trust.", "Erlaub nur Plugins, denen du vertraust.")) }
         alert.informativeText = text.joined(separator: "\n\n")
-        alert.accessoryView = grantList(PluginGrant.rows(permissions: permissions, tools: tools))
+        alert.accessoryView = grantList(PluginGrant.rows(permissions: permissions, tools: tools), in: alert)
         alert.addButton(withTitle: onlyConsent ? L("Agree", "Zustimmen") : L("Allow", "Erlauben"))
         alert.addButton(withTitle: L("Cancel", "Abbrechen"))
         guard run(alert, ui: ui) == .alertFirstButtonReturn else { return false }
@@ -53,12 +53,30 @@ enum PluginDialogs {
         authorize(plugin, manager: manager, ui: nil)
     }
 
-    /// Kurze Liste unter der Frage: je Zeile ein Symbol und ein paar Worte
-    static func grantList(_ rows: [PluginGrant]) -> NSView? {
+    /// Kurze Liste unter der Frage: je Zeile ein Symbol und ein paar Worte. Mehrere Programme
+    /// stehen eingeklappt in einer Zeile; aufgeklappt wächst das Fenster mit
+    static func grantList(_ rows: [PluginGrant], in alert: NSAlert) -> NSView? {
         guard !rows.isEmpty else { return nil }
-        let view = NSHostingView(rootView: GrantList(rows: rows))
+        let host = GrantHost()
+        let view = NSHostingView(rootView: GrantList(rows: rows, resized: { [weak host] in host?.resize() }))
         view.frame = NSRect(origin: .zero, size: view.fittingSize)
+        host.view = view
+        host.alert = alert
         return view
+    }
+}
+
+/// Passt das Fenster an, wenn die Liste auf- oder zuklappt (NSAlert ordnet sich dann neu an)
+private final class GrantHost {
+    weak var view: NSView?
+    weak var alert: NSAlert?
+
+    func resize() {
+        guard let view, let alert else { return }
+        let size = view.fittingSize
+        guard abs(size.height - view.frame.height) > 0.5 else { return }
+        view.setFrameSize(NSSize(width: view.frame.width, height: size.height))
+        alert.layout()
     }
 }
 
@@ -67,6 +85,8 @@ struct PluginGrant: Identifiable {
     let id = UUID()
     let symbol: String
     let text: String
+    /// Ein Programm, das das Plugin lädt (stehen eingeklappt in einer Zeile)
+    var isProgram = false
 
     static func rows(permissions: [PluginPermission], tools: [PluginTool], otherFiles: [String] = []) -> [PluginGrant] {
         var rows = permissions.map { PluginGrant(symbol: $0.symbol, text: $0.summary) }
@@ -74,7 +94,7 @@ struct PluginGrant: Identifiable {
             let host = URL(string: tool.resolvedURL)?.host ?? tool.resolvedURL
             var text = L("Downloads “\(tool.name)” from \(host)", "Lädt „\(tool.name)“ von \(host)")
             if let license = tool.license { text += " · " + license }
-            rows.append(PluginGrant(symbol: "arrow.down.circle", text: text))
+            rows.append(PluginGrant(symbol: "arrow.down.circle", text: text, isProgram: true))
         }
         if !otherFiles.isEmpty {
             var text = L("Also contains ", "Enthält außerdem ") + otherFiles.prefix(4).joined(separator: ", ")
@@ -90,30 +110,70 @@ struct PluginGrant: Identifiable {
 
 private struct GrantList: View {
     let rows: [PluginGrant]
+    var resized: () -> Void = {}
+    @State private var expanded = false
 
     var body: some View {
+        let programs = rows.filter(\.isProgram)
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(rows) { row in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: row.symbol)
-                        .frame(width: 16)
-                    Text(row.text)
-                        .fixedSize(horizontal: false, vertical: true)
+            ForEach(rows.filter { !$0.isProgram }) { row in
+                line(symbol: row.symbol, text: row.text)
+            }
+            if programs.count == 1, let only = programs.first {
+                line(symbol: only.symbol, text: only.text)
+            } else if programs.count > 1 {
+                // Mehrere Programme: eine Zeile, die Liste erst auf Klick (Nutzer, 01.11.2026)
+                Button {
+                    expanded.toggle()
+                    DispatchQueue.main.async(execute: resized)
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: "arrow.down.circle")
+                            .frame(width: 16)
+                        Text(L("Downloads \(programs.count) programs", "Lädt \(programs.count) Programme"))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .rotationEffect(.degrees(expanded ? 90 : 0))
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+                .accessibilityValue(expanded ? L("Expanded", "Aufgeklappt") : L("Collapsed", "Zugeklappt"))
+                if expanded {
+                    ForEach(programs) { row in
+                        Text(row.text)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 24)
+                    }
+                }
             }
         }
         .frame(width: 260, alignment: .leading)
         .padding(.vertical, 2)
+    }
+
+    private func line(symbol: String, text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: symbol)
+                .frame(width: 16)
+            Text(text)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
     }
 }
 
 // MARK: Import
 
 /// Import einer .bdrop-Datei: prüfen, kurz zeigen, was das Plugin darf, und erst nach
-/// Bestätigung installieren. Ein Doppelklick installiert also nie still. Das Skript gibt
-/// es auf Wunsch („Skript ansehen“).
+/// Bestätigung installieren. Ein Doppelklick installiert also nie still. Danach folgt ein
+/// Warnhinweis, weil das Plugin nicht aus der Galerie kommt.
 enum PluginImporter {
     /// Liefert das installierte Plugin, nil bei Abbruch oder Fehler (dann mit Meldung)
     @discardableResult
@@ -145,36 +205,24 @@ enum PluginImporter {
             return nil
         }
         let name = manifest.name.text
-        var accepted = false
-        while true {
-            let alert = PluginDialogs.makeAlert(manifest)
-            alert.messageText = existing == nil ? L("Install “\(name)”?", "„\(name)“ installieren?")
-                                                : L("Update “\(name)”?", "„\(name)“ aktualisieren?")
-            var lines: [String] = []
-            if let existing {
-                lines.append(L("Version \(existing.manifest.version) → \(manifest.version)",
-                               "Version \(existing.manifest.version) → \(manifest.version)"))
-            }
-            if let description = manifest.description?.text, !description.isEmpty { lines.append(description) }
-            // Hinweis des Plugins steht gleich hier: „Installieren“ gilt als Zustimmung
-            if let consent = manifest.consent?.text, !consent.isEmpty { lines.append(consent) }
-            lines.append(L("This plugin isn’t from the BarDrop catalog. Only install plugins from developers you trust.",
-                           "Dieses Plugin stammt nicht aus dem BarDrop-Katalog. Installier nur Plugins von Entwicklern, denen du vertraust."))
-            alert.informativeText = lines.joined(separator: "\n\n")
-            alert.accessoryView = PluginDialogs.grantList(PluginGrant.rows(
-                permissions: manifest.allPermissions, tools: manifest.tools ?? [], otherFiles: otherFiles(in: unpacked)))
-            alert.addButton(withTitle: existing == nil ? L("Install", "Installieren") : L("Update", "Aktualisieren"))
-            alert.addButton(withTitle: L("Cancel", "Abbrechen"))
-            alert.addButton(withTitle: L("View Script", "Skript ansehen"))
-            NSApp.activate(ignoringOtherApps: true)
-            let answer = alert.runModal()
-            if answer == .alertThirdButtonReturn {
-                showScript(unpacked.script, manifest: manifest)
-                continue
-            }
-            accepted = answer == .alertFirstButtonReturn
-            break
+        let alert = PluginDialogs.makeAlert(manifest)
+        alert.messageText = existing == nil ? L("Install “\(name)”?", "„\(name)“ installieren?")
+                                            : L("Update “\(name)”?", "„\(name)“ aktualisieren?")
+        var lines: [String] = []
+        if let existing {
+            lines.append(L("Version \(existing.manifest.version) → \(manifest.version)",
+                           "Version \(existing.manifest.version) → \(manifest.version)"))
         }
+        if let description = manifest.description?.text, !description.isEmpty { lines.append(description) }
+        // Hinweis des Plugins steht gleich hier: „Installieren“ gilt als Zustimmung
+        if let consent = manifest.consent?.text, !consent.isEmpty { lines.append(consent) }
+        alert.informativeText = lines.joined(separator: "\n\n")
+        alert.accessoryView = PluginDialogs.grantList(PluginGrant.rows(
+            permissions: manifest.allPermissions, tools: manifest.tools ?? [], otherFiles: otherFiles(in: unpacked)), in: alert)
+        alert.addButton(withTitle: existing == nil ? L("Install", "Installieren") : L("Update", "Aktualisieren"))
+        alert.addButton(withTitle: L("Cancel", "Abbrechen"))
+        NSApp.activate(ignoringOtherApps: true)
+        let accepted = alert.runModal() == .alertFirstButtonReturn && confirmUnknownSource(manifest)
         guard accepted else {
             try? FileManager.default.removeItem(at: unpacked.directory)
             return nil
@@ -199,19 +247,21 @@ enum PluginImporter {
         return nil
     }
 
-    /// Das Skript vor dem Installieren lesen, danach zurück zur Frage
-    private static func showScript(_ script: String, manifest: PluginManifest) {
-        let alert = PluginDialogs.makeAlert(manifest)
-        alert.messageText = manifest.name.text + " · " + manifest.script
-        let view = NSHostingView(rootView: ScriptText(script: script, fontSize: 11)
-            .frame(width: 460, height: 320)
-            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.black.opacity(0.85)))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .environment(\.colorScheme, .dark))
-        view.frame = NSRect(x: 0, y: 0, width: 460, height: 320)
-        alert.accessoryView = view
-        alert.addButton(withTitle: L("Back", "Zurück"))
-        alert.runModal()
+    /// Zweite Frage nach „Installieren“: Das Plugin kommt nicht aus der Galerie (Nutzer,
+    /// 01.11.2026). „Abbrechen“ ist die Vorgabe, Return installiert also nicht aus Versehen.
+    private static func confirmUnknownSource(_ manifest: PluginManifest) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = L("This plugin isn’t from the BarDrop gallery", "Dieses Plugin stammt nicht aus der BarDrop-Galerie")
+        alert.informativeText = L("Plugins can run programs and read the files you give them. One from an unknown source could harm your Mac. Only continue if you trust where “\(manifest.name.text)” comes from.",
+                                  "Plugins können Programme ausführen und die Dateien lesen, die du ihnen gibst. Eins aus unbekannter Quelle könnte deinem Mac schaden. Fahr nur fort, wenn du der Herkunft von „\(manifest.name.text)“ vertraust.")
+        let cancel = alert.addButton(withTitle: L("Cancel", "Abbrechen"))
+        let install = alert.addButton(withTitle: L("Install Anyway", "Trotzdem installieren"))
+        cancel.keyEquivalent = "\r"
+        install.keyEquivalent = ""
+        install.hasDestructiveAction = true
+        NSApp.activate(ignoringOtherApps: true)
+        return alert.runModal() == .alertSecondButtonReturn
     }
 
     /// Dateien im Plugin außer manifest.json und dem Skript (das Skript kann sie lesen und
@@ -251,55 +301,5 @@ enum PluginImporter {
         alert.addButton(withTitle: "OK")
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
-    }
-}
-
-/// Schreibgeschützte Ansicht eines Skripts in einer festen Schrift, mit einfachen
-/// Syntaxfarben (Schlüsselwörter, Texte, Zahlen, Kommentare)
-struct ScriptText: View {
-    let script: String
-    var fontSize: CGFloat = 12
-
-    var body: some View {
-        ScrollView([.vertical, .horizontal]) {
-            Text(ScriptHighlighter.highlight(script, size: fontSize))
-                .textSelection(.enabled)
-                .fixedSize(horizontal: true, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(12)
-        }
-    }
-}
-
-enum ScriptHighlighter {
-    private static let keywords = ["async", "await", "break", "case", "catch", "class", "const", "continue", "default",
-                                   "do", "else", "export", "false", "finally", "for", "function", "if", "import", "in",
-                                   "let", "new", "null", "of", "return", "switch", "this", "throw", "true", "try",
-                                   "typeof", "undefined", "var", "while"]
-
-    /// Höchstens so viele Zeichen einfärben: sehr lange Skripte bleiben flüssig
-    private static let limit = 200_000
-
-    static func highlight(_ script: String, size: CGFloat) -> AttributedString {
-        var text = AttributedString(script)
-        text.font = .system(size: size, design: .monospaced)
-        text.foregroundColor = Color(white: 0.88)
-        guard script.count <= limit else { return text }
-        func paint(_ pattern: String, _ color: Color, options: NSRegularExpression.Options = []) {
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return }
-            let ns = script as NSString
-            for match in regex.matches(in: script, range: NSRange(location: 0, length: ns.length)) {
-                guard let range = Range(match.range, in: script),
-                      let lower = AttributedString.Index(range.lowerBound, within: text),
-                      let upper = AttributedString.Index(range.upperBound, within: text) else { continue }
-                text[lower..<upper].foregroundColor = color
-            }
-        }
-        paint(#"\b\d+(\.\d+)?\b"#, Color(red: 0.82, green: 0.75, blue: 0.5))
-        paint(#"\b(" + keywords.joined(separator: "|") + #")\b"#, Color(red: 0.99, green: 0.37, blue: 0.64))
-        paint(#"\bbardrop\b"#, Color(red: 0.4, green: 0.8, blue: 0.95))
-        paint(#"(["'`])(?:\\.|(?!\1).)*\1"#, Color(red: 0.99, green: 0.42, blue: 0.36))
-        paint(#"//[^\n]*|/\*[\s\S]*?\*/"#, Color(white: 0.5))
-        return text
     }
 }

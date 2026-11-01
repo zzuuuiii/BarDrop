@@ -108,7 +108,7 @@ final class PluginEndToEndTests: XCTestCase {
         drop([makeFile("note.txt", "hello world")])
 
         waitUntil { self.names.contains("note UPPER.txt") }
-        XCTAssertEqual(names, ["note.txt", "note UPPER.txt", "older.pdf"])
+        XCTAssertEqual(names, ["note UPPER.txt", "note.txt", "older.pdf"])
         let result = try XCTUnwrap(store.entries.flatMap(\.files).first { $0.url.lastPathComponent == "note UPPER.txt" })
         XCTAssertTrue(result.owned)
         XCTAssertEqual(try String(contentsOf: result.url, encoding: .utf8), "HELLO WORLD")

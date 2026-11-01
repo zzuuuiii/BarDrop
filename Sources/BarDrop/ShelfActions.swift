@@ -786,6 +786,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 self.announce(L("Couldn’t convert", "Nicht umgewandelt"))
                 return
             }
+            // Liegt das Original in der Ablage, kommt das Ergebnis links daneben (Nutzer, 01.11.2026)
+            let originals = Set(urls.map(\.standardizedFileURL))
+            if let anchor = self.store.entries.lazy.flatMap(\.files).first(where: { originals.contains($0.url.standardizedFileURL) }) {
+                return self.placeConverted(results, nextTo: anchor.id)
+            }
             // Wie hineingezogene Dateien übernehmen; der Zwischenordner wird danach gelöscht
             let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.convert"))
             pasteboard.clearContents()
@@ -799,6 +804,33 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 let n = added.count
                 self?.announce(n > 0 ? L("Converted", "Umgewandelt") : L("Couldn’t convert", "Nicht umgewandelt"))
             }
+        }
+    }
+
+    /// Umgewandelte Dateien in den eigenen Speicher und links neben das Original. Wie bei
+    /// Plugins entsteht die Vorschau vorher, damit die Kachel nicht erst mit Symbol erscheint.
+    private func placeConverted(_ results: [URL], nextTo anchor: UUID) {
+        let files = store.adoptResults(results)
+        if let dir = results.first?.deletingLastPathComponent() { try? FileManager.default.removeItem(at: dir) }
+        guard !files.isEmpty else {
+            NSSound.beep()
+            return announce(L("Couldn’t convert", "Nicht umgewandelt"))
+        }
+        let size = CGFloat(settings.tileIconSize)
+        let previews = files.map(\.url).filter(ThumbnailView.expectsPreview)
+        Task { @MainActor [weak self] in
+            // Höchstens kurz warten: Liefert Quick Look nichts, kommt das Symbol
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    for url in previews { _ = await Thumbnails.load(url, size: size) }
+                }
+                group.addTask { try? await Task.sleep(nanoseconds: 1_500_000_000) }
+                await group.next()
+                group.cancelAll()
+            }
+            guard let self else { return }
+            self.store.insertResults(files, nextTo: anchor, replacing: false)
+            self.announce(L("Converted", "Umgewandelt"))
         }
     }
 

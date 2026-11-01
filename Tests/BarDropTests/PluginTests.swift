@@ -658,7 +658,7 @@ final class PluginTests: XCTestCase {
         XCTAssertTrue(added[0].owned)
         store.insertResults(added, nextTo: middle.id, replacing: false)
         XCTAssertEqual(store.entries.map { $0.files[0].url.lastPathComponent },
-                       [order[0], order[1], "result.txt", order[2]])
+                       [order[0], "result.txt", order[1], order[2]])
 
         // Ersetzen nimmt das Original aus der Ablage
         store.insertResults(store.adoptResults([makeFile("third.txt")]), nextTo: middle.id, replacing: true)

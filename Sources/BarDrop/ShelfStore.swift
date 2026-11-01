@@ -965,16 +965,16 @@ final class ShelfStore: ObservableObject {
         return files
     }
 
-    /// Entpackter Inhalt eines Archivs neben das Archiv: mehrere Dateien als ein Stapel, eine
-    /// einzeln. Liegt das Archiv in einem Stapel, kommt der Inhalt dort hinter das Archiv.
+    /// Entpackter Inhalt eines Archivs links neben das Archiv: mehrere Dateien als ein Stapel,
+    /// eine einzeln. Liegt das Archiv in einem Stapel, kommt der Inhalt dort vor das Archiv.
     func insertUnpacked(_ files: [ShelfFile], nextTo fileID: UUID?) {
         guard !files.isEmpty else { return }
         var updated = entries
         if let fileID, let pos = position(of: fileID) {
             if updated[pos.entry].isStack {
-                updated[pos.entry].files.insert(contentsOf: files, at: pos.file + 1)
+                updated[pos.entry].files.insert(contentsOf: files, at: pos.file)
             } else {
-                updated.insert(ShelfEntry(files: files), at: pos.entry + 1)
+                updated.insert(ShelfEntry(files: files), at: pos.entry)
             }
         } else {
             updated.insert(ShelfEntry(files: files), at: 0)
@@ -982,8 +982,8 @@ final class ShelfStore: ObservableObject {
         insertWithoutAnimation { $0 = updated }
     }
 
-    /// Legt übernommene Dateien eines Plugins direkt neben das Original (in der angezeigten
-    /// Reihenfolge dahinter; in einem Stapel hinter die Datei im Stapel). Mit `replacing`
+    /// Legt übernommene Dateien eines Plugins oder einer Umwandlung direkt links neben das
+    /// Original (in einem Stapel vor die Datei im Stapel; Nutzer, 01.11.2026). Mit `replacing`
     /// wird das Original aus der Ablage genommen (widerrufbar). Liegt das Original nicht
     /// mehr in der Ablage, kommen sie nach vorn.
     func insertResults(_ files: [ShelfFile], nextTo fileID: UUID, replacing: Bool) {
@@ -994,10 +994,10 @@ final class ShelfStore: ObservableObject {
         }
         var updated = entries
         if updated[pos.entry].isStack {
-            updated[pos.entry].files.insert(contentsOf: files, at: pos.file + 1)
+            updated[pos.entry].files.insert(contentsOf: files, at: pos.file)
         } else {
-            // Gespeichert und gezeigt wird neueste zuerst: „dahinter“ ist der nächste Platz
-            updated.insert(contentsOf: files.map { ShelfEntry(files: [$0]) }, at: pos.entry + 1)
+            // Gespeichert und gezeigt wird neueste zuerst: „links davor“ ist der Platz des Originals
+            updated.insert(contentsOf: files.map { ShelfEntry(files: [$0]) }, at: pos.entry)
         }
         insertWithoutAnimation { $0 = updated }
         if replacing {

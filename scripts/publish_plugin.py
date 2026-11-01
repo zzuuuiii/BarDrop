@@ -209,7 +209,8 @@ def publish(args, options):
         entry["category"] = category
     # Größe der Programme, wie sie auf dem Mac liegen: Die Galerie zeigt Plugin und Programme
     # getrennt („8 KB · Programm 61 MB“)
-    tools = [t for t in manifest.get("tools", []) if isinstance(t, dict)]
+    # Je Chip eigene Programme: die Größe für den Apple-Chip (sonst zählten beide Fassungen)
+    tools = [t for t in manifest.get("tools", []) if isinstance(t, dict) and t.get("arch") in (None, "arm64")]
     if tools and not options.get("no-tool-size"):
         sizes = [tool_size(t) for t in tools]
         if all(size is not None for size in sizes):

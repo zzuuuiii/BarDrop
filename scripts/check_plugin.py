@@ -283,6 +283,8 @@ def check_manifest(m, files, published=False):
             if key in tool and not isinstance(tool[key], str):
                 error(f"Programm \"{tid}\": \"{key}\" muss ein Text sein")
                 tool = {k: v for k, v in tool.items() if k != key}
+        if "arch" in tool and tool["arch"] not in ("arm64", "x86_64"):
+            error(f"Programm \"{tid}\": \"arch\" muss \"arm64\" oder \"x86_64\" sein")
         if "refreshDays" in tool and (not isinstance(tool["refreshDays"], int) or isinstance(tool["refreshDays"], bool)):
             error(f"Programm \"{tid}\": \"refreshDays\" muss eine ganze Zahl sein")
         if not tool["url"].startswith("https://"):

@@ -711,6 +711,13 @@ struct ShelfContent: View {
                 // steht sofort als Kachel da, an der Stelle, an der es landen wird
                 if showPending { pendingTiles }
                 ForEach(actions.orderedEntries) { entry in
+                    // Laufende Plugins links vom Original, wo auch ihr Ergebnis landet (Nutzer, 01.11.2026)
+                    if !runner.jobs.isEmpty {
+                        ForEach(runner.jobs(nextTo: entry.files.map(\.id))) { job in
+                            PluginJobTile(job: job, ui: ui, actions: actions, iconSize: CGFloat(settings.tileIconSize))
+                        .reportsTileFrame(job.id)
+                        }
+                    }
                     // „Original ersetzen“: Solange das Plugin läuft, steht sein Platzhalter an
                     // der Stelle des Originals; das Original selbst ist nicht zu sehen
                     if !entry.isStack, let file = entry.files.first, let job = runner.replacingJob(for: file.id) {
@@ -727,12 +734,6 @@ struct ShelfContent: View {
                             }
                         )
                         .transition(Self.tileTransition)
-                    }
-                    if !runner.jobs.isEmpty {
-                        ForEach(runner.jobs(nextTo: entry.files.map(\.id))) { job in
-                            PluginJobTile(job: job, ui: ui, actions: actions, iconSize: CGFloat(settings.tileIconSize))
-                        .reportsTileFrame(job.id)
-                        }
                     }
                 }
                 if ui.showSampleTile { sizeGuides }
@@ -844,6 +845,12 @@ struct ShelfContent: View {
     @ViewBuilder
     private func stackTileItems(_ stack: ShelfEntry) -> some View {
             ForEach(stack.files) { file in
+                if !runner.jobs.isEmpty {
+                    ForEach(runner.jobs(nextTo: [file.id])) { job in
+                        PluginJobTile(job: job, ui: ui, actions: actions, iconSize: CGFloat(settings.tileIconSize))
+                        .reportsTileFrame(job.id)
+                    }
+                }
                 if let job = runner.replacingJob(for: file.id) {
                     PluginJobTile(job: job, ui: ui, actions: actions, iconSize: CGFloat(settings.tileIconSize))
                         .reportsTileFrame(job.id)
@@ -858,12 +865,6 @@ struct ShelfContent: View {
                         }
                     )
                     .transition(Self.tileTransition)
-                }
-                if !runner.jobs.isEmpty {
-                    ForEach(runner.jobs(nextTo: [file.id])) { job in
-                        PluginJobTile(job: job, ui: ui, actions: actions, iconSize: CGFloat(settings.tileIconSize))
-                        .reportsTileFrame(job.id)
-                    }
                 }
             }
     }

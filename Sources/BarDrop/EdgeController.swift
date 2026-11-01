@@ -1892,8 +1892,13 @@ extension EdgeController {
     /// Grenzen beim freien Ziehen: Liegt über, unter oder neben der Ablage ein weiterer Bildschirm,
     /// darf sie hinübergleiten. Bisher hielt sie der Bildschirm unter dem Zeiger fest (oben an der
     /// Menüleiste), und beim Wechsel sprang sie auf den anderen (Nutzer, 01.11.2026). Auf einem
-    /// einzelnen Bildschirm bleibt alles wie vorher
-    static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen]) -> NSRect {
+    /// einzelnen Bildschirm bleibt alles wie vorher.
+    /// Mit „Bildschirme verwenden verschiedene Spaces“ zeigt macOS ein Fenster nur auf einem
+    /// Bildschirm, der Teil auf dem anderen bliebe unsichtbar (Ablage halb abgeschnitten, dann
+    /// weg). Dann bleibt sie ganz auf dem Bildschirm unter dem Zeiger und wechselt mit ihm.
+    static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen],
+                              separateSpaces: Bool = NSScreen.screensHaveSeparateSpaces) -> NSRect {
+        let screens = separateSpaces ? [screen] : screens
         var result = target
         // Senkrecht: alle Bildschirme in derselben Spalte wie die Ablage
         let column = screens.filter { $0.frame.maxX > target.minX && $0.frame.minX < target.maxX }

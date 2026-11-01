@@ -112,5 +112,37 @@ final class RegressionTests: XCTestCase {
         }
         XCTAssertGreaterThan(checked, 20)
     }
+
+    /// Programme mit `arch` gelten nur für diesen Chip, ohne `arch` für alle
+    func testToolsForOtherChipAreLeftOut() throws {
+        let json = #"{"id": "x.y", "name": "T", "version": "1.0.0", "icon": {"symbol": "star"}, "match": {"extensions": ["txt"]}, "tools": [{"id": "a", "name": "A", "url": "https://e.org/a", "arch": "arm64"}, {"id": "b", "name": "B", "url": "https://e.org/b", "arch": "x86_64"}, {"id": "c", "name": "C", "url": "https://e.org/c"}]}"#
+        let manifest = try JSONDecoder().decode(PluginManifest.self, from: Data(json.utf8))
+        #if arch(arm64)
+        XCTAssertEqual(manifest.tools?.map(\.id), ["a", "c"])
+        #else
+        XCTAssertEqual(manifest.tools?.map(\.id), ["b", "c"])
+        #endif
+    }
+
+    /// Entpackter Inhalt steht links neben dem Archiv (Nutzer, 01.11.2026)
+    func testUnpackedContentLandsLeftOfArchive() throws {
+        let store = ShelfStore(baseDirectory: dir.appendingPathComponent("shelf"))
+        AppSettings.shared.stackMultiple = false
+        defer { AppSettings.shared.stackMultiple = true }
+        let files = ["a.zip", "b.txt"].map { name -> ShelfFile in
+            let url = dir.appendingPathComponent(name)
+            try? Data("x".utf8).write(to: url)
+            return ShelfFile(url: url, owned: false)
+        }
+        store.add(files)
+        let order = store.entries.map { $0.files[0].url.lastPathComponent }
+        let archive = try XCTUnwrap(store.entries.flatMap(\.files).first { $0.url.lastPathComponent == "a.zip" })
+        let inner = dir.appendingPathComponent("inhalt.txt")
+        try Data("y".utf8).write(to: inner)
+        store.insertUnpacked(store.adoptResults([inner]), nextTo: archive.id)
+        var expected = order
+        expected.insert("inhalt.txt", at: try XCTUnwrap(order.firstIndex(of: "a.zip")))
+        XCTAssertEqual(store.entries.map { $0.files[0].url.lastPathComponent }, expected)
+    }
 }
 

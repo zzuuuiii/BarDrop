@@ -222,6 +222,19 @@ struct PluginTool: Codable, Hashable, Identifiable {
     var archive: String?
     /// Pfad des Programms im Archiv (nur mit `archive`), z. B. `"tool"` oder `"bin/tool"`
     var executable: String?
+    /// `"arm64"` oder `"x86_64"`: nur für diesen Chip. Programme für den anderen Chip zeigt und
+    /// lädt BarDrop gar nicht (für Herausgeber, deren Dateinamen nicht zu `{arch}` passen)
+    var arch: String?
+
+    /// Für den Chip dieses Mac (oder für alle)
+    var isForThisMac: Bool {
+        guard let arch else { return true }
+        #if arch(arm64)
+        return arch == "arm64"
+        #else
+        return arch == "x86_64"
+        #endif
+    }
 
     /// `{arch}` in `url` und `checksums` wird zur Architektur des Mac: `aarch64` (Apple Chip)
     /// oder `x86_64` (Intel)
@@ -328,7 +341,8 @@ struct PluginManifest: Codable, Hashable {
         let rawPermissions = try c.decodeIfPresent([String].self, forKey: .permissions) ?? []
         permissions = rawPermissions.compactMap(PluginPermission.init(rawValue:))
         unknownPermissions = rawPermissions.filter { PluginPermission(rawValue: $0) == nil }
-        tools = try c.decodeIfPresent([PluginTool].self, forKey: .tools)
+        // Nur die Programme für diesen Mac: Fenster, Laden und Entfernen sehen die anderen nie
+        tools = try c.decodeIfPresent([PluginTool].self, forKey: .tools)?.filter(\.isForThisMac)
         settings = try c.decodeIfPresent([PluginSettingSpec].self, forKey: .settings)
         canReplaceOriginal = try c.decodeIfPresent(Bool.self, forKey: .canReplaceOriginal)
         batch = try c.decodeIfPresent(Bool.self, forKey: .batch)

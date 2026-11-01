@@ -50,6 +50,9 @@ extension CloudProvider {
 struct CloudError: LocalizedError {
     let message: String
     var hint: String?
+    /// Kurzfassung für oben rechts in der Ablage (höchstens 24 Zeichen, wie „Nicht umgewandelt“);
+    /// ohne eigene steht dort „Nicht hochgeladen“. Die ganze Meldung bleibt im Protokoll
+    var short: String?
     var errorDescription: String? { message }
 
     /// Datei ist beim Hochladen kürzer geworden: sonst liefe die Schleife ewig (leeres Stück)
@@ -60,10 +63,12 @@ struct CloudError: LocalizedError {
         let text = String(decoding: body.prefix(300), as: UTF8.self)
         if status == 401 {
             return CloudError(message: L("\(service.title): Sign-in expired.", "\(service.title): Anmeldung abgelaufen."),
-                              hint: L("Connect again in Settings → Cloud.", "In Einstellungen → Cloud neu verbinden."))
+                              hint: L("Connect again in Settings → Cloud.", "In Einstellungen → Cloud neu verbinden."),
+                              short: L("Sign-in expired", "Anmeldung abgelaufen"))
         }
         if status == 507 || text.contains("insufficient_space") || text.contains("storageQuotaExceeded") {
-            return CloudError(message: L("\(service.title) is full.", "\(service.title) ist voll."))
+            return CloudError(message: L("\(service.title) is full.", "\(service.title) ist voll."),
+                              short: L("\(service.title) is full", "\(service.title) ist voll"))
         }
         return CloudError(message: L("\(service.title) answered with error \(status).", "\(service.title) meldet Fehler \(status)."),
                           hint: text.isEmpty ? nil : text)
@@ -402,7 +407,8 @@ class OAuthCloudProvider {
     func accessToken() async throws -> String {
         guard let current = token, let request = oauthRequest else {
             throw CloudError(message: L("\(service.title) isn’t connected.", "\(service.title) ist nicht verbunden."),
-                             hint: L("Connect it in Settings → Cloud.", "In Einstellungen → Cloud verbinden."))
+                             hint: L("Connect it in Settings → Cloud.", "In Einstellungen → Cloud verbinden."),
+                             short: L("Not connected", "Nicht verbunden"))
         }
         guard current.isExpired else { return current.accessToken }
         return try await refresh(current, request).accessToken

@@ -97,7 +97,8 @@ final class CloudManager: ObservableObject {
             } catch {
                 // Ohne Platzhalter gibt es kein Rütteln: Fehler als Meldung in der Ablage
                 if !(error is CancellationError) {
-                    actions.announce((error as? CloudError)?.message ?? error.localizedDescription, duration: 4)
+                    // Oben rechts nur kurz wie die anderen Meldungen; der ganze Text steht im Protokoll
+                    actions.announce((error as? CloudError)?.short ?? L("Couldn’t upload", "Nicht hochgeladen"), duration: 4)
                 }
                 throw error
             }
@@ -109,7 +110,7 @@ final class CloudManager: ObservableObject {
                 let pasteboard = NSPasteboard.general
                 pasteboard.clearContents()
                 pasteboard.setString(url.absoluteString, forType: .string)
-                actions.announce(L("Uploaded · link copied", "Hochgeladen · Link kopiert"))
+                actions.announce(L("Link copied", "Link kopiert"))
             } else {
                 actions.announce(L("Uploaded", "Hochgeladen"))
             }

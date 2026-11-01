@@ -734,7 +734,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 guard let self else { return }
                 if deleted > 0 { Sounds.trash() }
                 self.folder.reload(after: 0)
-                self.announce(error ?? L("Deleted in \(service.title)", "In \(service.title) gelöscht"))
+                // Kurz wie die anderen Meldungen (der Fehler selbst steht im Protokoll)
+                self.announce(error != nil ? L("Not deleted", "Nicht gelöscht")
+                                           : L("Deleted in \(service.title)", "In \(service.title) gelöscht"))
             }
             return
         }
@@ -1311,8 +1313,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             guard let self, self.isFolderOpen,
                   let open = self.folder.root, CloudMirror.shared.service(forFolder: open) == service else { return }
             self.folder.reload()
-        }, failed: { [weak self] message in
-            self?.announce(message)
+        }, failed: { [weak self] _ in
+            // Kurz wie die anderen Meldungen; der Fehler steht im Protokoll (CloudMirror)
+            self?.announce(L("Couldn’t sync", "Nicht abgeglichen"))
         })
     }
 

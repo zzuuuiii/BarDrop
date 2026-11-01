@@ -88,4 +88,29 @@ final class RegressionTests: XCTestCase {
         XCTAssertNil(ShelfFile.offlineVolumeName(of: alias.appendingPathComponent("Users/x.txt")))
         XCTAssertEqual(ShelfFile.offlineVolumeName(of: URL(fileURLWithPath: "/Volumes/GibtEsNicht-\(UUID().uuidString)/a.txt")).map { $0.hasPrefix("GibtEsNicht") }, true)
     }
+
+    /// Meldungen oben rechts in der Ablage passen in die 24 Zeichen, statt mit „…“ zu enden
+    func testHeaderNoticesFitTheirSpace() throws {
+        let sources = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("Sources/BarDrop")
+        let files = FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" } ?? []
+        XCTAssertFalse(files.isEmpty)
+        let pattern = try NSRegularExpression(pattern: #"(?:announce|short:)\(?\s*L\("([^"\\]*)", "([^"\\]*)"\)"#)
+        var checked = 0
+        for file in files {
+            let text = try String(contentsOf: file, encoding: .utf8)
+            for match in pattern.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+                for group in 1...2 {
+                    guard let range = Range(match.range(at: group), in: text) else { continue }
+                    // Platzhalter wie \(service.title) zählen mit ihrem längsten Wert
+                    let value = text[range].replacingOccurrences(of: #"\(service.title)"#, with: "Google Drive")
+                    XCTAssertLessThanOrEqual(value.count, ShelfContent.statusLimit, "\(file.lastPathComponent): \(value)")
+                    checked += 1
+                }
+            }
+        }
+        XCTAssertGreaterThan(checked, 20)
+    }
 }
+

@@ -42,7 +42,8 @@ enum PluginPrelude {
           bardrop.sleep(wait).then(function () {
             if (!timers[id]) return;
             fire(fn, args);
-            tick();
+            // Hat der Rückruf das Intervall beendet, nicht noch einmal warten (wie Node)
+            if (timers[id]) tick();
           });
         })();
         return id;

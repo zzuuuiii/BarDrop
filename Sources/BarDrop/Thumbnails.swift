@@ -25,9 +25,29 @@ enum Thumbnails {
     }
 
     private static func key(_ url: URL, size: CGFloat) -> String {
-        let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?
+        let path = url.standardizedFileURL.path
+        return "\(path)|\(Int(size))|\(Int(modified(path, url)))"
+    }
+
+    /// Änderungsdatum, eine halbe Sekunde lang gemerkt: Jede Kachel fragt bei jedem Neuzeichnen
+    /// nach (beim Laden vieler Bilder alle 30 ms), das waren bei 300 Dateien tausende
+    /// Dateizugriffe pro Sekunde auf dem Hauptthread
+    private static var modifiedDates: [String: (value: TimeInterval, checked: TimeInterval)] = [:]
+    private static let modifiedLock = NSLock()
+
+    private static func modified(_ path: String, _ url: URL) -> TimeInterval {
+        let now = ProcessInfo.processInfo.systemUptime
+        modifiedLock.lock()
+        let known = modifiedDates[path]
+        modifiedLock.unlock()
+        if let known, now - known.checked < 0.5 { return known.value }
+        let value = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?
             .timeIntervalSince1970 ?? 0
-        return "\(url.standardizedFileURL.path)|\(Int(size))|\(Int(modified))"
+        modifiedLock.lock()
+        if modifiedDates.count > 4000 { modifiedDates.removeAll() }
+        modifiedDates[path] = (value, now)
+        modifiedLock.unlock()
+        return value
     }
 
     /// Schärfster Bildschirm (nicht `NSScreen.main`, das wechselt mit dem aktiven Fenster)

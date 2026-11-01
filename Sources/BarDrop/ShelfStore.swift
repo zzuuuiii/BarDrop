@@ -265,7 +265,20 @@ final class ShelfStore: ObservableObject {
 
     private func load() {
         defer { loaded = true }
-        guard let data = try? Data(contentsOf: dbURL) else { return }
+        let data: Data
+        do {
+            data = try Data(contentsOf: dbURL)
+        } catch {
+            // Gibt es die Liste, ist sie aber gerade nicht lesbar: beiseitelegen wie eine
+            // unlesbare, sonst überschriebe das nächste Speichern sie mit einer leeren Ablage
+            if FileManager.default.fileExists(atPath: dbURL.path) {
+                let backup = baseDir.appendingPathComponent("shelf-unlesbar-\(Int(Date().timeIntervalSince1970)).json")
+                try? FileManager.default.moveItem(at: dbURL, to: backup)
+                Log.store.error("Liste nicht lesbar, gesichert: \(error.localizedDescription, privacy: .public)")
+                diagnostics?.failure("store", "Liste nicht lesbar, gesichert", error)
+            }
+            return
+        }
         let decoded: [LossyEntry]
         do {
             decoded = try JSONDecoder().decode([LossyEntry].self, from: data)
@@ -317,6 +330,9 @@ final class ShelfStore: ObservableObject {
             return f
         }
         guard !file.owned else { return nil }
+        // Fehlt nur die Erlaubnis (Schreibtisch, Dokumente, Downloads, z. B. nach einem Update),
+        // sieht die Datei wie gelöscht aus: behalten, sie ist wieder da, sobald macOS es erlaubt
+        if accessDenied(file.url) { return file }
         guard let moved = file.resolvedURL() else {
             // Laufwerk nicht angeschlossen: Eintrag behalten statt endgültig zu verlieren
             return file.offlineVolumeName != nil ? file : nil
@@ -326,6 +342,14 @@ final class ShelfStore: ObservableObject {
         f.bookmark = ShelfFile.makeBookmark(moved) ?? file.bookmark
         Log.store.info("Datei wiedergefunden: \(moved.lastPathComponent, privacy: .private)")
         return f
+    }
+
+    /// Pfad nicht erreichbar, weil macOS den Zugriff verweigert (nicht, weil er fehlt)
+    static func accessDenied(_ url: URL) -> Bool {
+        var info = stat()
+        if lstat(url.path, &info) == 0 { return false }
+        let code = errno
+        return code == EPERM || code == EACCES
     }
 
     /// Dateien aus älteren Versionen einmalig neu schreiben (Fehler −8060).
@@ -497,20 +521,36 @@ final class ShelfStore: ObservableObject {
     /// Eine Datei wurde verschoben (z. B. über eine Ordner-Aktion): Verweis aktualisieren.
     /// Die Datei gehört danach dem Nutzer und wird beim Entfernen nicht gelöscht.
     func relocate(_ old: URL, to new: URL) {
-        let key = old.standardizedFileURL
-        // Eine eigene Kopie hat ihren Speicherordner verlassen: leeren Ordner gleich löschen
-        let oldDir = key.deletingLastPathComponent()
-        if oldDir.path.hasPrefix(itemsDir.standardizedFileURL.path + "/"),
-           (try? FileManager.default.contentsOfDirectory(atPath: oldDir.path))?.isEmpty == true {
-            try? FileManager.default.removeItem(at: oldDir)
-        }
-        for e in entries.indices {
-            for f in entries[e].files.indices where entries[e].files[f].url.standardizedFileURL == key {
-                entries[e].files[f].url = new
-                entries[e].files[f].owned = false
-                entries[e].files[f].bookmark = ShelfFile.makeBookmark(new)
+        relocate([(old, new)])
+    }
+
+    /// Mehrere Verschiebungen auf einmal: `entries` wird nur einmal gesetzt, also nur einmal
+    /// gespeichert und neu gezeichnet (vorher dreimal je Datei, bei 200 Dateien 600-mal)
+    func relocate(_ moves: [(URL, URL)]) {
+        let itemsPath = itemsDir.standardizedFileURL.path + "/"
+        var targets: [URL: URL] = [:]
+        for (old, new) in moves {
+            let key = old.standardizedFileURL
+            targets[key] = new
+            // Eine eigene Kopie hat ihren Speicherordner verlassen: leeren Ordner gleich löschen
+            let oldDir = key.deletingLastPathComponent()
+            if oldDir.path.hasPrefix(itemsPath),
+               (try? FileManager.default.contentsOfDirectory(atPath: oldDir.path))?.isEmpty == true {
+                try? FileManager.default.removeItem(at: oldDir)
             }
         }
+        var updated = entries
+        var changed = false
+        for e in updated.indices {
+            for f in updated[e].files.indices {
+                guard let new = targets[updated[e].files[f].url.standardizedFileURL] else { continue }
+                updated[e].files[f].url = new
+                updated[e].files[f].owned = false
+                updated[e].files[f].bookmark = ShelfFile.makeBookmark(new)
+                changed = true
+            }
+        }
+        if changed { entries = updated }
     }
 
     /// Entfernt Einträge (widerrufbar).

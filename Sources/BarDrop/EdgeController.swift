@@ -531,8 +531,13 @@ final class EdgeController: NSObject {
     /// nach einem kurzen Moment und nur dann neu ausrichten, wenn sich wirklich etwas
     /// geändert hat oder der gemerkte Bildschirm nicht mehr gültig ist.
     @objc private func screensChanged() {
-        screenChangeWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.applyScreenChange() }
+        // Schon geplant: nicht verschieben. Sonst schöben Meldungen im 150-ms-Takt die
+        // Ausrichtung immer weiter hinaus, und die Ablage bliebe auf einem alten Bildschirm
+        guard screenChangeWork == nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.screenChangeWork = nil
+            self?.applyScreenChange()
+        }
         screenChangeWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
@@ -695,7 +700,12 @@ final class EdgeController: NSObject {
         guard new != old else { return }
         Diagnostics.shared.record("edge", "level \(old) → \(new) dragging=\(self.dragPasteboard.changeCount != self.dragBaseline) ownDrag=\(self.ui.ownDragActive) manual=\(self.logic.manualOpen) preview=\(self.previewUntil != nil ? String(describing: self.previewLevel) : "–") guide=\(self.guideActive ? String(describing: self.guideLevel) : "–") locked=\(self.ui.isLocked)")
         lastActivity = Date()
-        if new == .expanded { FramePacer.shared.start(on: panel, label: "open", duration: 0.6) }
+        if new == .expanded {
+            FramePacer.shared.start(on: panel, label: "open", duration: 0.6)
+            // Wieder offen, bevor ein eigenes Herausziehen endete: Der aufgeschobene Fokuswechsel
+            // gilt nicht mehr (er ließ die offene Ablage kurz verschwinden und ohne Fokus zurück)
+            pendingResignFocus = false
+        }
         let style = settings.animationStyle
         // Kleine Stufen haben ihre eigene, elastische Bewegung; die Ablage selbst die gewählte
         let animation: Animation
@@ -769,7 +779,9 @@ final class EdgeController: NSObject {
     private func tidyWhileHidden() {
         tidyPending = false
         Thumbnails.forgetIcons()
-        for file in store.entries.flatMap(\.files) { _ = Thumbnails.icon(file.url) }
+        // Nur so viele, wie der Zwischenspeicher hält (400): Mehr verdrängten sich gegenseitig,
+        // und jede große Ablage kostete bei jedem Schließen hunderte Zugriffe auf dem Hauptthread
+        for file in store.entries.flatMap(\.files).prefix(300) { _ = Thumbnails.icon(file.url) }
         TrashState.shared.refresh()
         store.pruneMissingFiles()
     }
@@ -1009,10 +1021,36 @@ final class EdgeController: NSObject {
         // Menüverfolgung und könnte sie stören (die Markierung springt dann verspätet).
         // Die Ablage bleibt dabei ohnehin offen.
         if ui.menuOpen { return }
+        endResizeIfReleased()
         // Während die Ablage gezogen wird, steuert das Ziehen (tearTick) alles; schwebt sie,
         // gibt es keinen Rand, nur Maus und Fokus über ihr
         if let drag = tearDrag {
+            // Nur gedrückt, und das Loslassen kam nicht an (App-Wechsel, Mission Control): Nach
+            // kurzer Frist (ein Loslassen kann noch unterwegs sein) wie ein bloßer Klick beenden.
+            // Sonst ließ sich die Ablage nicht mehr schließen, und der Takt lief weiter
+            if drag.phase == .pending {
+                if (NSEvent.pressedMouseButtons & 1) == 1 {
+                    drag.pendingReleasedAt = nil
+                } else if let since = drag.pendingReleasedAt {
+                    if CACurrentMediaTime() - since > 0.25 {
+                        if drag.pendingFromFloating { drag.phase = .floating } else { tearDrag = nil }
+                        drag.down = nil
+                        drag.pendingReleasedAt = nil
+                        setGrabbing(false)
+                        Diagnostics.shared.record("tear", "Drücken ohne Loslassen beendet")
+                    }
+                } else {
+                    drag.pendingReleasedAt = CACurrentMediaTime()
+                }
+                return
+            }
             if drag.phase == .floating {
+                // Gesperrt: nichts zu tun, die schwebende Ablage bleibt, wo sie ist (sonst lief der
+                // 60-Hz-Takt bei Bewegungen auf dem Sperrbildschirm weiter)
+                if ScreenLock.shared.isLocked {
+                    pauseTicking()
+                    return
+                }
                 if layoutDirty { floatingSettingsChanged(drag) }
                 floatTick(drag)
                 // Ruhe: Zeiger fern der Ablage, nichts gedrückt, nichts offen. Dann ruht der Takt
@@ -1360,6 +1398,8 @@ final class TearDrag {
     var pointer: NSPoint?
     /// Abstand zum Zeiger beim Lösen, der in kurzer Zeit auf null ausläuft
     var catchUp: CGVector?
+    /// Gedrückt, aber noch nicht gezogen (`pending`), und die Taste ist los: seit wann (siehe tick)
+    var pendingReleasedAt: CFTimeInterval?
     /// Bildschirm, auf dem sie schwebt (wird er abgesteckt, kehrt sie an ihren Rand zurück)
     var floatDisplay: CGDirectDisplayID?
 
@@ -1415,6 +1455,18 @@ extension EdgeController {
     /// Breite und Höhe, oben und unten nur die Höhe, an der Seite nur die Breite. Angedockt geht
     /// das nicht an der Seite am Bildschirmrand. Der Wert landet direkt in den Einstellungen (die
     /// Regler laufen mit), beim Loslassen auf deren 10er-Schritten.
+    /// Das Loslassen beim Ändern der Größe kam nicht an (Mission Control, App-Wechsel, Bildschirmfoto):
+    /// wie beim Loslassen beenden. Sonst blieb die Ablage gesperrt offen, und ein späteres Ziehen
+    /// ohne ⌘ änderte weiter ihre Größe
+    private func endResizeIfReleased() {
+        guard let r = cornerResize, (NSEvent.pressedMouseButtons & 1) == 0 else { return }
+        applyResize(r, at: NSEvent.mouseLocation, snap: true)
+        cornerResize = nil
+        FrameRateBoost.shared.release()
+        redrawContent()
+        Diagnostics.shared.record("resize", "ende ohne Loslassen \(Int(settings.shelfWidth))x\(Int(settings.shelfHeight))")
+    }
+
     func resizeEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
@@ -1893,7 +1945,7 @@ extension EdgeController {
             setTear(gap: near.distance, attach: attach * 0.85, side: near.side)
         } else {
             // Gleich nach dem Lösen: Die Verbindung zum alten Rand zieht sich schnell zurück
-            let screen = drag.originScreen.frame
+            let screen = liveOrigin(drag).frame
             let gap = drag.origin == .right ? screen.maxX - body.maxX : body.minX - screen.minX
             let t = min(1, Date().timeIntervalSince(drag.detachStarted) / 0.14)
             let fade = CGFloat(1 - (1 - t) * (1 - t))
@@ -2002,16 +2054,31 @@ extension EdgeController {
         Diagnostics.shared.record("tear", "detach")
     }
 
+    /// Bildschirm, von dem die Ablage abgezogen wurde, so wie macOS ihn jetzt kennt. Wurde er
+    /// inzwischen getrennt, der aktuelle der Ablage: sonst dockte sie an einem Bildschirm an,
+    /// den es nicht mehr gibt, und lag kurz außerhalb des sichtbaren Bereichs
+    private func liveOrigin(_ drag: TearDrag) -> NSScreen {
+        Self.fresh(drag.originScreen) ?? Self.fresh(screen) ?? NSScreen.main ?? drag.originScreen
+    }
+
     private func releaseTear(_ drag: TearDrag) {
         setGrabbing(false)
         switch drag.phase {
         case .stretching:
-            dock(drag, side: drag.origin, screen: drag.originScreen)
+            dock(drag, side: drag.origin, screen: liveOrigin(drag))
         case .free:
+            // Noch im kurzen Nachlauf nach dem Lösen (0,14 s): Entscheiden, wo der Zeiger ist, nicht
+            // wo die Ablage gerade nachläuft. Sonst dockte sie nach einem schnellen Wurf vom Rand
+            // weg wieder an, oder blieb auf halbem Weg zum Zeiger liegen
+            if !drag.springDone {
+                drag.springDone = true
+                drag.catchUp = nil
+                updateTear(drag)
+            }
             // In Randnähe losgelassen rastet sie immer ein, auch wenn sie gleich nach dem Lösen
             // schwungvoll zurückgeschoben wurde (sonst bliebe sie halb am Rand schweben)
             if let near = nearestDock(for: drag.body), near.distance < EdgeTear.attachZone {
-                dock(drag, side: drag.leftZone ? near.side : drag.origin, screen: drag.leftZone ? near.screen : drag.originScreen)
+                dock(drag, side: drag.leftZone ? near.side : drag.origin, screen: drag.leftZone ? near.screen : liveOrigin(drag))
             } else {
                 float(drag)
             }
@@ -2044,7 +2111,7 @@ extension EdgeController {
     func returnFloatingToEdge(close: Bool) {
         guard let drag = tearDrag, drag.phase == .floating else { return }
         drag.closeAfterDock = close
-        dock(drag, side: settings.edge, screen: Self.fresh(drag.originScreen) ?? drag.originScreen)
+        dock(drag, side: settings.edge, screen: liveOrigin(drag))
     }
 
     private func dock(_ drag: TearDrag, side: ScreenEdge, screen: NSScreen) {
@@ -2142,6 +2209,7 @@ extension EdgeController {
         }
         removeGlassWindow()
         layoutPanel()
+        FramePacer.shared.stop()
         Diagnostics.shared.record("tear", "ended")
     }
 
@@ -2198,8 +2266,11 @@ extension EdgeController {
         lastSizeSignature = settings.sizeSignature
         lastPeekSignature = settings.peekSignature
         lastTileIconSize = settings.tileIconSize
-        // Glas ein- oder ausgeschaltet, System oder Manuell, eigene Stellung verstellt
-        if settings.detachedGlass {
+        // Glas ein- oder ausgeschaltet, System oder Manuell, eigene Stellung verstellt. Nicht
+        // beim Ziehen an der Größe (`live`): Da ändert sich am Glas nichts, und es wurde bei jeder
+        // Mausbewegung aus- und eingeblendet und die Systemeinstellung neu gelesen (ruckelte).
+        // Die neue Größe bekommt es unten über syncGlassWindow
+        if settings.detachedGlass && !live {
             let shown = glassWindow?.alphaValue ?? 0
             prepareGlassWindow()
             glassWindow?.show(shown)
@@ -2248,6 +2319,7 @@ extension EdgeController {
 
     /// Schwebend: statt Rand und Takt nur Maus und Fokus über der Ablage
     func floatTick(_ drag: TearDrag) {
+        endResizeIfReleased()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
@@ -2348,6 +2420,9 @@ final class FrameRateBoost: NSObject {
     }
 
     @objc private func frame(_ link: CADisplayLink) {
+        // Unbefristet nur, solange die Maustaste gedrückt ist (⌘-Größe ändern): Ging das
+        // Loslassen verloren, liefe der 120-Hz-Takt sonst bis zum Beenden weiter
+        if until == .infinity, NSEvent.pressedMouseButtons & 1 == 0 { until = CACurrentMediaTime() }
         guard CACurrentMediaTime() >= until else { return }
         link.invalidate()
         self.link = nil

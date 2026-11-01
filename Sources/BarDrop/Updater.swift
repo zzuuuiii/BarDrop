@@ -122,7 +122,9 @@ final class Updater: ObservableObject {
               let assets = json["assets"] as? [[String: Any]],
               let asset = assets.first(where: { ($0["name"] as? String) == "BarDrop.dmg" }),
               let link = asset["browser_download_url"] as? String,
-              let dmg = URL(string: link) else {
+              let dmg = URL(string: link),
+              // Nur der Download-Ort der Releases dieses Repos, nur verschlüsselt
+              dmg.scheme == "https", dmg.host == "github.com" else {
             Log.update.error("Update-Suche fehlgeschlagen: \(error?.localizedDescription ?? "keine Antwort", privacy: .public)")
             Diagnostics.shared.failure("update", "Update-Suche fehlgeschlagen", error)
             // Eine Suche ohne Zutun meldet nichts: kein Fehlerhinweis in den Einstellungen
@@ -278,8 +280,8 @@ final class Updater: ObservableObject {
         guard let expected = release.sha256 else {
             throw UpdateError(L("The download couldn’t be verified.", "Der Download ließ sich nicht prüfen."))
         }
-        let data = try Data(contentsOf: dmg)
-        let actual = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        // Stückweise statt die ganze DMG auf einmal in den Speicher
+        let actual = PluginPackage.sha256(of: dmg) ?? ""
         guard actual == expected.lowercased() else { throw UpdateError(L("The DMG’s checksum doesn’t match.", "Die Prüfsumme der DMG stimmt nicht.")) }
 
         let mount = work.appendingPathComponent("mnt", isDirectory: true)
@@ -293,6 +295,10 @@ final class Updater: ObservableObject {
         guard let app = (try? FileManager.default.contentsOfDirectory(at: mount, includingPropertiesForKeys: nil))?
             .first(where: { $0.pathExtension == "app" }) else {
             throw UpdateError(L("The DMG contains no app.", "In der DMG ist keine App."))
+        }
+        // Dieselbe App (gleiche Kennung) und nicht irgendeine, die in der DMG liegt
+        guard let id = Bundle(url: app)?.bundleIdentifier, id == Bundle.main.bundleIdentifier else {
+            throw UpdateError(L("The download couldn’t be verified.", "Der Download ließ sich nicht prüfen."))
         }
         let staged = target.deletingLastPathComponent().appendingPathComponent(".BarDrop-Update.app")
         try? FileManager.default.removeItem(at: staged)

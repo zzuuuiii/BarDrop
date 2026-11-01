@@ -127,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func registerHotKey(code: Int, modifiers: Int) {
         hotKey = nil
-        let key = HotKey(keyCode: UInt32(code), modifiers: UInt32(modifiers)) { [weak self] in
+        let key = HotKey(keyCode: UInt32(clamping: code), modifiers: UInt32(clamping: modifiers)) { [weak self] in
             self?.controller.toggle()
             self?.onboarding?.hotKeyPressed()
         }

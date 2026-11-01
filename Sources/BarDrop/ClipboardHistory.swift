@@ -25,7 +25,13 @@ final class ClipboardHistory {
     let folder: URL
     private let pasteboard: NSPasteboard
     private var timer: Timer?
-    private var lastChange: Int
+    private var lastChange: Int {
+        // Zähler der Zwischenablage gilt systemweit bis zum Neustart des Mac: gemerkt, damit
+        // ein Neustart von BarDrop den unveränderten Inhalt nicht noch einmal aufnimmt
+        didSet { if let key = changeKey { UserDefaults.standard.set(lastChange, forKey: key) } }
+    }
+    /// Nur für die echte Zwischenablage (Tests nutzen eigene)
+    private var changeKey: String? { pasteboard.name == .general ? "clipboardHistoryLastChange" : nil }
     /// Inhalt des neuesten Eintrags: Dasselbe zweimal kopiert ergibt keinen zweiten Eintrag
     private var lastSignature: String?
     private var subscription: AnyCancellable?
@@ -50,8 +56,9 @@ final class ClipboardHistory {
         guard timer == nil else { return }
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         // Beim Einschalten gleich den jetzigen Inhalt aufnehmen: Dabei fragt macOS (falls es
-        // fragt) direkt nach dem Klick auf den Schalter, nicht irgendwann später
-        lastChange = -1
+        // fragt) direkt nach dem Klick auf den Schalter, nicht irgendwann später. Schon
+        // aufgenommen (BarDrop neu gestartet, Inhalt unverändert): nicht noch einmal
+        lastChange = changeKey.flatMap { UserDefaults.standard.object(forKey: $0) as? Int } ?? -1
         check()
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in self?.check() }
         timer.tolerance = 0.25

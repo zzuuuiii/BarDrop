@@ -50,7 +50,9 @@ struct PluginItem: Equatable {
     }
 
     static func readWebloc(_ url: URL) -> URL? {
-        guard let data = try? Data(contentsOf: url),
+        // Läuft beim Öffnen von Menüs auf dem Hauptthread: ein Link ist klein, Riesiges gar nicht lesen
+        guard let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize, size <= 1 << 20,
+              let data = try? Data(contentsOf: url),
               let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               let string = plist["URL"] as? String, let link = URL(string: string), link.scheme != nil else { return nil }
         return link

@@ -35,7 +35,11 @@ final class OneDriveProvider: OAuthCloudProvider, CloudProvider {
         let size = Self.size(of: file)
         let label = L("Uploading", "Wird hochgeladen") + " · " + Self.sizeLabel(size)
         progress(0, label)
-        let path = "\(CloudService.folderName)/\(name)".addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? name
+        // „:“ trennt bei Microsoft Pfad und Befehl (root:/Pfad:/content): im Namen mitkodieren
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove(charactersIn: ":")
+        let path = "\(CloudService.folderName)/\(name)".addingPercentEncoding(withAllowedCharacters: allowed)
+            ?? "\(CloudService.folderName)/upload"
         // Gleicher Name: Microsoft hängt eine Nummer an statt zu überschreiben
         let item: [String: Any]
         if size <= Self.singleLimit {

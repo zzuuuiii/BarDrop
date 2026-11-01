@@ -441,10 +441,15 @@ final class PluginRuntime {
             let base = ContentImporter.sanitize((name as NSString).lastPathComponent)
             let target = self.newOutputURL(base + ".webloc")
             let plist = ["URL": link.absoluteString]
-            if let data = try? PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0) {
-                try? data.write(to: target)
+            // Wie writeFile: Ließ sich nichts schreiben, ein Fehler statt eines Pfads ins Leere
+            do {
+                let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
+                try data.write(to: target)
+                return JSValue(object: target.path, in: ctx)
+            } catch {
+                ctx.exception = JSValue(newErrorFromMessage: error.localizedDescription, in: ctx)
+                return JSValue(undefinedIn: ctx)
             }
-            return JSValue(object: target.path, in: ctx)
         }
         set("createLink", createLink)
 
@@ -527,7 +532,9 @@ final class PluginRuntime {
         let sleep: @convention(block) (JSValue) -> JSValue = { [weak self] ms in
             let seconds = max(0, min(ms.isNumber ? ms.toDouble() / 1000 : 0, 3600))
             return self?.promise { resolve, _ in
-                DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { resolve(nil) }
+                // Auf der (seriellen) Warteschlange des Skripts: Zeitgeber mit gleicher Frist kommen
+                // so in der Reihenfolge, in der sie gestellt wurden (wie in Browsern und Node)
+                self?.queue.asyncAfter(deadline: .now() + seconds) { resolve(nil) }
             } ?? JSValue(undefinedIn: JSContext.current())
         }
         set("sleep", sleep)
@@ -985,11 +992,15 @@ final class OutputCollector {
         }
         pending.append(data)
         var found: [String] = []
-        while let index = pending.firstIndex(where: { $0 == 10 || $0 == 13 }) {
-            let line = Data(pending[pending.startIndex..<index])
-            pending = Data(pending[pending.index(after: index)...])
+        // Mit wanderndem Anfang suchen und erst am Ende einmal kürzen: Vorher wurde nach jeder
+        // Zeile der ganze Rest kopiert, bei Fortschrittszeilen (\r) eines Programms viel Arbeit
+        var start = pending.startIndex
+        while let index = pending[start...].firstIndex(where: { $0 == 10 || $0 == 13 }) {
+            let line = Data(pending[start..<index])
+            start = pending.index(after: index)
             if !line.isEmpty { found += Self.pieces(line, max: maxLine) }
         }
+        if start != pending.startIndex { pending = Data(pending[start...]) }
         // Noch ohne Zeilenende, aber schon zu lang: volle Stücke weiterreichen, den Rest behalten
         while pending.count > maxLine {
             let cut = Self.boundary(pending, before: maxLine)

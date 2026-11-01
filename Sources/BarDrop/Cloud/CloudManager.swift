@@ -149,9 +149,14 @@ final class CloudManager: ObservableObject {
             arguments += ["--keepParent", first.path, zip.path]
         } else {
             let stage = work.appendingPathComponent("inhalt", isDirectory: true)
-            try fm.createDirectory(at: stage, withIntermediateDirectories: true)
-            for url in urls {
-                try fm.copyItem(at: url, to: ShelfActions.uniqueURL(for: url.lastPathComponent, in: stage))
+            do {
+                try fm.createDirectory(at: stage, withIntermediateDirectories: true)
+                for url in urls {
+                    try fm.copyItem(at: url, to: ShelfActions.uniqueURL(for: url.lastPathComponent, in: stage))
+                }
+            } catch {
+                cleanup()   // sonst bliebe die halbe Kopie im temporären Ordner
+                throw error
             }
             arguments += [stage.path, zip.path]
         }

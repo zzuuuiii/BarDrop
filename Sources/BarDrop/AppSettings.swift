@@ -451,7 +451,17 @@ final class AppSettings: ObservableObject {
     /// Mit Namen: nur Ordner bekommen einen Namen (AirDrop, Papierkorb & Co. erkennt man am Symbol)
     @Published var labelsOnlyFolders: Bool { didSet { defaults.set(labelsOnlyFolders, forKey: Key.labelsOnlyFolders) } }
     /// Auch Beta-Versionen installieren (Vorabversionen auf GitHub)
-    @Published var betaUpdates: Bool { didSet { defaults.set(betaUpdates, forKey: Key.betaUpdates) } }
+    @Published var betaUpdates: Bool {
+        didSet {
+            defaults.set(betaUpdates, forKey: Key.betaUpdates)
+            // Das Protokoll gibt es nur mit Beta-Versionen. Bliebe es verborgen eingeschaltet,
+            // schriebe es nach erneutem Einschalten der Betas weiter, ohne den Hinweis davor
+            if !betaUpdates && diagnosticsEnabled {
+                diagnosticsEnabled = false
+                Diagnostics.shared.clear()
+            }
+        }
+    }
     /// Größe der Symbole und Vorschauen in der Ablage (pt)
     @Published var tileIconSize: Double { didSet { defaults.set(tileIconSize, forKey: Key.tileIconSize) } }
     /// Plugins verwenden (Einstellungen → Plugins). Standardmäßig aus; erst beim
@@ -657,10 +667,14 @@ final class AppSettings: ObservableObject {
         dragReveal = storedReveal == .off ? .nearEdge : storedReveal
         // Ab 1.8 ist der Streifen flacher: alte Standardwerte (16 / 84 / 0,62) einmalig übernehmen,
         // selbst gewählte Werte bleiben
-        if defaults.object(forKey: Key.peekThickness) as? Double == 16,
-           defaults.object(forKey: Key.peekLength) as? Double ?? 84 == 84 {
-            defaults.removeObject(forKey: Key.peekThickness)
-            defaults.removeObject(forKey: Key.peekLength)
+        // (nur einmal: sonst verlöre, wer 16 / 84 später selbst wählt, das bei jedem Start)
+        if !defaults.bool(forKey: "peekDefaults18Migrated") {
+            if defaults.object(forKey: Key.peekThickness) as? Double == 16,
+               defaults.object(forKey: Key.peekLength) as? Double ?? 84 == 84 {
+                defaults.removeObject(forKey: Key.peekThickness)
+                defaults.removeObject(forKey: Key.peekLength)
+            }
+            defaults.set(true, forKey: "peekDefaults18Migrated")
         }
         peekThickness = defaults.double(forKey: Key.peekThickness)
         peekLength = defaults.double(forKey: Key.peekLength)
@@ -742,10 +756,13 @@ final class AppSettings: ObservableObject {
         // Versionen überspringen gibt es nicht mehr: Updates kommen still im Hintergrund
         defaults.removeObject(forKey: "skippedUpdateVersion")
 
+        // Einzeln lesen: Eine unbekannte Aktion (etwa nach dem Zurückgehen auf eine ältere
+        // Version) kostete sonst alle anderen, die Leiste stand wieder auf Standard
         if let data = defaults.data(forKey: Key.quickActions),
-           let decoded = try? JSONDecoder().decode([QuickAction].self, from: data) {
+           let lossy = try? JSONDecoder().decode([LossyQuickAction].self, from: data),
+           lossy.isEmpty || lossy.contains(where: { $0.action != nil }) {
             // „Umwandeln“ war in 1.28 eine Aktion; jetzt steht es im Kontextmenü
-            quickActions = decoded.filter { $0.kind != .convert }
+            quickActions = lossy.compactMap(\.action).filter { $0.kind != .convert }
         } else {
             quickActions = QuickAction.defaults
         }
@@ -830,5 +847,13 @@ final class AppSettings: ObservableObject {
     /// Alles, was Lage oder Größe der Ablage beeinflusst.
     var layoutSignature: String {
         "\(tileIconSize)|\(actionIconSize)|\(showActionLabels)|\(edge.rawValue)|\(verticalPosition)|\(adaptivePosition)|\(adaptiveZone)|\(displayMode.rawValue)|\(shelfWidth)|\(shelfHeight)"
+    }
+}
+
+/// Eine gespeicherte Aktion, die sich auch dann lesen lässt, wenn ihr Inhalt unbekannt ist
+private struct LossyQuickAction: Decodable {
+    let action: QuickAction?
+    init(from decoder: Decoder) throws {
+        action = try? QuickAction(from: decoder)
     }
 }

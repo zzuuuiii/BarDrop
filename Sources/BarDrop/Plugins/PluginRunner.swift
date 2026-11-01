@@ -179,7 +179,9 @@ final class PluginRunner: ObservableObject, PluginPrompter {
     /// `placeholder: false`: ohne eigene Kachel; den Fortschritt zeigt dann die Datei selbst
     /// (Cloud, `CloudUploads`)
     func runNative(_ identity: InstalledPlugin, on files: [ShelfFile], placeholder: Bool = true,
-                   work: @escaping (PluginJob, URL) async throws -> [URL]) {
+                   // Auf dem Hauptthread: Die Arbeit meldet sich in der Ablage (Meldungen, @Published,
+                   // Zwischenablage). Was dauert, sind eigene async-Aufrufe, die ihn verlassen
+                   work: @escaping @MainActor (PluginJob, URL) async throws -> [URL]) {
         guard !files.isEmpty else { return }
         let job = PluginJob(plugin: identity, items: files.map { (PluginItem(url: $0.url), $0.id) }, automatic: false)
         let output = manager.scratchDirectory.appendingPathComponent(job.id.uuidString, isDirectory: true)

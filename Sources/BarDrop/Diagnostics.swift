@@ -51,8 +51,10 @@ final class Diagnostics {
             }
             if !fm.fileExists(atPath: logURL.path) { fm.createFile(atPath: logURL.path, contents: nil) }
             if let handle = try? FileHandle(forWritingTo: logURL) {
-                handle.seekToEndOfFile()
-                handle.write(Data(line.utf8))
+                // Werfende Fassungen: Die alten lösen bei vollem Laufwerk eine Ausnahme aus, die
+                // sich nicht abfangen lässt und BarDrop beendet
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(line.utf8))
                 try? handle.close()
             }
         }
@@ -130,8 +132,10 @@ final class Diagnostics {
             let stack = exception.callStackSymbols.prefix(40).joined(separator: "\n    ")
             let line = "\(d.formatter.string(from: Date()))  [crash]  FEHLER Ausnahme \(exception.name.rawValue) \"\(Diagnostics.scrub(exception.reason ?? ""))\"\n    \(stack)\n"
             if let handle = try? FileHandle(forWritingTo: d.logURL) {
-                handle.seekToEndOfFile()
-                handle.write(Data(line.utf8))
+                // Werfende Fassungen: Die alten lösen bei vollem Laufwerk eine Ausnahme aus, die
+                // sich nicht abfangen lässt und BarDrop beendet
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(line.utf8))
                 try? handle.close()
             }
         }

@@ -19,6 +19,19 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         guard hitRects.contains(where: { $0.insetBy(dx: -2, dy: -2).contains(topLeft) }) else { return nil }
         return super.hitTest(point)
     }
+    // VoiceOver: Diese Ansicht liegt über der Kachel und nimmt alle Klicks, darum ist sie
+    // das Element, das VoiceOver vorliest und anklickt (vorher war die Kachel stumm)
+    override func isAccessibilityElement() -> Bool { !filesProvider().isEmpty }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? {
+        let names = filesProvider().prefix(3).map { $0.url.lastPathComponent }
+        return names.isEmpty ? nil : names.joined(separator: ", ")
+    }
+    override func accessibilityPerformPress() -> Bool {
+        onClick(1, [])
+        return true
+    }
+
     var onMouseDown: (NSEvent.ModifierFlags) -> Void = { _ in }
     var onClick: (Int, NSEvent.ModifierFlags) -> Void = { _, _ in }
     var onHover: (Bool) -> Void = { _ in }

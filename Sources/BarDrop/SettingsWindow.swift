@@ -796,6 +796,9 @@ struct HotKeyEditor: View {
     private func startRecording() {
         recording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Nur Tasten im Einstellungsfenster: Tippte man währenddessen in der Ablage, wurde
+            // sonst diese Taste zum Kurzbefehl und fehlte in der Ablage
+            guard event.window is SettingsNSWindow else { return event }
             if event.keyCode == 53 {               // esc: abbrechen
                 stopRecording()
                 return nil

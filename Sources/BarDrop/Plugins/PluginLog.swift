@@ -52,8 +52,10 @@ final class PluginLog {
             }
             if !fm.fileExists(atPath: logURL.path) { fm.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) }
             if let handle = try? FileHandle(forWritingTo: logURL) {
-                handle.seekToEndOfFile()
-                handle.write(Data(line.utf8))
+                // Werfende Fassungen: Die alten lösen bei vollem Laufwerk eine Ausnahme aus, die
+                // sich nicht abfangen lässt und BarDrop beendet
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(line.utf8))
                 try? handle.close()
             }
         }

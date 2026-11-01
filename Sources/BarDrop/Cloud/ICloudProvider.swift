@@ -45,7 +45,8 @@ final class ICloudProvider: CloudProvider {
         CloudFolderIcon.apply(to: folder)
         let target = ShelfActions.uniqueURL(for: name, in: folder)
         // Erst versteckt ablegen, dann umbenennen: iCloud lädt so nur die fertige Datei hoch
-        let hidden = folder.appendingPathComponent(".laden-" + target.lastPathComponent)
+        // Kurzer eigener Name: „.laden-“ vor einem langen Dateinamen ging über die 255 Zeichen
+        let hidden = folder.appendingPathComponent(".laden-" + UUID().uuidString)
         try? fm.removeItem(at: hidden)
         try fm.copyItem(at: file, to: hidden)
         try fm.moveItem(at: hidden, to: target)
@@ -109,22 +110,27 @@ final class ICloudProvider: CloudProvider {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
+        let cancelled = CancelFlag()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
                 process.terminationHandler = { finished in
                     let out = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
                     let line = out.split(separator: "\n").last.map { $0.trimmingCharacters(in: .whitespaces) } ?? ""
-                    // Beendet von `onCancel`
-                    if finished.terminationReason == .uncaughtSignal {
+                    // Nur von `onCancel` beendet ist ein Abbruch; stürzt osascript selbst ab, ein
+                    // Fehler (sonst bliebe das ohne jede Meldung)
+                    if cancelled.isSet {
                         continuation.resume(throwing: CancellationError())
                     } else {
                         continuation.resume(returning: line)
                     }
                 }
-                do { try process.run() } catch { continuation.resume(throwing: error) }
+                do { try process.run() } catch { return continuation.resume(throwing: error) }
+                // Schon vor dem Start abgebrochen: onCancel fand nichts zu beenden
+                if cancelled.isSet { process.terminate() }
             }
         } onCancel: {
             // Abbrechen beendet auch osascript (das Plugin ließ es weiterlaufen)
+            cancelled.set()
             if process.isRunning { process.terminate() }
         }
     }
@@ -136,8 +142,13 @@ enum CloudFolderIcon {
     static func apply(to folder: URL) {
         // Nur einmal: Ein neues Symbol schreibt eine versteckte Datei, die wieder hochgeladen würde
         let marker = folder.appendingPathComponent("Icon\r")
-        guard !FileManager.default.fileExists(atPath: marker.path), let icon = make() else { return }
-        DispatchQueue.main.async { NSWorkspace.shared.setIcon(icon, forFile: folder.path, options: []) }
+        guard !FileManager.default.fileExists(atPath: marker.path) else { return }
+        // Auch das Bild auf dem Hauptthread bauen: NSApp und NSImage(named:) gehören dorthin,
+        // `apply` wird aber beim Hochladen im Hintergrund aufgerufen
+        DispatchQueue.main.async {
+            guard let icon = make() else { return }
+            NSWorkspace.shared.setIcon(icon, forFile: folder.path, options: [])
+        }
     }
 
     static func make() -> NSImage? {
@@ -152,4 +163,12 @@ enum CloudFolderIcon {
             return true
         }
     }
+}
+
+/// Merker für „abgebrochen“, von beliebigen Threads
+private final class CancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.withLock { value } }
+    func set() { lock.withLock { value = true } }
 }

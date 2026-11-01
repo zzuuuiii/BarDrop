@@ -23,7 +23,9 @@ struct TileGridLayout: Layout {
     }
 
     private func columns(for width: CGFloat) -> Columns {
-        let count = max(1, Int((width + spacing) / (minimum + spacing)))
+        // Int(.infinity) stürzt ab: SwiftUI fragt Layouts manchmal mit unendlicher Breite an
+        let ratio = (width + spacing) / max(1, minimum + spacing)
+        let count = ratio.isFinite ? max(1, min(10_000, Int(ratio))) : 1
         let cell = max(0, min(maximum, (width - spacing * CGFloat(count - 1)) / CGFloat(count)))
         let used = cell * CGFloat(count) + spacing * CGFloat(count - 1)
         return Columns(count: count, width: cell, inset: max(0, (width - used) / 2))
@@ -43,7 +45,7 @@ struct TileGridLayout: Layout {
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? (maximum * 2 + spacing)
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? (maximum * 2 + spacing)
         let heights = rowHeights(subviews, columns(for: width))
         let height = heights.reduce(0, +) + rowSpacing * CGFloat(max(0, heights.count - 1))
         return CGSize(width: width, height: height)

@@ -936,6 +936,14 @@ final class PluginManager: ObservableObject {
             try? FileManager.default.moveItem(at: file, to: renamed)
             let unpacked = try? self.inspect(renamed)
             try? FileManager.default.removeItem(at: renamed)
+            // Falsche Kennung: verworfen, dann auch den entpackten Ordner (sonst bei jedem
+            // Abgleich alle paar Stunden ein weiterer bis zum nächsten Start)
+            if let unpacked, unpacked.manifest.id != entry.id {
+                // Lag das Plugin im Archiv in einem eigenen Ordner, ist dessen Elternordner der neue
+                let parent = unpacked.directory.deletingLastPathComponent()
+                let isScratch = parent.standardizedFileURL.path == self.scratchDirectory.standardizedFileURL.path
+                try? FileManager.default.removeItem(at: isScratch ? unpacked.directory : parent)
+            }
             DispatchQueue.main.async {
                 completion(unpacked?.manifest.id == entry.id ? unpacked : nil)
             }

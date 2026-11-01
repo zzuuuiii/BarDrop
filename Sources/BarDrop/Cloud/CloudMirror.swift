@@ -126,10 +126,19 @@ final class CloudMirror: @unchecked Sendable {
             var index = loadIndex(service)
             var deleted = 0
             var failure: String?
+            // Gerade erst hochgeladen und noch nicht abgeglichen: steht noch nicht im Index. Dann
+            // beim Dienst nachsehen (gleicher Name, wie beim Abgleich), sonst löschte das nur die
+            // Kopie hier und die Datei käme beim nächsten Abgleich zurück (Dropbox, Nutzer)
+            var remote: [CloudRemoteFile]?
             for url in urls {
                 let name = url.lastPathComponent
                 do {
-                    if let file = index[name] { try await provider.delete(file) }
+                    var file = index[name]
+                    if file == nil {
+                        if remote == nil { remote = try await provider.listFolder() }
+                        file = remote?.first { $0.name == name }
+                    }
+                    if let file { try await provider.delete(file) }
                     try? FileManager.default.removeItem(at: url)
                     index[name] = nil
                     deleted += 1

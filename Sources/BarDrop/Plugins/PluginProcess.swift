@@ -109,7 +109,8 @@ final class PluginProcess {
             var raw: Int32 = 0
             var got: pid_t
             repeat { got = waitpid(child, &raw, 0) } while got == -1 && errno == EINTR
-            finish(raw: got == child ? raw : 0)
+            // Ohne Ergebnis von waitpid nicht „erfolgreich“ melden (0), sondern wie Rückgabewert 1
+            finish(raw: got == child ? raw : 1 << 8)
         }
         waiter.name = "BarDrop.plugin.wait"
         waiter.qualityOfService = .userInitiated

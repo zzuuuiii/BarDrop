@@ -44,7 +44,9 @@ enum ImageNormalizer {
             return fixExtension(of: url, for: type)
         }
         let props: [CFString: Any] = [kCGImageDestinationLossyCompressionQuality: 0.92]
-        CGImageDestinationAddImage(dest, image, props as CFDictionary)
+        // Aus der Quelle übernehmen statt nur die Pixel: So bleiben Ausrichtung (Hochformat aus
+        // HEIC kam sonst quer heraus) und Farbprofil erhalten
+        CGImageDestinationAddImageFromSource(dest, source, 0, props as CFDictionary)
         guard CGImageDestinationFinalize(dest) else {
             try? FileManager.default.removeItem(at: destURL)
             return fixExtension(of: url, for: type)

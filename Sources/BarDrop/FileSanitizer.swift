@@ -25,7 +25,9 @@ enum FileSanitizer {
             }
         }
         guard result == 0 else {
-            try? FileManager.default.removeItem(at: target)
+            // Gab es das Ziel schon (EXCL), ist es nicht unsere halbe Kopie, sondern eine fremde
+            // Datei: stehen lassen (DragExport ruft das nach „Datei existiert“ auf)
+            if errno != EEXIST { try? FileManager.default.removeItem(at: target) }
             return false
         }
         try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: target.path)
@@ -43,12 +45,16 @@ enum FileSanitizer {
         }
         let fresh = url.deletingLastPathComponent().appendingPathComponent(".bardrop-\(UUID().uuidString)")
         guard cleanCopy(from: url, to: fresh) else { return url }
-        do {
-            try FileManager.default.removeItem(at: url)
-            try FileManager.default.moveItem(at: fresh, to: url)
-        } catch {
+        // In einem Schritt ersetzen (rename ist atomar): Vorher wurde erst das Original gelöscht
+        // und dann die Kopie verschoben; schlug das fehl, löschte die Fehlerbehandlung auch die
+        // Kopie, und die Datei war ganz weg
+        let replaced = fresh.withUnsafeFileSystemRepresentation { src in
+            url.withUnsafeFileSystemRepresentation { dst in rename(src, dst) }
+        }
+        if replaced != 0 {
+            let code = errno
             try? FileManager.default.removeItem(at: fresh)
-            Log.importing.error("Neu schreiben fehlgeschlagen: \(error.localizedDescription, privacy: .public)")
+            Log.importing.error("Neu schreiben fehlgeschlagen: \(String(cString: strerror(code)), privacy: .public)")
         }
         return url
     }

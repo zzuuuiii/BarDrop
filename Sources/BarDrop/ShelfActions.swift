@@ -868,7 +868,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 guard let self else { return }
                 if failed { NSSound.beep() }
                 if filed > 0 { Sounds.folder() }
-                for (old, new) in moves { self.store.relocate(old, to: new) }
+                self.store.relocate(moves)
                 self.store.pruneMissingFiles()
                 if self.folder.isOpen { self.folder.reload(after: 0) }
                 completion(used + moves.map(\.1))

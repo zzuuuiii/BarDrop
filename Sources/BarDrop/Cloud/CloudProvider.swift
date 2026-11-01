@@ -54,7 +54,7 @@ struct CloudError: LocalizedError {
 
     /// Datei ist beim Hochladen kürzer geworden: sonst liefe die Schleife ewig (leeres Stück)
     /// oder `last - 1` liefe bei Google und OneDrive unter null
-    static let fileChanged = CloudError(message: L("The file changed while uploading.", "Die Datei hat sich beim Hochladen geändert."))
+    static var fileChanged: CloudError { CloudError(message: L("The file changed while uploading.", "Die Datei hat sich beim Hochladen geändert.")) }
 
     static func http(_ status: Int, _ body: Data, service: CloudService) -> CloudError {
         let text = String(decoding: body.prefix(300), as: UTF8.self)
@@ -102,12 +102,16 @@ enum CloudKeychain {
         let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                    kSecAttrService as String: serviceName,
                                    kSecAttrAccount as String: service.rawValue]
-        let status = SecItemUpdate(base as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        var status = SecItemUpdate(base as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {
             var add = base
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
+            status = SecItemAdd(add as CFDictionary, nil)
+        }
+        // Sonst wäre die Anmeldung nach dem nächsten Start ohne jeden Hinweis weg
+        if status != errSecSuccess {
+            Diagnostics.shared.failure("cloud", "Schlüsselbund \(service.rawValue) status=\(status)")
         }
     }
 
@@ -327,7 +331,18 @@ extension String {
 /// Gemeinsame Hilfen für Dienste mit Anmeldung (Dropbox, Google, Microsoft)
 class OAuthCloudProvider {
     let service: CloudService
-    private(set) var token: CloudToken?
+    /// Uploads, Abgleich und Anmeldung laufen nebeneinander: Zugang nur unter der Sperre lesen
+    /// und schreiben
+    private let lock = NSLock()
+    private var storedToken: CloudToken?
+    private(set) var token: CloudToken? {
+        get { lock.withLock { storedToken } }
+        set { lock.withLock { storedToken = newValue } }
+    }
+    /// Laufende Erneuerung: Wer gleichzeitig einen neuen Zugang braucht, wartet auf diese.
+    /// Zwei Erneuerungen mit demselben Refresh-Token meldeten bei Microsoft (das ihn dabei
+    /// austauscht) die zweite als ungültig und damit ab
+    private var refreshing: Task<CloudToken, Error>?
 
     init(service: CloudService) {
         self.service = service
@@ -350,7 +365,27 @@ class OAuthCloudProvider {
     func disconnect() {
         token = nil
         CloudKeychain.delete(service)
-        CloudManager.shared.objectWillChange.send()
+        if Thread.isMainThread {
+            CloudManager.shared.objectWillChange.send()
+        } else {
+            DispatchQueue.main.async { CloudManager.shared.objectWillChange.send() }
+        }
+    }
+
+    /// Zugang erneuern, gleichzeitige Anfragen teilen sich eine Erneuerung
+    private func refresh(_ current: CloudToken, _ request: CloudOAuth.Request) async throws -> CloudToken {
+        let task: Task<CloudToken, Error> = lock.withLock {
+            if let running = refreshing { return running }
+            let task = Task { () throws -> CloudToken in
+                defer { self.lock.withLock { self.refreshing = nil } }
+                let fresh = try await CloudOAuth.refresh(current, request)
+                self.store(fresh)
+                return fresh
+            }
+            refreshing = task
+            return task
+        }
+        return try await task.value
     }
 
     func signIn() async throws -> CloudToken {
@@ -370,9 +405,7 @@ class OAuthCloudProvider {
                              hint: L("Connect it in Settings → Cloud.", "In Einstellungen → Cloud verbinden."))
         }
         guard current.isExpired else { return current.accessToken }
-        let fresh = try await CloudOAuth.refresh(current, request)
-        store(fresh)
-        return fresh.accessToken
+        return try await refresh(current, request).accessToken
     }
 
     /// Anfrage mit Zugang; bei 401 einmal mit erneuertem Zugang wiederholen
@@ -381,8 +414,7 @@ class OAuthCloudProvider {
         if let body { request.httpBody = body }
         var (data, response) = try await URLSession.shared.data(for: request)
         if (response as? HTTPURLResponse)?.statusCode == 401, let current = token, let oauth = oauthRequest {
-            let fresh = try await CloudOAuth.refresh(current, oauth)
-            store(fresh)
+            let fresh = try await refresh(current, oauth)
             request = make(fresh.accessToken)
             if let body { request.httpBody = body }
             (data, response) = try await URLSession.shared.data(for: request)

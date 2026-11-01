@@ -259,7 +259,11 @@ final class EdgeController: NSObject {
                     Thumbnails.prefetch(files.filter { !known.contains($0.id) }.map(\.url),
                                         size: CGFloat(self.settings.tileIconSize))
                 } else {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.warmUpAfterLaunch() }
+                    // Vor dem Gruß am Rand (nach 0,6 s), nicht danach: Das erste Öffnen kam oft schon
+                    // nach einer Sekunde, mit kaltem Zwischenspeicher, und ruckelte (Nutzer und
+                    // Diagnose 01.11.2026: 30 statt 34 Bilder). Die Vorschaubilder lädt Quick Look
+                    // ohnehin im Hintergrund
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.warmUpAfterLaunch() }
                 }
                 self.knownFileIDs = Set(files.map(\.id))
                 self.refreshContent()
@@ -792,7 +796,7 @@ final class EdgeController: NSObject {
     /// ist. Sonst lud sie erst das erste Öffnen, mitten in der Animation: Die Kacheln erschienen
     /// nacheinander, und die Ablage ruckelte nur beim ersten Öffnen nach dem Start (Nutzer,
     /// 30.10.2026; Diagnose: erstes Öffnen rund zehn Bilder weniger). Später Geöffnetes hält
-    /// tidyWhileHidden ebenso bereit. 2 s nach dem Start: nicht während des Grußes am Rand
+    /// tidyWhileHidden ebenso bereit. Gleich nach dem Start, noch vor dem Gruß am Rand
     private func warmUpAfterLaunch() {
         let size = CGFloat(settings.tileIconSize)
         // Die neuesten zuerst, so viele, wie eine große Ablage auf einmal zeigt
@@ -1441,6 +1445,18 @@ extension EdgeController {
     /// Schwebt die Ablage gerade frei?
     var isFloating: Bool { tearDrag?.phase == .floating }
 
+    /// Einstellungen vorn: Die schwebende Ablage liegt sonst darüber (sie schwebt auf der Ebene
+    /// der Menüleiste über allen Fenstern), und die Einstellungen öffneten sich dahinter (Nutzer,
+    /// 01.11.2026). Solange sie das aktive Fenster sind, rückt die Ablage auf die normale Ebene;
+    /// danach schwebt sie wieder über allem. Die Einstellungen selbst höher zu legen, verdeckte
+    /// ihre eigenen Rückfragen (die erscheinen auf einer niedrigeren Ebene)
+    func settingsKeyChanged(_ key: Bool) {
+        let level = key && isFloating ? NSWindow.Level.normal : ShelfPanel.shelfLevel
+        guard panel.level != level else { return }
+        panel.level = level
+        glassWindow?.level = level
+    }
+
     /// Ereignisse der eigenen Fenster, bevor sie ankommen. Ein Drücken auf den Griff behält
     /// BarDrop zunächst für sich: Wird daraus ein Ziehen, löst sich die Ablage vom Rand (oder
     /// wandert, wenn sie schwebt); bleibt es ein Klick, wird er unverändert nachgereicht.
@@ -1863,6 +1879,27 @@ extension EdgeController {
         }
     }
 
+    /// Grenzen beim freien Ziehen: Liegt über, unter oder neben der Ablage ein weiterer Bildschirm,
+    /// darf sie hinübergleiten. Bisher hielt sie der Bildschirm unter dem Zeiger fest (oben an der
+    /// Menüleiste), und beim Wechsel sprang sie auf den anderen (Nutzer, 01.11.2026). Auf einem
+    /// einzelnen Bildschirm bleibt alles wie vorher
+    static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen]) -> NSRect {
+        var result = target
+        // Senkrecht: alle Bildschirme in derselben Spalte wie die Ablage
+        let column = screens.filter { $0.frame.maxX > target.minX && $0.frame.minX < target.maxX }
+        let vertical = column.isEmpty ? [screen] : column
+        let top = vertical.map(\.visibleFrame.maxY).max() ?? screen.visibleFrame.maxY
+        let bottom = vertical.map(\.visibleFrame.minY).min() ?? screen.visibleFrame.minY
+        result.origin.y = min(max(target.minY, bottom), top - target.height)
+        // Waagerecht: alle Bildschirme in derselben Zeile
+        let row = screens.filter { $0.frame.maxY > result.minY && $0.frame.minY < result.maxY }
+        let horizontal = row.isEmpty ? [screen] : row
+        let left = horizontal.map(\.frame.minX).min() ?? screen.frame.minX
+        let right = horizontal.map(\.frame.maxX).max() ?? screen.frame.maxX
+        result.origin.x = min(max(target.minX, left), right - target.width)
+        return result
+    }
+
     /// Bildschirm, auf dem ein Punkt liegt (oder der nächste erlaubte)
     private func tearScreen(at point: NSPoint) -> NSScreen? {
         Self.screen(containing: point, in: allowedScreens())
@@ -1921,9 +1958,7 @@ extension EdgeController {
             var target = NSRect(x: p.x - drag.grab.x, y: p.y - drag.grab.y,
                                 width: drag.body.width, height: drag.body.height)
             if let screen = tearScreen(at: p) {
-                let frame = screen.frame, visible = screen.visibleFrame
-                target.origin.x = min(max(target.minX, frame.minX), frame.maxX - target.width)
-                target.origin.y = min(max(target.minY, visible.minY), visible.maxY - target.height)
+                target = Self.clampFloating(target, around: screen, among: allowedScreens())
             }
             var body = drag.body
             if drag.springDone {
@@ -2191,6 +2226,8 @@ extension EdgeController {
         stopTearTimer()
         FramePacer.shared.stop()
         tearDrag = nil
+        // Am Rand immer auf ihrer eigenen Ebene (siehe settingsKeyChanged)
+        if panel.level != ShelfPanel.shelfLevel { panel.level = ShelfPanel.shelfLevel }
         if let s = drag.dockScreen { screen = s }
         let t0 = CACurrentMediaTime()
         defer { Diagnostics.shared.record("perf", "tear dock-finish \(Int((CACurrentMediaTime() - t0) * 1000))ms") }
@@ -2376,7 +2413,10 @@ extension EdgeController {
         if inside != pointerInside {
             Diagnostics.shared.record("tear", "float Zeiger \(inside ? "über" : "neben") der Ablage kopf=\(headerZone(body).contains(loc))")
         }
-        if inside && !pointerInside && !mouseDown && !panel.isKeyWindow && !locked && NSApp.modalWindow == nil {
+        // Hinter den Einstellungen (siehe settingsKeyChanged) nur per Klick nach vorn, nicht schon,
+        // wenn der Zeiger über die verdeckte Stelle fährt
+        if inside && !pointerInside && !mouseDown && !panel.isKeyWindow && !locked && NSApp.modalWindow == nil
+            && panel.level == ShelfPanel.shelfLevel {
             takeFocus()
         }
         pointerInside = inside

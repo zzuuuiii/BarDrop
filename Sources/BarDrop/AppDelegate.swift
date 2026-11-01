@@ -271,6 +271,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             window.delegate = self
             settingsWindow = window
+            // Schwebende Ablage hinter die Einstellungen, solange diese vorn sind
+            let center = NotificationCenter.default
+            center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self] _ in
+                self?.controller.settingsKeyChanged(true)
+            }
+            for name in [NSWindow.didResignKeyNotification, NSWindow.willCloseNotification] {
+                center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    self?.controller.settingsKeyChanged(false)
+                }
+            }
         }
         // Auf dem Bildschirm der Ablage öffnen, mittig in dessen sichtbarem Bereich
         // Liegt das Fenster nicht mehr ganz auf einem Bildschirm (z. B. Monitor abgesteckt),

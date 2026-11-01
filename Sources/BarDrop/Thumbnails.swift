@@ -43,6 +43,10 @@ enum Thumbnails {
         if let known, now - known.checked < 0.5 { return known.value }
         let value = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate)?
             .timeIntervalSince1970 ?? 0
+        // Frisch geschriebene Dateien nicht merken: Ihr Datum ändert sich noch, und mit dem alten
+        // Schlüssel galt „kein Vorschaubild möglich“ länger, die Kachel zeigte kurz das weiße
+        // Blatt (Nutzer, 01.11.2026)
+        guard Date().timeIntervalSince1970 - value > 10 else { return value }
         modifiedLock.lock()
         if modifiedDates.count > 4000 { modifiedDates.removeAll() }
         modifiedDates[path] = (value, now)

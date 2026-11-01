@@ -79,6 +79,8 @@ final class EdgeController: NSObject {
     var coverCheck: (time: Date, rects: [CGRect], covered: Bool) = (.distantPast, [], false)
     /// Takt beim Ziehen, Einrasten und Andocken: im Bildtakt des Bildschirms (siehe startTearTimer)
     var tearLink: CADisplayLink?
+    /// Verschieben kurz vor dem nächsten Bild ist schon geplant (siehe tearFrame)
+    var latchPending = false
     /// Der Rand wurde durch Andocken gewechselt: ohne Verschwinden und neu Erscheinen
     var dockingEdgeChange = false
     private var settingsObserver: AnyCancellable?
@@ -1656,11 +1658,11 @@ extension EdgeController {
                 // abfragt; hier nur, falls er nicht läuft. Mäuse und Trackpads melden oft mehr
                 // Bewegungen als Bilder: Jede davon verschob das Fenster und baute die Form neu,
                 // obwohl nur die letzte vor dem Bild zu sehen war.
-                // Ausnahme: frei gezogen, ohne Verbindung zu einem Rand, verschiebt eine Bewegung nur
-                // das Fenster (Form und Glas bleiben gleich). Das ist billig und sofort zu sehen; nur
-                // im Bildtakt hing die Ablage bei 60 Hz ein Bild hinter dem Zeiger her (Nutzer, 27.10.2026)
-                let windowOnly = drag.phase == .free && drag.springDone && (ui.tear?.attach ?? 0) <= 0.01
-                if tearLink == nil || windowOnly { updateTear(drag) }
+                // Frei gezogen hing die Ablage nur im Bildtakt bei 60 Hz ein Bild hinter dem Zeiger her
+                // (Nutzer, 27.10.2026); darum fragt tearFrame dort den Zeiger erst kurz vor dem Bild ab.
+                // Nur noch ohne Bildtakt hier: Frei gezogen verschiebt tearFrame das Fenster kurz vor
+                // jedem Bild (siehe dort); zusätzlich bei jeder Bewegung ließ es die Ablage zittern
+                if tearLink == nil { updateTear(drag) }
                 return nil
             case .docking, .floating:
                 return event
@@ -1813,7 +1815,32 @@ extension EdgeController {
     }
 
     @objc private func tearFrame(_ link: CADisplayLink) {
+        // Frei gezogen ohne Verbindung zum Rand wird nur das Fenster verschoben: den Zeiger dafür
+        // so spät wie möglich vor dem nächsten Bild abfragen, genau einmal je Bild. Bisher
+        // verschob zusätzlich jede Mausbewegung das Fenster sofort; Trackpads melden etwa doppelt
+        // so oft, wie ein 60-Hz-Bildschirm Bilder zeigt, und der Abstand zwischen Zeiger und
+        // Ablage war dadurch von Bild zu Bild anders. Beim Hin- und Herziehen zitterte sie
+        // (Nutzer, 01.11.2026; Diagnose: Arbeit je Bild nur 0,5 bis 2 ms, kein Bild zu spät)
+        if let drag = tearDrag, isWindowOnly(drag) {
+            guard !latchPending else { return }
+            latchPending = true
+            let delay = max(0, link.targetTimestamp - CACurrentMediaTime() - Self.latchMargin)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self else { return }
+                self.latchPending = false
+                self.tearTick()
+            }
+            return
+        }
         tearTick()
+    }
+
+    /// So viel vor dem Bildwechsel wird das Fenster spätestens verschoben (Spielraum für macOS)
+    private static let latchMargin: CFTimeInterval = 0.004
+
+    /// Frei gezogen, Nachlauf vorbei, keine Verbindung zu einem Rand: nur das Fenster bewegt sich
+    private func isWindowOnly(_ drag: TearDrag) -> Bool {
+        drag.phase == .free && drag.springDone && (ui.tear?.attach ?? 0) <= 0.01
     }
 
     private func tearTick() {

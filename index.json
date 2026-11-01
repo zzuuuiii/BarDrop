@@ -38,59 +38,73 @@
     },
     {
       "id": "io.github.richard2007-21.convert",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": {
         "en": "Convert",
         "de": "Konvertieren"
       },
-      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.convert-1.0.0.bdrop",
-      "sha256": "e4fc20547593e6c0a565385437736c60223b63c71da472f079a2bfca64059b61",
-      "size": 12974,
-      "updated": "2026-10-27",
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.convert-1.1.0.bdrop",
+      "sha256": "25989e8af8eed47e2fb4aea7253fe855c3972d3ebc5bb879f6fa63375a4e6728",
+      "size": 16181,
+      "updated": "2026-11-01",
       "added": "2026-10-27",
       "permissions": [
         "run"
       ],
-      "tools": [],
+      "tools": [
+        "FFmpeg (Apple chip)",
+        "FFmpeg (Intel)",
+        "ffprobe (Apple chip)",
+        "ffprobe (Intel)",
+        "pandoc (Apple chip)",
+        "pandoc (Intel)",
+        "resvg (Apple chip)",
+        "resvg (Intel)"
+      ],
       "description": {
-        "en": "Converts videos, audio, images, PDFs and documents into many formats (MP4, GIF, MP3, PNG, WebP, HEIC, PDF, Word …). You pick the format after right-clicking.",
-        "de": "Wandelt Videos, Ton, Bilder, PDFs und Dokumente in viele Formate um (MP4, GIF, MP3, PNG, WebP, HEIC, PDF, Word …). Das Format wählst du nach dem Rechtsklick."
+        "en": "Converts videos, audio, images, PDFs and documents. You pick the format after right-clicking.",
+        "de": "Wandelt Videos, Ton, Bilder, PDFs und Dokumente um. Das Format wählst du nach dem Rechtsklick."
       },
       "icon": {
         "symbol": "arrow.triangle.2.circlepath",
         "color": "#5856D6"
       },
-      "author": "Richard",
+      "author": "zzuuuiii",
       "homepage": "https://github.com/C4illin/ConvertX",
       "minAppVersion": "1.31.0",
-      "downloads": 2
+      "toolsSize": 291188992,
+      "downloads": 3
     },
     {
       "id": "io.github.richard2007-21.gif",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "name": {
         "en": "Video to GIF",
         "de": "Video zu GIF"
       },
-      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.gif-1.0.0.bdrop",
-      "sha256": "a6cae047671d77c602787cc6324a3c9a46f13875d6927573946e23ee235ded09",
-      "size": 3131,
-      "updated": "2026-10-27",
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.richard2007-21.gif-1.1.0.bdrop",
+      "sha256": "a1656f7d7f990e1844c4f6b957ffa70a6445825fafad08dd958abdb779f69eb6",
+      "size": 4079,
+      "updated": "2026-11-01",
       "added": "2026-10-27",
       "permissions": [
         "run"
       ],
-      "tools": [],
+      "tools": [
+        "FFmpeg (Apple chip)",
+        "FFmpeg (Intel)"
+      ],
       "description": {
-        "en": "Turns videos into high-quality GIFs with gifski (github.com/ImageOptim/gifski)",
-        "de": "Macht aus Videos GIFs in Top-Qualität, mit gifski (github.com/ImageOptim/gifski)"
+        "en": "Turns videos into GIFs: with gifski if it is installed, otherwise with FFmpeg.",
+        "de": "Macht aus Videos GIFs: mit gifski, falls installiert, sonst mit FFmpeg."
       },
       "icon": {
         "symbol": "photo.stack.fill",
         "color": "#5856D6"
       },
-      "author": "Richard",
+      "author": "zzuuuiii",
       "minAppVersion": "1.31.0",
+      "toolsSize": 45568216,
       "downloads": 1
     },
     {
@@ -153,23 +167,26 @@
     },
     {
       "id": "io.github.zzuuuiii.stems",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "name": {
         "en": "Separate Vocals",
         "de": "Gesang und Musik trennen"
       },
-      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.stems-1.1.1.bdrop",
-      "sha256": "4a9c880968dd2fbf3596bc78339167637abac31802dcc7c88c3564851f330299",
-      "size": 4582,
-      "updated": "2026-10-25",
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.stems-1.1.2.bdrop",
+      "sha256": "a142c6f2dade6158b6321bb94e9fd9f563bdd3da51e43da3efd693978803f919",
+      "size": 5039,
+      "updated": "2026-11-01",
       "added": "2026-10-24",
       "permissions": [
         "run"
       ],
-      "tools": [],
+      "tools": [
+        "FFmpeg",
+        "ffprobe"
+      ],
       "description": {
-        "en": "Splits songs and video sound into vocals and music (or vocals, drums, bass, rest) with a local AI model (Demucs). Nothing leaves the Mac.",
-        "de": "Teilt Songs und Videoton in Gesang und Musik (oder Gesang, Schlagzeug, Bass, Rest), mit einem lokalen KI-Modell (Demucs). Nichts verlässt den Mac."
+        "en": "Splits songs and video sound into vocals and music with a local AI model. Nothing leaves the Mac.",
+        "de": "Trennt Gesang und Musik in Songs und Videoton, mit lokaler KI (Demucs). Nichts verlässt den Mac."
       },
       "icon": {
         "symbol": "waveform.and.person.filled",
@@ -177,6 +194,7 @@
       },
       "author": "zzuuuiii",
       "minAppVersion": "1.31.0",
+      "toolsSize": 91097024,
       "downloads": 11
     }
   ]

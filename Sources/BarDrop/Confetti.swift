@@ -94,8 +94,14 @@ private final class ConfettiField {
     /// Größe gegenüber der Fläche auf der Website
     private let scale: Double
 
-    static let colors: [Color] = [0xff375f, 0xff9f0a, 0xffd60a, 0x30d158, 0x0a84ff, 0xbf5af2, 0x64d2ff, 0xffffff].map {
-        Color(red: Double(($0 >> 16) & 0xff) / 255, green: Double(($0 >> 8) & 0xff) / 255, blue: Double($0 & 0xff) / 255)
+    static let colors: [Color] = ([0xff375f, 0xff9f0a, 0xffd60a, 0x30d158, 0x0a84ff, 0xbf5af2, 0x64d2ff, 0xffffff] as [Int]).map(color)
+
+    /// In Teilen gerechnet: Der Compiler von Xcode 26.6 gab beim ganzen Ausdruck auf
+    private static func color(_ hex: Int) -> Color {
+        let red = Double((hex >> 16) & 0xff) / 255
+        let green = Double((hex >> 8) & 0xff) / 255
+        let blue = Double(hex & 0xff) / 255
+        return Color(red: red, green: green, blue: blue)
     }
 
     init(size: CGSize) {

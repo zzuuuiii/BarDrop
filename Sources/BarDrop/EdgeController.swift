@@ -81,6 +81,8 @@ final class EdgeController: NSObject {
     var tearLink: CADisplayLink?
     /// Verschieben kurz vor dem nächsten Bild ist schon geplant (siehe tearFrame)
     var latchPending = false
+    /// Zeitpunkt des Bildes, für das gerade verschoben wird (nur während tearFrame)
+    var latchTarget: CFTimeInterval?
     /// Der Rand wurde durch Andocken gewechselt: ohne Verschwinden und neu Erscheinen
     var dockingEdgeChange = false
     private var settingsObserver: AnyCancellable?
@@ -1404,6 +1406,8 @@ final class TearDrag {
     var pointer: NSPoint?
     /// Abstand zum Zeiger beim Lösen, der in kurzer Zeit auf null ausläuft
     var catchUp: CGVector?
+    /// Letzte Mausbewegungen beim Ziehen (Zeitpunkt, Lage), für die Vorhersage
+    var motion: [(t: TimeInterval, p: NSPoint)] = []
     /// Gedrückt, aber noch nicht gezogen (`pending`), und die Taste ist los: seit wann (siehe tick)
     var pendingReleasedAt: CFTimeInterval?
     /// Bildschirm, auf dem sie schwebt (wird er abgesteckt, kehrt sie an ihren Rand zurück)
@@ -1667,6 +1671,10 @@ extension EdgeController {
                 updateTear(drag)
                 return nil
             case .stretching, .free:
+                // Für die Vorhersage (siehe predictedPointer): Lage und Zeitpunkt der Bewegung
+                let at = event.window.map { $0.convertPoint(toScreen: event.locationInWindow) } ?? NSEvent.mouseLocation
+                drag.motion.append((event.timestamp, at))
+                if drag.motion.count > 8 { drag.motion.removeFirst(drag.motion.count - 8) }
                 // BarDrop schiebt das Fenster selbst. (Schob macOS es per performDrag, kam die
                 // Zeichnung immer erst danach: Der Rand, der sich der Ablage entgegenwölbt,
                 // wanderte dann kurz mit dem Fenster mit, statt fest am Bildschirmrand zu bleiben.)
@@ -1844,7 +1852,9 @@ extension EdgeController {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self else { return }
                 self.latchPending = false
+                self.latchTarget = link.targetTimestamp
                 self.tearTick()
+                self.latchTarget = nil
             }
             return
         }
@@ -1926,8 +1936,32 @@ extension EdgeController {
         return (best.0, max(0, best.1), screen)
     }
 
+    /// Wo der Zeiger sein wird, wenn das Bild erscheint. Den Zeiger zeichnet macOS selbst und sofort,
+    /// das Fenster erst mit dem nächsten Bild: Ohne Vorhersage lag die Ablage beim Ziehen sichtbar
+    /// hinter dem Zeiger (Nutzer, 01.11.2026). Bewusst knapp (etwa 10 ms), damit sie beim Umkehren
+    /// nicht überschießt; steht die Maus, gibt es keine Vorhersage
+    private func predictedPointer(_ drag: TearDrag, target: CFTimeInterval) -> NSPoint? {
+        guard let last = drag.motion.last, drag.motion.count >= 2 else { return nil }
+        let now = ProcessInfo.processInfo.systemUptime
+        // Keine Bewegung mehr seit 40 ms: stehen geblieben
+        guard now - last.t < 0.04 else { return nil }
+        // Geschwindigkeit über die letzten rund 30 ms (ruhiger als nur zwei Ereignisse)
+        guard let first = drag.motion.last(where: { last.t - $0.t >= 0.03 }) ?? drag.motion.first,
+              last.t - first.t > 0.004 else { return nil }
+        let dt = CGFloat(last.t - first.t)
+        let velocity = CGVector(dx: (last.p.x - first.p.x) / dt, dy: (last.p.y - first.p.y) / dt)
+        let horizon = CGFloat(min(max(target - CACurrentMediaTime(), 0), 0.02) + 0.006)
+        var dx = velocity.dx * horizon, dy = velocity.dy * horizon
+        let length = hypot(dx, dy)
+        if length > 40 { dx *= 40 / length; dy *= 40 / length }
+        let now2 = NSEvent.mouseLocation
+        return NSPoint(x: now2.x + dx, y: now2.y + dy)
+    }
+
     private func updateTear(_ drag: TearDrag) {
-        let p = drag.pointer ?? NSEvent.mouseLocation
+        let predicted = drag.phase == .free && drag.springDone && drag.pointer == nil
+            ? latchTarget.flatMap { predictedPointer(drag, target: $0) } : nil
+        let p = drag.pointer ?? predicted ?? NSEvent.mouseLocation
         switch drag.phase {
         case .stretching:
             // Erst dehnt sich die Ablage am Rand wie ein Tropfen, der noch hängt: anfangs

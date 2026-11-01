@@ -104,7 +104,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 
 **Clipboard and cloud**
 * Clipboard history (off by default): BarDrop keeps the last 50 things you copied, a click on the Clipboard action shows them in the shelf. Passwords marked as private are skipped
-* Cloud (beta): connect iCloud Drive, Dropbox or Google Drive in Settings → Cloud, then drop files on its action to get a link on the clipboard. OneDrive follows later. Setup for developers: [docs/CLOUD.md](docs/CLOUD.md)
+* Cloud (beta): connect iCloud Drive or Dropbox in Settings → Cloud, then drop files on its action to get a link on the clipboard. Google Drive and OneDrive follow later. Setup for developers: [docs/CLOUD.md](docs/CLOUD.md)
 
 **Plugins** (optional, off by default)
 * Small add-ons that teach BarDrop new things: in the right-click menu, in the action bar, or automatically when you drop a matching file type or link

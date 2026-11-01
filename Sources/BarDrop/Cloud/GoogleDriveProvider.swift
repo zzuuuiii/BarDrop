@@ -16,11 +16,14 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
     private static let chunkSize = 32 * 256 * 1024
 
     override var oauthRequest: CloudOAuth.Request? {
-        guard let id = CloudKeys.value("BarDropCloudGoogleClientID") else { return nil }
-        // Bei Desktop-Apps ist das „Geheimnis“ nicht geheim; Google verlangt es trotzdem
+        // Bei Desktop-Apps ist das „Geheimnis“ nicht geheim; Google verlangt es trotzdem. Ohne
+        // es scheitert die Anmeldung: dann wie OneDrive „Derzeit noch nicht verfügbar“ (die
+        // veröffentlichte Info.plist hat es nicht, bis die Anmeldung ohne Secret auskommt)
+        guard let id = CloudKeys.value("BarDropCloudGoogleClientID"),
+              let secret = CloudKeys.value("BarDropCloudGoogleClientSecret") else { return nil }
         return CloudOAuth.Request(authorizeURL: URL(string: "https://accounts.google.com/o/oauth2/v2/auth")!,
                                   tokenURL: URL(string: "https://oauth2.googleapis.com/token")!,
-                                  clientID: id, clientSecret: CloudKeys.value("BarDropCloudGoogleClientSecret"),
+                                  clientID: id, clientSecret: secret,
                                   redirectURI: "http://127.0.0.1:\(CloudOAuth.port)/",
                                   scopes: ["https://www.googleapis.com/auth/drive.file", "email"],
                                   // Refresh-Token auch, wenn man schon einmal verbunden war

@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.31.0-beta.11
+### Highlights
+* **New (beta): Cloud.** Settings → Cloud connects iCloud Drive and Dropbox. Drop files on a service’s action or right-click “Share with …”: they go into a “BarDrop Share” folder, and the link lands on the clipboard and/or in the shelf. Files dropped together get one link (zipped), and an upload shows the same progress bar as a running plugin. A click on the action shows the “BarDrop Share” folder in the shelf; dropping files there uploads them, deleting there deletes them in the cloud too. Google Drive and OneDrive follow later
+* **New: Clipboard history** (off until you turn it on in Settings → Actions). BarDrop keeps the last 50 things you copied; a click on the Clipboard action shows them in the shelf, a click on one copies it again. Passwords marked as private are skipped
+* **New:** “Clipboard” action: drop files on it to put them on the clipboard, like `⌘C` in the Finder
+* **New:** `⌘D` duplicates the selected items in the shelf or a stack, like in the Finder (`⌘Z` removes the copies)
+* **New:** Double-click an action to open where it leads: folders and the Trash in the Finder, AirDrop, Mail, Messages, the shortcut in Shortcuts, a plugin’s page in Settings
+* **New:** In an open folder, drop files on a subfolder (hold briefly) to put them into it, like in the Finder
+* **New:** Settings → Appearance → Icons: Automatic, Light or Dark for BarDrop’s own icons, drawn with the exact size and corners of macOS 26 app icons
+* **New:** The plus button of a plugin on bardrop.app installs it in BarDrop (BarDrop asks first), and `.bdrop` files show their plugin’s symbol in the Finder
+* **Smoother shelf:** A shelf pulled off the edge now moves exactly once per frame, just before the screen draws, and slightly ahead of the pointer, so it no longer trembles or lags behind, especially on 60 Hz displays. It glides across displays in one piece (also with “Displays have separate Spaces”), settles fully onto one display if you let go on the border, stays behind Settings while they are in front, and the first opening after launch is smooth
+
+### Plugins
+* **Changed:** Plugins download the programs they need themselves (with a fixed checksum, only the one for your Mac’s chip) instead of asking you to install Homebrew. Removing a plugin asks whether to remove its programs too, and never touches folders that existed before you installed it
+* **Changed:** Results of plugins, “Convert” and unzipping land right to the left of the original; a running plugin’s placeholder stands there too
+* **Changed:** Installing a plugin from a file shows several programs as one row that expands with its arrow; afterwards a warning reminds you that the plugin isn’t from the gallery (“Cancel” is the default). “View Script” is gone
+* **Changed:** A failed plugin keeps its warning triangle until its next successful run; installed plugins show a colored symbol for running, error and updated; “Show Error” lets you select and copy the message; “Plugin files” shows the plugin folder in the Finder
+* **Gallery:** Convert 1.1.0 and Video to GIF 1.1.0 work without Homebrew for most formats (photos keep their orientation, GIFs without gifski). Separate Vocals 1.1.2 downloads its audio programs itself and goes away completely with the plugin. Downloaders for videos or music from platforms are no longer accepted in the gallery
+
+### Changed
+* **Settings:** Opening has one “Strip at the edge” card, Appearance a separate “Glass” card, Cloud is one card. Clearer names (“Keyboard Shortcut”, “Item size”, “Vertical position”), “Add Action” and “Add App” are a “+” menu that grays out what you already have
+* **Introduction:** shows the standard actions, has a step to try pulling the shelf off the edge, an exercise card per step and a last page about plugins and the cloud. “Done” ends with confetti
+* **Shelf:** Inside a stack the header says “Stack” and counts “1 item”/“3 items”; notices at the top right are short and consistent (“Link copied”, “Not uploaded”, “Sign-in expired”); App icons in the action bar are a bit larger
+* Removed: “Only at the strip” and the 4 and 5 second open delays. Width and Height go one step smaller (210 and 270 pt)
+
+### Fixed: 94 bugs after a full review of the app
+* **Critical (5, possible data loss):** An unreadable `shelf.json` was overwritten with an empty shelf. Files left the shelf when BarDrop briefly lost access to their folder (for example after an update). Rewriting a file could lose its only copy. A different file already at the target could be deleted. A file deleted in Dropbox right after uploading came back at the next sync
+* **Serious (16):** 5 crashes (very wide grid, writing the log on a full disk, an invalid shortcut value, huge numbers in plugin settings, duplicate IDs). An upload hung or crashed when the file got shorter. After a lost mouse-up, resizing with `⌘` kept the shelf locked open and the grip stopped closing it. Two parallel token refreshes signed you out of a cloud service. Cloud messages came from a background thread. Portrait photos came out sideways when converting. The shortcut recorder grabbed keys from the shelf. Silent updates could replace BarDrop while a plugin or an upload was running, two updates could install at once, and betas kept coming after turning betas off. An unreadable plugin list lost all plugin settings
+* **Other (73):** A quick throw away from the edge docked again, the shelf blinked when reopened, switching displays was delayed, the light frame disappeared on new installs from the second launch, the clipboard could stay empty after a read error, an unknown action removed all actions, the clipboard history recorded the current item twice after a restart, plugin timers (`setInterval`) and `createLink` errors, a white icon flashed when dropping, Stage Manager showed square shadows, Google Drive appeared before it can sign in, VoiceOver now reads the items and the action bar, and more
+* **Faster:** Previews of 300 files need about 600 instead of 9,900 file accesses per second (5.5 instead of 73.6 ms main thread), moving 200 files saves once instead of 600 times (1 instead of 421 ms), plugin output is read three times faster, and checking an update needs 1 MB instead of 40 MB of memory
+* **Safer:** Updates are only accepted from github.com with the same app identity, plugin logs are only readable by you, and links have a size limit
+
 ## 1.31.0-beta.10
 * **New: Popular plugins on the start page.** Settings → Plugins shows the five most downloaded gallery plugins with “Get”; a new plugin opens its page right away, and plugins count as new for two months
 * **New: Plugins update by themselves.** Gallery plugins are checked every few hours and when you open Settings → Plugins, so “More plugins” is always ready. A plugin without permission is off instead of “On” with “Needs your permission”

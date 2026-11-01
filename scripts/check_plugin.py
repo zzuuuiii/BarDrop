@@ -31,6 +31,9 @@ import zipfile
 MAX_PACKAGE = 5 * 1024 * 1024
 MAX_UNPACKED = 20 * 1024 * 1024
 MAX_SCRIPT = 1024 * 1024
+# Beschreibung höchstens so lang, je Sprache (wie PluginManifest.maxDescriptionLength): Sie steht
+# in der Galerie, auf bardrop.app und im Fenster vor dem Installieren und soll dort kurz bleiben
+MAX_DESCRIPTION = 100
 ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$")
 VERSION_PATTERN = re.compile(r"^\d+(\.\d+){0,2}$")
 PERMISSIONS = {"network", "run", "clipboard"}
@@ -38,7 +41,7 @@ TRIGGERS = {"menu", "action", "automatic"}
 SETTING_TYPES = {"toggle", "choice", "text"}
 KNOWN_KEYS = {"schema", "id", "name", "description", "version", "author", "homepage", "icon", "actionTitle",
               "minAppVersion", "script", "match", "triggers", "automaticByDefault", "defaults", "permissions", "tools",
-              "settings", "canReplaceOriginal", "batch", "consent"}
+              "settings", "canReplaceOriginal", "batch", "consent", "installs"}
 API = {"writeFile", "createLink", "readFile", "progress", "notify", "isCancelled", "sleep", "log", "fetch",
        "download", "run", "setClipboard", "settings", "language", "appVersion", "outputDirectory",
        "pluginDirectory", "plugin", "readData", "writeData", "findProgram"}
@@ -125,7 +128,32 @@ def without_comments(text):
     return "".join(out)
 
 
-def check_manifest(m, files):
+INSTALL_BLOCKED = {".ssh", ".gnupg", ".Trash", ".aws", ".kube", ".docker", ".config/gh", ".password-store"}
+
+
+def install_path_allowed(path):
+    """Wie PluginManifest.installPaths in BarDrop: nur, was ein Plugin selbst anlegt"""
+    if not path.startswith("~/"):
+        return False
+    parts = path[2:].split("/")
+    if not parts or any(p in ("", ".", "..") for p in parts):
+        return False
+    if parts[0] == "Library":
+        return len(parts) >= 3 and parts[1] in ("Application Support", "Caches") \
+            and parts[2] not in ("BarDrop", "com.zzuuuiii.bardrop")
+    return parts[0].startswith(".") and len(parts) >= 2 \
+        and parts[0] not in INSTALL_BLOCKED and "/".join(parts[:2]) not in INSTALL_BLOCKED
+
+
+def long_descriptions(value):
+    """Sprachen, deren Beschreibung länger als MAX_DESCRIPTION ist: [(Sprache, Länge)]"""
+    texts = {"en": value} if isinstance(value, str) else value if isinstance(value, dict) else {}
+    return [(k, len(v.strip())) for k, v in sorted(texts.items()) if isinstance(v, str) and len(v.strip()) > MAX_DESCRIPTION]
+
+
+def check_manifest(m, files, published=False):
+    """`published`: Diese Version steht schon so in der Galerie (eine zu lange Beschreibung ist
+    dann nur ein Hinweis, die Grenze gilt ab der nächsten Version)"""
     if not isinstance(m, dict):
         return error("manifest.json muss ein JSON-Objekt sein")
     for key in m:
@@ -139,6 +167,10 @@ def check_manifest(m, files):
     localized(m.get("name"), "\"name\"", required=True)
     for key in ("description", "actionTitle", "consent"):
         localized(m.get(key), f"\"{key}\"")
+    for lang, length in long_descriptions(m.get("description")):
+        (hint if published else error)(
+            f"\"description\" ({lang}) hat {length} Zeichen, erlaubt sind höchstens {MAX_DESCRIPTION}: "
+            "ein, zwei kurze Sätze, was das Plugin tut (Einzelheiten gehören in die Einstellungen oder auf die Homepage)")
     version = m.get("version")
     if not isinstance(version, str) or not VERSION_PATTERN.match(version):
         error("\"version\" fehlt oder ist ungültig (1, 1.2 oder 1.2.3, als Text)")
@@ -260,6 +292,15 @@ def check_manifest(m, files):
         hint("\"canReplaceOriginal\" wirkt nicht zusammen mit \"batch\": Bei mehreren Objekten gibt es kein einzelnes Original")
     if m.get("automaticByDefault") and (({"network", "run"} & set(permissions)) or tools):
         hint("\"automaticByDefault\" gilt nicht für Plugins mit network, run oder tools: der Nutzer schaltet es selbst ein")
+    installs = m.get("installs")
+    if installs is not None:
+        if not isinstance(installs, list) or not all(isinstance(p, str) for p in installs):
+            error("\"installs\" muss eine Liste von Pfaden sein, z. B. [\"~/.local/share/mytool\"]")
+        else:
+            for path in installs:
+                if not install_path_allowed(path):
+                    hint(f"\"installs\": {path} wird ignoriert (nur ~/.<Ordner>/<Name> oder "
+                         "~/Library/Application Support/<Name> bzw. ~/Library/Caches/<Name>)")
     defaults = m.get("defaults")
     if defaults is not None:
         if not isinstance(defaults, dict):

@@ -6,25 +6,31 @@ import SwiftUI
 /// auf Fokus und Klicks des Fensters, in dem es liegt (heller, anders getönt). Dieses Fenster
 /// bekommt nie den Fokus, nimmt keine Klicks an und hängt als Kindfenster unter der Ablage,
 /// bewegt sich also mit ihr. So bleibt das Glas immer gleich.
+///
+/// Material: Liquid Glass (ab macOS 26), von Anfang an bis zum Andocken. Es kostete beim Ziehen
+/// Bilder, solange das Fenster erst beim Lösen eingehängt und weich ein- und ausgeblendet wurde
+/// (Diagnose 27.10.2026, Aussetzer bis 160 ms); beides fällt jetzt weg (siehe EdgeController
+/// prepareGlassWindow, syncGlassWindow). Der Blur (blurView) dient vor macOS 26 und bleibt
+/// mit setMaterial für einen Wechsel erhalten.
 final class ShelfGlassWindow: NSPanel {
-    private var glassView = NSView()
+    /// Blur: während der Bewegung (und vor macOS 26 immer)
+    private let blurView = NSVisualEffectView()
+    /// Liquid Glass: in Ruhe, erst bei Bedarf angelegt
+    private var glassView: NSView?
+
+    enum Material { case blur, glass }
+    private(set) var material: Material = .blur
 
     convenience init() {
         self.init(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
                   styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
-        if #available(macOS 26.0, *) {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = EdgeTear.cornerRadius
-            glass.tintColor = nil
-            glassView = glass
-        } else {
-            let blur = NSVisualEffectView()
-            blur.material = .hudWindow
-            blur.blendingMode = .behindWindow
-            blur.state = .active
-            blur.maskImage = Self.mask(EdgeTear.cornerRadius)
-            glassView = blur
-        }
+        // „menu“ ist das hellste Blur-Material (gemessen 27.10.2026 über dunklem Hintergrund:
+        // hudWindow 17, menu 28, Liquid Glass 30 von 255); hudWindow wirkte fast schwarz
+        blurView.material = .menu
+        blurView.blendingMode = .behindWindow
+        blurView.state = .active
+        blurView.maskImage = Self.mask(EdgeTear.cornerRadius)
+        blurView.wantsLayer = true
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
@@ -34,9 +40,69 @@ final class ShelfGlassWindow: NSPanel {
         hidesOnDeactivate = false
         appearance = NSAppearance(named: .darkAqua)
         let content = NSView()
-        content.addSubview(glassView)
+        content.addSubview(blurView)
         contentView = content
         alphaValue = 0
+    }
+
+    /// „Manuell“ (Einstellungen → Aussehen): eigene Stellung statt des Reglers von macOS. Liquid
+    /// Glass dann im Stil „klar“, der dem Systemregler nicht folgt (Annahme laut Apple-Doku), und
+    /// darüber der Blur so stark, wie getönt eingestellt ist: 0 klar, 1 ganz diffus. nil: System
+    func setManualTint(_ value: Double?) {
+        guard #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView,
+              let content = contentView else { return }
+        if let value {
+            if glass.style != .clear { glass.style = .clear }
+            if content.subviews.last !== blurView { content.addSubview(blurView, positioned: .above, relativeTo: glass) }
+            blurView.alphaValue = CGFloat(max(0, min(1, value)))
+            blurView.isHidden = value < 0.01
+        } else {
+            if glass.style != .regular { glass.style = .regular }
+            if content.subviews.first !== blurView { content.addSubview(blurView, positioned: .below, relativeTo: glass) }
+            blurView.alphaValue = 0
+            blurView.isHidden = false
+        }
+    }
+
+    /// Material wechseln: Blur zum Ziehen, Liquid Glass in Ruhe. Weich übergeblendet, damit die
+    /// Lichtkante des Glases nicht aufspringt; beim Anfassen schnell, damit die Bewegung gleich
+    /// ohne Liquid Glass läuft.
+    func setMaterial(_ new: Material, animated: Bool) {
+        guard new != material else { return }
+        material = new
+        guard #available(macOS 26.0, *) else { return }
+        if new == .glass, glassView == nil {
+            let glass = NSGlassEffectView()
+            glass.cornerRadius = EdgeTear.cornerRadius
+            // Dunkel: etwas Tönung im Glas selbst, so hell wie der Blur beim Ziehen (und wie das
+            // Glas mit der früheren Tönung 0,5 der Ablage); hell ohne
+            glass.tintColor = nil
+            glass.wantsLayer = true
+            glass.frame = blurView.frame
+            glass.alphaValue = 0
+            contentView?.addSubview(glass, positioned: .above, relativeTo: blurView)
+            glassView = glass
+        }
+        guard let glass = glassView else { return }
+        let glassAlpha: CGFloat = new == .glass ? 1 : 0
+        // Unsichtbares Liquid Glass ganz ausblenden (isHidden), nicht nur auf Deckkraft 0: Sonst
+        // rechnet der Fensterserver es bei jeder Bewegung weiter mit
+        glass.isHidden = false
+        if animated {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = new == .glass ? 0.35 : 0.12
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                glass.animator().alphaValue = glassAlpha
+                blurView.animator().alphaValue = 1 - glassAlpha
+            }, completionHandler: { [weak self] in
+                guard let self, self.material == .blur else { return }
+                glass.isHidden = true
+            })
+        } else {
+            glass.alphaValue = glassAlpha
+            blurView.alphaValue = 1 - glassAlpha
+            glass.isHidden = new == .blur
+        }
     }
 
     override var canBecomeKey: Bool { false }
@@ -68,7 +134,8 @@ final class ShelfGlassWindow: NSPanel {
             glass.size.width += over
             if edge == .left { glass.origin.x -= over }
         }
-        if glassView.frame != glass { glassView.frame = glass }
+        if blurView.frame != glass { blurView.frame = glass }
+        if let view = glassView, view.frame != glass { view.frame = glass }
         // Die Ecken auf der Randseite rund wie die Ablage selbst (EdgeTear.edgeRadius): Das
         // Fenster schnitt sie gerade ab, beim Zurückziehen an den Rand waren sie eckig
         roundCorners(size: body.size, edge: edge, edgeRadius: edgeRadius)
@@ -90,6 +157,11 @@ final class ShelfGlassWindow: NSPanel {
         let far = EdgeTear.cornerRadius
         let r = min(edgeRadius, size.height / 2)
         let left = edge == .left
+        let key = "\(size.width)|\(size.height)|\(r)|\(left)"
+        // Unverändert: nichts tun (wird beim Ziehen bei jeder Bewegung aufgerufen); erst danach
+        // den Umriss bauen
+        if key == cornerKey, content.layer?.mask === cornerMask { return }
+        cornerKey = key
         let path = Path { p in
             p.addRoundedRect(in: CGRect(origin: .zero, size: size),
                              cornerRadii: RectangleCornerRadii(topLeading: left ? r : far,
@@ -98,10 +170,6 @@ final class ShelfGlassWindow: NSPanel {
                                                                topTrailing: left ? far : r),
                              style: .continuous)
         }
-        let key = "\(size.width)|\(size.height)|\(r)|\(left)"
-        // Unverändert: nichts tun (wird beim Ziehen bei jeder Bewegung aufgerufen)
-        if key == cornerKey, content.layer?.mask === cornerMask { return }
-        cornerKey = key
         // Ohne eigene Animation: Eine frei stehende Ebene animiert Änderungen von Rahmen und
         // Umriss sonst von selbst über 0,25 s. Die Ecken des Glases liefen der Ablage beim
         // Dehnen und Andocken so sichtbar hinterher

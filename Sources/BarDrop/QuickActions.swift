@@ -9,6 +9,10 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case plugin
         /// Ein Kurzbefehl aus der App Kurzbefehle (`path` ist sein Name)
         case shortcut
+        /// Daraufgezogene Dateien in die Zwischenablage legen, wie ⌘C im Finder
+        case clipboard
+        /// In einen Cloud-Dienst hochladen und den Link teilen (`path` ist der Dienst)
+        case cloud
         /// Nur noch zum Einlesen alter Einstellungen (1.28): Umwandeln steht im Kontextmenü
         case convert
     }
@@ -20,6 +24,9 @@ struct QuickAction: Codable, Identifiable, Hashable {
 
     var url: URL? { path.map { URL(fileURLWithPath: $0) } }
 
+    /// Dienst einer Cloud-Aktion
+    var cloudService: CloudService? { kind == .cloud ? path.flatMap(CloudService.init(rawValue:)) : nil }
+
     var title: String {
         switch kind {
         case .airdrop: return "AirDrop"
@@ -30,6 +37,8 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .convert: return L("Convert", "Umwandeln")
         case .plugin: return PluginManager.shared.plugin(path)?.manifest.title ?? L("Plugin", "Plugin")
         case .shortcut: return path ?? L("Shortcut", "Kurzbefehl")
+        case .clipboard: return L("Clipboard", "Zwischenablage")
+        case .cloud: return cloudService?.title ?? "Cloud"
         case .folder, .app:
             guard let path else { return kind == .folder ? L("Folder", "Ordner") : "App" }
             let name = FileManager.default.displayName(atPath: path)
@@ -49,6 +58,8 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .plugin:
             return PluginManager.shared.plugin(path)?.manifest.description?.text ?? L("Run the plugin", "Plugin ausführen")
         case .shortcut: return L("Run the shortcut “\(title)”", "Kurzbefehl „\(title)“ ausführen")
+        case .clipboard: return L("Copy to the clipboard", "In die Zwischenablage kopieren")
+        case .cloud: return L("Upload to \(title) and copy the link", "In \(title) hochladen und Link kopieren")
         case .folder: return L("Move to “\(title)”", "In „\(title)“ verschieben")
         case .app: return L("Open with \(title)", "Mit \(title) öffnen")
         }
@@ -60,7 +71,7 @@ struct QuickAction: Codable, Identifiable, Hashable {
         switch kind {
         case .airdrop:
             return NSSharingService(named: .sendViaAirDrop)?.image
-        case .share, .convert, .plugin:
+        case .share, .convert, .plugin, .clipboard, .cloud:
             return nil
         case .mail:
             return Self.appIcon("com.apple.mail")
@@ -90,6 +101,8 @@ struct QuickAction: Codable, Identifiable, Hashable {
         case .folder: return "folder.fill"
         case .app: return "app.fill"
         case .shortcut: return "square.2.layers.3d.fill"
+        case .clipboard: return "doc.on.clipboard.fill"
+        case .cloud: return cloudService?.symbol ?? "icloud.fill"
         }
     }
 
@@ -115,6 +128,10 @@ struct QuickAction: Codable, Identifiable, Hashable {
         if values?.isApplication == true || url.pathExtension.lowercased() == "app" { return .app }
         return values?.isPackage == true ? nil : .folder
     }
+
+    /// Aktionen der Vorführungen in der Einführung: immer die Standardaktionen, nicht die
+    /// eigenen (Nutzer, 30.10.2026). Einmal angelegt, damit ihre Kennungen gleich bleiben
+    static let demo: [QuickAction] = defaults
 
     /// Höchstzahl in der Leiste: zwei Reihen mit je fünf
     static var limit: Int { 2 * perRow }

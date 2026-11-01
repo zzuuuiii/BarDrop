@@ -96,17 +96,6 @@ private struct PluginPreview: View {
     var hovering = false
     @State private var breathing = false
 
-    static let barHeight: CGFloat = 4
-
-    /// Abstand vom unteren Rand des Bildes bis zur Mitte des Balkens: die Hälfte der Lücke
-    /// bis zum Namen. Die Lücke ergibt sich aus TileLabel: 2 pt Rahmen um das Bild, der Rand
-    /// der Fläche, 4 pt Abstand im Stapel und 1 pt Rand des Namens.
-    static func barOffset(_ size: CGFloat) -> CGFloat {
-        let boxMargin = (TileMetrics.box(size) - size - 4) / 2
-        let gap = 2 + boxMargin + 4 + 1
-        return (gap / 2 + barHeight / 2).rounded()
-    }
-
     /// Am Anfang gut zu sehen, aber deutlich durchsichtig
     private static let startOpacity = 0.3
     /// Mit Fortschritt beginnt die Deckkraft in der Mitte des Atmens (0,3 bis 0,6): Kommt der
@@ -197,8 +186,8 @@ private struct PluginPreview: View {
         .overlay(alignment: .bottom) {
             PluginProgressBar(progress: job.isStarted ? job.progress : nil, running: job.isStarted,
                               paused: job.paused, failed: job.failed)
-                .frame(width: (size * 0.78).rounded(), height: Self.barHeight)
-                .offset(y: Self.barOffset(size))
+                .frame(width: (size * 0.78).rounded(), height: PluginProgressBar.height)
+                .offset(y: PluginProgressBar.offset(size))
         }
         .onAppear { breathing = breathes }
         .onChange(of: breathes) { _, now in breathing = now }
@@ -225,11 +214,23 @@ private struct PluginPreview: View {
 
 /// Schmaler Balken unter dem Bild: füllt sich mit dem Fortschritt. Ohne Anteil wandert ein
 /// Lichtstreifen (bei „Bewegung reduzieren“ steht er still); wartet der Lauf, ist er leer.
-private struct PluginProgressBar: View {
+/// Auch beim Hochladen in die Cloud (`CloudUploadOverlay`).
+struct PluginProgressBar: View {
     let progress: Double?
-    let running: Bool
-    let paused: Bool
-    let failed: Bool
+    var running = true
+    var paused = false
+    var failed = false
+
+    static let height: CGFloat = 4
+
+    /// Abstand vom unteren Rand des Bildes bis zur Mitte des Balkens: die Hälfte der Lücke
+    /// bis zum Namen. Die Lücke ergibt sich aus TileLabel: 2 pt Rahmen um das Bild, der Rand
+    /// der Fläche, 4 pt Abstand im Stapel und 1 pt Rand des Namens.
+    static func offset(_ size: CGFloat) -> CGFloat {
+        let boxMargin = (TileMetrics.box(size) - size - 4) / 2
+        let gap = 2 + boxMargin + 4 + 1
+        return (gap / 2 + height / 2).rounded()
+    }
     @State private var sweep = false
 
     /// Blau wie der Fortschritt im Finder (Akzentfarbe des Systems)

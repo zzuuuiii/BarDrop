@@ -53,7 +53,9 @@ final class PluginRunner: ObservableObject, PluginPrompter {
     /// Aufträge von Plugins, die nicht mehr eingeschaltet (oder nicht mehr installiert) sind
     func cancelInactiveJobs() {
         guard !jobs.isEmpty else { return }
-        for job in jobs where !manager.isActive(job.plugin.id) {
+        // Eigene Läufe (Cloud-Upload) gehören zu keinem installierten Plugin; ohne die
+        // Ausnahme brach jede Änderung am Plugin-Verwalter den Upload sofort ab (30.10.2026)
+        for job in jobs where !job.isNative && !manager.isActive(job.plugin.id) {
             PluginLog.shared.record(job.plugin.id, "abbruch", "Plugin ausgeschaltet oder entfernt")
             cancel(job, inShelf: false)
         }
@@ -170,6 +172,45 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         }
     }
 
+    /// Eingebaute Aufgabe mit demselben Platzhalter wie ein Plugin (Hochladen in die Cloud).
+    /// `identity` gibt Name und Symbol, `work` bekommt den Auftrag (für Fortschritt) und einen
+    /// leeren Ausgabeordner; was es dort zurückgibt, erscheint wie Ergebnisse eines Plugins
+    /// neben dem ersten Objekt. Fehler mit `CloudError` zeigen Text und Tipp wie bei Plugins.
+    /// `placeholder: false`: ohne eigene Kachel; den Fortschritt zeigt dann die Datei selbst
+    /// (Cloud, `CloudUploads`)
+    func runNative(_ identity: InstalledPlugin, on files: [ShelfFile], placeholder: Bool = true,
+                   work: @escaping (PluginJob, URL) async throws -> [URL]) {
+        guard !files.isEmpty else { return }
+        let job = PluginJob(plugin: identity, items: files.map { (PluginItem(url: $0.url), $0.id) }, automatic: false)
+        let output = manager.scratchDirectory.appendingPathComponent(job.id.uuidString, isDirectory: true)
+        let task = Task { @MainActor [weak self] in
+            let result: Result<[URL], PluginRunError>
+            do {
+                try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+                result = .success(try await work(job, output))
+            } catch is CancellationError {
+                result = .failure(.cancelled)
+            } catch let error as CloudError {
+                result = .failure(.script(error.message, hint: error.hint))
+            } catch {
+                result = .failure(job.cancelledByUser ? .cancelled : .script(error.localizedDescription))
+            }
+            self?.finished(job, result: result, workDirectory: output)
+            // Ergebnisse sind schon in die Ablage verschoben (`adoptResults`): Rest wegräumen
+            try? FileManager.default.removeItem(at: output)
+        }
+        job.startNative { task.cancel() }
+        jobs.append(job)
+        PluginLog.shared.record(identity.id, "start", "\(files.count) Objekt(e)")
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.showDelay) { [weak self] in
+            guard placeholder, let self, self.jobs.contains(where: { $0 === job }) else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                job.shown = true
+                self.objectWillChange.send()
+            }
+        }
+    }
+
     /// Zustimmung, Rechte und Programme vor dem Start: was fehlt, in einem Fenster
     /// erfragen (ohne Dialoge, etwa in Tests, nur prüfen)
     private func prepare(_ plugin: InstalledPlugin) -> Bool {
@@ -192,12 +233,6 @@ final class PluginRunner: ObservableObject, PluginPrompter {
     func replacingJob(for fileID: UUID) -> PluginJob? {
         guard !jobs.isEmpty else { return nil }
         return jobs.first { $0.shown && $0.replacesOriginal && $0.anchorFileID == fileID }
-    }
-
-    /// Hat das Plugin alles, um ohne Rückfrage zu laufen?
-    func readyForAutomatic(_ plugin: InstalledPlugin) -> Bool {
-        if !manager.hasConsented(plugin) { return false }
-        return plugin.manifest.allPermissions.allSatisfy { manager.isGranted($0, for: plugin) }
     }
 
     private func enqueue(_ job: PluginJob) {
@@ -253,7 +288,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         case .success(let urls):
             PluginLog.shared.record(job.plugin.id, "ok", urls.isEmpty ? "fertig, kein Ergebnis"
                                     : "fertig: " + urls.map { "„\($0.lastPathComponent)“" }.joined(separator: ", "))
-            manager.lastErrors.removeValue(forKey: job.plugin.id)
+            manager.clearError(job.plugin.id)
             deliver(job, urls)
         case .failure(.cancelled):
             PluginLog.shared.record(job.plugin.id, "abbruch", "abgebrochen")
@@ -262,7 +297,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         case .failure(let error):
             PluginLog.shared.record(job.plugin.id, "fehler", error.message)
             if let hint = error.hint { PluginLog.shared.record(job.plugin.id, "hinweis", hint) }
-            manager.lastErrors[job.plugin.id] = String(error.message.prefix(600)) + (error.hint.map { "\n\n" + $0 } ?? "")
+            manager.recordError(job.plugin.id, String(error.message.prefix(600)) + (error.hint.map { "\n\n" + $0 } ?? ""))
             // Erst kurz rütteln, damit man sieht, welcher Platzhalter es war, dann weg
             // (Ohne Dialoge, etwa in Tests, gleich weg)
             if showsErrorDialogs && job.shown {

@@ -12,9 +12,29 @@ enum EdgeTear {
     static let reach: CGFloat = 140
     /// So weit (pt) muss man vom Rand weg ziehen, bis sich die Ablage löst
     static let tearDistance: CGFloat = 85
-    /// Zusätzliche dunkle Tönung über dem Glas der losgelösten Ablage: im hellen
-    /// Erscheinungsbild weniger (mittelgrau, weiße Schrift bleibt lesbar)
-    static func glassDarken(light: Bool) -> Double { light ? 0.3 : 0.5 }
+    /// Zusätzliche dunkle Tönung über dem Glas der losgelösten Ablage (dunkles Erscheinungsbild;
+    /// hell gilt ein eigener Wert in TearGoo): nur so viel, dass weiße Schrift lesbar bleibt.
+    /// Wie klar oder getönt das Glas ist, bestimmt der Regler „Liquid Glass“ der
+    /// Systemeinstellungen selbst; Liquid Glass folgt ihm von allein (gemessen 27.10.2026: klar
+    /// deutlich durchsichtiger, getönt diffus wie die Knöpfe in Safari). Eine eigene, zusätzliche
+    /// Tönung nach dem Regler machte getönt doppelt so dunkel (Nutzer: kein eigener Regler)
+    static func glassDarken(light: Bool) -> Double { 0.12 + 0.08 * systemGlassTint }
+
+    /// Stellung des Reglers „Liquid Glass“ der Systemeinstellungen (0 klar … 1 getönt, gespeichert
+    /// als NSGlassTintAmount, geprüft 27.10.2026). Getönt passt die Tönung 0,2; klar etwas weniger
+    /// (0,12), damit die Ablage klarer wirkt, die Schrift aber lesbar bleibt (Nutzer). Beim Anfassen gelesen
+    static var systemGlassTint: Double = 1
+
+    /// Helle Tönung über dem Glas im hellen Erscheinungsbild: wie dunkel nach dem Regler,
+    /// getönt 0,6 wie bisher, klar 0,36 (im selben Verhältnis wie dunkel 0,12 zu 0,2; Nutzer,
+    /// 27.10.2026: hell bei „Klar“ etwas durchsichtiger, so wie dunkel)
+    static var glassLighten: Double { 0.36 + 0.24 * systemGlassTint }
+
+    static func readSystemGlassTint() -> Double {
+        CFPreferencesAppSynchronize(kCFPreferencesAnyApplication)
+        let raw = CFPreferencesCopyAppValue("NSGlassTintAmount" as CFString, kCFPreferencesAnyApplication) as? Double ?? 1
+        return max(0, min(1, raw))
+    }
     /// Hell: Das helle Glas ist schon ganz da, bevor sich das Schwarz zurückzieht. Kamen
     /// beide gleichzeitig, sah die Ablage dazwischen kurz dunkelgrau und durchsichtig aus;
     /// so geht das Schwarz direkt in Weiß über (beim Andocken umgekehrt)
@@ -102,8 +122,19 @@ struct TearGoo: View, Animatable {
                 // Das Glas selbst liegt in einem Begleitfenster darunter (ShelfGlassWindow),
                 // hier nur die eigene dunkle Tönung darüber
                 bodyShape
-                    .fill(light ? Color.white.opacity(0.6) : Color.black.opacity(EdgeTear.glassDarken(light: false)))
+                    .fill(light ? Color.white.opacity(EdgeTear.glassLighten) : Color.black.opacity(EdgeTear.glassDarken(light: false)))
                     .opacity(light ? EdgeTear.lightCover(glass) : glass)
+                // Lichtkante wie bei Liquid Glass: oben links hell, unten rechts schwächer, innen auf
+                // dem Rand. Die Tönung darüber dämpfte die Kante des Glases selbst (Nutzer, 27.10.2026)
+                if !light {
+                    bodyShape
+                        .stroke(LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.12), .white.opacity(0.06), .white.opacity(0.22)],
+                                               startPoint: .topLeading, endPoint: .bottomTrailing),
+                                lineWidth: 3)
+                        // Nur die innere Hälfte (1,5 pt) auf der Ablage
+                        .mask { bodyShape.fill(Color.black) }
+                        .opacity(glass)
+                }
             }
             // Überblendung zur angedockten Form: erst kommt sie dazu, dann geht die
             // verschmelzende Form; so gibt es keinen Moment, in dem es durchscheint

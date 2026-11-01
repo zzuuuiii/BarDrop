@@ -82,7 +82,20 @@ final class ShelfUIModel: ObservableObject {
         /// Rand): am Ende des Andockens und am Anfang des Dehnens, damit die Form nicht springt
         var dock: CGFloat = 0
     }
-    @Published var tear: Tear?
+    /// Form und Glas beim Ziehen ändern sich in jedem Bild. Sie liegen in einem eigenen Modell,
+    /// das nur die Randform und ihre Nachbarn beobachten: Als Teil dieses Modells werteten sie
+    /// bei jedem Bild die ganze Ablage samt Kacheln und Aktionsleiste neu aus (gemessen gut
+    /// 11 ms je Bild bei 40 Objekten, mehr als ein Bild bei 120 Hz dauert)
+    let tearState = TearState()
+    var tear: Tear? {
+        get { tearState.tear }
+        set {
+            tearState.tear = newValue
+            if isTorn != (newValue != nil) { isTorn = newValue != nil }
+        }
+    }
+    /// Die Ablage ist vom Rand gezogen (`tear` gesetzt): ändert sich nur beim Lösen und Andocken
+    @Published private(set) var isTorn = false
     /// Der Zeiger ist in der Kopfzeile: Der Griff oben erscheint
     @Published var grabberHover = false
     /// Die Ablage wird gerade am Griff gezogen: Er ist hell und etwas länger
@@ -90,7 +103,15 @@ final class ShelfUIModel: ObservableObject {
     /// Rahmen der Ablage am Rand: nach dem Andocken kurz ausgeblendet, dann weich eingeblendet
     @Published var dockOutline: Double = 1
     /// Losgelöste Ablage aus Glas (0 schwarz, 1 Glas), weich übergeblendet
-    @Published var tearGlass: Double = 0
+    var tearGlass: Double {
+        get { tearState.glass }
+        set {
+            tearState.glass = newValue
+            if tearGlassMostly != (newValue > 0.5) { tearGlassMostly = newValue > 0.5 }
+        }
+    }
+    /// Mehr Glas als Schwarz (`tearGlass` über 0,5): bestimmt hell oder dunkel der Schrift
+    @Published private(set) var tearGlassMostly = false
     /// Helles Erscheinungsbild des Systems (folgt Änderungen während der Nutzung)
     /// (gesetzt vom Rand-Controller; hier ohne NSApp, das gibt es in den Tests nicht)
     @Published var systemLight = false
@@ -143,6 +164,12 @@ final class ShelfUIModel: ObservableObject {
     @Published var detachedAction: UUID?
 
     var isLocked: Bool { menuOpen || sharingOpen || bandActive || actionMoving }
+}
+
+/// Form und Glas der vom Rand gezogenen Ablage (siehe ShelfUIModel.tearState)
+final class TearState: ObservableObject {
+    @Published var tear: ShelfUIModel.Tear?
+    @Published var glass: Double = 0
 }
 
 /// Maße der schwarzen Form je Zustand.

@@ -30,6 +30,43 @@ enum AutoRemoveOption: Double, CaseIterable, Identifiable {
     }
 }
 
+/// Glas der vom Rand gelösten Ablage: wie der Regler „Liquid Glass“ von macOS, eigener Wert
+/// oder aus (schwarz). Im Stil der Sprache (Nutzer, 27.10.2026)
+enum GlassMode: String, CaseIterable, Identifiable {
+    case system, manual, off
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "System"
+        case .manual: return L("Manual", "Manuell")
+        case .off: return L("Off", "Aus")
+        }
+    }
+
+    /// Ohne gespeicherte Wahl gilt die frühere Einstellung „Glas, wenn losgelöst“
+    static func stored(_ raw: String?, detachedGlass: Bool) -> GlassMode {
+        raw.flatMap(GlassMode.init(rawValue:)) ?? (detachedGlass ? .system : .off)
+    }
+}
+
+/// Symbolstil der eigenen Kacheln (Teilen, AirDrop, Cloud, Plugins …): hell wie App-Symbole
+/// im hellen Modus von macOS, dunkel wie im dunklen. Automatisch folgt dem Erscheinungsbild
+/// von macOS (Nutzer, 29.10.2026). Symbole von Apps, Ordnern und dem Papierkorb zeichnet
+/// macOS selbst nach seinem eigenen Symbolstil.
+enum IconStyle: String, CaseIterable, Identifiable {
+    case automatic, light, dark
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .automatic: return L("Automatic", "Automatisch")
+        case .light: return L("Light", "Hell")
+        case .dark: return L("Dark", "Dunkel")
+        }
+    }
+}
+
 /// Stärke der Animationen beim Auf- und Zuklappen.
 enum AnimationStyle: String, CaseIterable, Identifiable {
     case subtle, standard, lively
@@ -132,8 +169,9 @@ enum OpenDelay {
     static let immediate = 0.0
     /// Standard: ein kurzer Moment am Streifen, damit sie nicht aus Versehen aufgeht
     static let quick = 0.3
-    /// Alle bisherigen Wartezeiten bleiben wählbar: Eigene Einstellungen werden nie überschrieben
-    static let choices: [Double] = [immediate, quick, 1, 2, 3, 4, 5]
+    /// 4 und 5 s gibt es nicht mehr (Nutzer, 27.10.2026); wer sie eingestellt hatte, bekommt
+    /// beim Start die nächste Wahl, 3 s
+    static let choices: [Double] = [immediate, quick, 1, 2, 3]
 
     /// „0,3 s“ bzw. „0.3 s“, ganze Sekunden ohne Nachkomma
     static func format(_ delay: Double) -> String {
@@ -240,6 +278,7 @@ final class AppSettings: ObservableObject {
         static let adaptiveZone = "adaptiveZone"
         static let keepAfterAction = "keepAfterAction"
         static let animationStyle = "animationStyle"
+        static let iconStyle = "iconStyle"
         static let openMode = "openMode"
         static let autoRemoveAfter = "autoRemoveAfter"
         static let convertWebImages = "convertWebImages"
@@ -249,6 +288,8 @@ final class AppSettings: ObservableObject {
         static let quickActions = "quickActions"
         static let showOutline = "showOutline"
         static let detachedGlass = "detachedGlass"
+        static let glassMode = "glassMode"
+        static let glassTint = "glassTint"
         static let openDelay = "openDelay"
         static let language = "language"
         static let generousHitArea = "generousHitArea"
@@ -257,6 +298,7 @@ final class AppSettings: ObservableObject {
         static let diagnosticsEnabled = "diagnosticsEnabled"
         static let actionRowSplit = "actionRowSplit"
         static let pinFromShelf = "pinFromShelf"
+        static let clipboardHistory = "clipboardHistory"
         static let addScreenshots = "addScreenshots"
         static let addAirDrop = "addAirDrop"
         static let excludedApps = "excludedApps"
@@ -308,6 +350,7 @@ final class AppSettings: ObservableObject {
     @Published var peekLength: Double { didSet { defaults.set(peekLength, forKey: Key.peekLength) } }
     @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Key.hapticsEnabled) } }
     @Published var animationStyle: AnimationStyle { didSet { defaults.set(animationStyle.rawValue, forKey: Key.animationStyle) } }
+    @Published var iconStyle: IconStyle { didSet { defaults.set(iconStyle.rawValue, forKey: Key.iconStyle) } }
     /// Automatisch ganz öffnen oder erst nach einem Klick auf die mittlere Stufe.
     @Published var openMode: OpenMode { didSet { defaults.set(openMode.rawValue, forKey: Key.openMode) } }
 
@@ -356,6 +399,17 @@ final class AppSettings: ObservableObject {
     @Published var showOutline: Bool { didSet { defaults.set(showOutline, forKey: Key.showOutline) } }
     /// Vom Rand gelöste Ablage aus Glas statt tiefschwarz (nur die losgelöste)
     @Published var detachedGlass: Bool { didSet { defaults.set(detachedGlass, forKey: Key.detachedGlass) } }
+    /// Glas: System, Manuell oder Aus. „Aus“ ist detachedGlass = false (bleibt für ältere
+    /// Versionen und alle bisherigen Abfragen gleichbedeutend)
+    @Published var glassMode: GlassMode {
+        didSet {
+            defaults.set(glassMode.rawValue, forKey: Key.glassMode)
+            if detachedGlass != (glassMode != .off) { detachedGlass = glassMode != .off }
+        }
+    }
+    /// Eigene Stellung bei „Manuell“: dieselbe Skala wie der Regler „Liquid Glass“ von macOS
+    /// (0 klar … 1 getönt)
+    @Published var glassTint: Double { didSet { defaults.set(glassTint, forKey: Key.glassTint) } }
     /// So lange (Sekunden) muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht.
     @Published var openDelay: Double { didSet { defaults.set(openDelay, forKey: Key.openDelay) } }
 
@@ -381,6 +435,9 @@ final class AppSettings: ObservableObject {
     /// Ordner und Apps auf die Aktionsleiste der Ablage ziehen heftet sie an,
     /// eine Aktion aus der Ablage herausziehen entfernt sie
     @Published var pinFromShelf: Bool { didSet { defaults.set(pinFromShelf, forKey: Key.pinFromShelf) } }
+    /// Verlauf der Zwischenablage (ClipboardHistory). Aus, bis man ihn einschaltet: Erst dann
+    /// liest BarDrop die Zwischenablage und macOS fragt nach der Erlaubnis
+    @Published var clipboardHistory: Bool { didSet { defaults.set(clipboardHistory, forKey: Key.clipboardHistory) } }
     /// Neue Bildschirmfotos landen automatisch in der Ablage
     @Published var addScreenshots: Bool { didSet { defaults.set(addScreenshots, forKey: Key.addScreenshots) } }
     /// Mit AirDrop empfangene Dateien (landen in Downloads) gleich in die Ablage legen
@@ -539,6 +596,7 @@ final class AppSettings: ObservableObject {
             // Standard „Nach dem Herausziehen entfernen“: Nach Aktionen bleibt das Objekt
             Key.keepAfterAction: true,
             Key.animationStyle: AnimationStyle.standard.rawValue,
+            Key.iconStyle: IconStyle.automatic.rawValue,
             Key.openMode: OpenMode.automatic.rawValue,
             Key.autoRemoveAfter: AutoRemoveOption.never.rawValue,
             Key.convertWebImages: true,
@@ -552,6 +610,7 @@ final class AppSettings: ObservableObject {
             Key.exactPointer: false,
             Key.diagnosticsEnabled: false,
             Key.pinFromShelf: true,
+            Key.clipboardHistory: false,
             Key.addScreenshots: false,
             Key.addAirDrop: false,
             Key.openInFullScreen: false,
@@ -616,6 +675,7 @@ final class AppSettings: ObservableObject {
         let storedKeep = defaults.bool(forKey: Key.keepAfterAction)
         keepAfterAction = storedKeep || !storedRemove
         animationStyle = AnimationStyle(rawValue: defaults.string(forKey: Key.animationStyle) ?? "") ?? .standard
+        iconStyle = IconStyle(rawValue: defaults.string(forKey: Key.iconStyle) ?? "") ?? .automatic
         openMode = OpenMode(rawValue: defaults.string(forKey: Key.openMode) ?? "") ?? .automatic
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
@@ -626,11 +686,15 @@ final class AppSettings: ObservableObject {
         // (object(forKey:) sähe auch den registrierten Standard, deshalb im eigenen Bereich nachsehen)
         let store = UserDefaults.standard
         let ownValues = Bundle.main.bundleIdentifier.flatMap { store.persistentDomain(forName: $0) } ?? [:]
-        if ownValues[Key.showOutline] == nil, store.bool(forKey: Key.didLaunchBefore) {
-            store.set(false, forKey: Key.showOutline)
+        // Den Wert gleich festschreiben, sonst griffe die Übernahme beim zweiten Start
+        // auch bei neuen Installationen und nähme ihnen den Rahmen
+        if ownValues[Key.showOutline] == nil {
+            store.set(!store.bool(forKey: Key.didLaunchBefore), forKey: Key.showOutline)
         }
         showOutline = defaults.bool(forKey: Key.showOutline)
         detachedGlass = defaults.bool(forKey: Key.detachedGlass)
+        glassMode = GlassMode.stored(defaults.string(forKey: Key.glassMode), detachedGlass: defaults.bool(forKey: Key.detachedGlass))
+        glassTint = defaults.object(forKey: Key.glassTint) as? Double ?? -1
         // Auf eine der wählbaren Wartezeiten runden (ältere Versionen hatten andere)
         let storedDelay = defaults.double(forKey: Key.openDelay)
         openDelay = OpenDelay.choices.min { abs($0 - storedDelay) < abs($1 - storedDelay) } ?? OpenDelay.quick
@@ -640,11 +704,14 @@ final class AppSettings: ObservableObject {
         // „Größerer Trefferbereich“ ist immer an: alten Wert aufräumen
         defaults.removeObject(forKey: Key.generousHitArea)
         reopenWhereLeft = defaults.bool(forKey: Key.reopenWhereLeft)
-        exactPointer = defaults.bool(forKey: Key.exactPointer)
+        // „Nur am Streifen“ ist aus den Einstellungen entfernt (Nutzer, 27.10.2026): immer aus,
+        // auch wenn es früher eingeschaltet war
+        exactPointer = false
         diagnosticsEnabled = defaults.bool(forKey: Key.diagnosticsEnabled)
         // Ohne gespeicherten Wert: alles in die obere Reihe
         actionRowSplit = defaults.object(forKey: Key.actionRowSplit) as? Int ?? QuickAction.perRow
         pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
+        clipboardHistory = defaults.bool(forKey: Key.clipboardHistory)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         addAirDrop = defaults.bool(forKey: Key.addAirDrop)
         excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
@@ -719,6 +786,7 @@ final class AppSettings: ObservableObject {
         dragReveal = .immediately
         hapticsEnabled = true
         animationStyle = .standard
+        iconStyle = .automatic
         openMode = .automatic
         openDelay = OpenDelay.quick
         reopenWhereLeft = false
@@ -726,14 +794,16 @@ final class AppSettings: ObservableObject {
         diagnosticsEnabled = false
         actionRowSplit = QuickAction.perRow
         pinFromShelf = true
+        clipboardHistory = false
         addScreenshots = false
         addAirDrop = false
         excludedApps = []
         openInFullScreen = false
         showActionLabels = true
-        labelsOnlyFolders = false
         showOutline = true
         detachedGlass = false
+        glassMode = .off
+        glassTint = -1
         removeAfterDragOut = true
         stackMultiple = true
         stackThreshold = 2

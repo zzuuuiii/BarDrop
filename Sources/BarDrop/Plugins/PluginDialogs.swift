@@ -135,6 +135,15 @@ enum PluginImporter {
             return nil
         }
         let existing = manager.plugin(manifest.id)
+        // Zu lange Beschreibung: nur neue Plugins und Versionen ablehnen, dieselbe Version
+        // noch einmal zu installieren geht weiter
+        if let length = manifest.tooLongDescription, existing?.manifest.version != manifest.version {
+            try? FileManager.default.removeItem(at: unpacked.directory)
+            showFailure(L("The plugin’s description is \(length) characters long. At most \(PluginManifest.maxDescriptionLength) are allowed.",
+                          "Die Beschreibung des Plugins ist \(length) Zeichen lang. Erlaubt sind höchstens \(PluginManifest.maxDescriptionLength)."),
+                        file: url)
+            return nil
+        }
         let name = manifest.name.text
         var accepted = false
         while true {

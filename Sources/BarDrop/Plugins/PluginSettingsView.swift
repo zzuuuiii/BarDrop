@@ -25,7 +25,7 @@ enum PluginPage: Hashable {
         case .list: return SettingsPane.plugins.title
         case .plugin(let id): return manager.plugin(id)?.manifest.name.text ?? SettingsPane.plugins.title
         case .permissions: return L("Access", "Zugriff")
-        case .gallery: return L("More plugins", "Weitere Plugins")
+        case .gallery: return L("All plugins", "Alle Plugins")
         case .order: return L("Order when dropped", "Reihenfolge beim Ablegen")
         }
     }
@@ -113,7 +113,7 @@ private struct GlassCircleButtonStyle: ButtonStyle {
 }
 
 /// Einstellungen → Plugins. Startseite: Hauptschalter, die installierten Plugins (Zeile mit
-/// „Ein“/„Aus“ und Pfeil), „Plugin importieren“, „Weitere Plugins“ und das Protokoll.
+/// „Aus“ und Pfeil), „Plugin importieren“, „Alle Plugins“ und das Protokoll.
 struct PluginSettings: View {
     @ObservedObject var settings: AppSettings
     @ObservedObject private var manager: PluginManager
@@ -162,7 +162,7 @@ struct PluginSettings: View {
         }
         .onChange(of: page) { _, _ in manager.reload() }
         .onAppear {
-            // Bearbeitete Skripte erkennen. Die Galerie gleich mit abfragen: „Weitere Plugins“
+            // Bearbeitete Skripte erkennen. Die Galerie gleich mit abfragen: „Alle Plugins“
             // ist so schon geladen, und neue Versionen kommen von selbst (kein Knopf
             // „Plugins aktualisieren“ mehr). Höchstens einmal pro Minute, weil jede Unterseite
             // hier neu erscheint
@@ -247,12 +247,9 @@ struct PluginSettings: View {
                         }
                     }
                 }
-                // „neu“ zählt nur, was höchstens zwei Monate in der Galerie steht
-                let fresh = manager.catalogExtras.filter(\.isNew).count
-                NavigationRow(L("More plugins", "Weitere Plugins"),
-                              value: fresh == 0 ? nil : L("\(fresh) new", "\(fresh) neu")) {
-                    open(.gallery)
-                }
+                // Ohne Zahl neuer Plugins (Nutzer, 28.10.2026): Was neu ist, zeigt „NEU“ an der
+                // Zeile in der Liste
+                NavigationRow(L("All plugins", "Alle Plugins")) { open(.gallery) }
             }
 
             // Als letzte Karte der Seite, nicht mehr unten am Fenster festgemacht: Dort wuchs
@@ -274,6 +271,14 @@ struct PluginSettings: View {
                 Button(L("Import", "Importieren")) { PluginImporter.chooseAndImport() }
                     .buttonStyle(KlackButtonStyle())
                     .fixedSize()
+            }
+            // Wo die Plugins liegen, etwa um ein Skript anzusehen oder zu bearbeiten (Nutzer)
+            SettingsRow(L("Plugin files", "Plugin-Dateien")) {
+                Button(L("Show in Finder", "Im Finder zeigen")) {
+                    NSWorkspace.shared.open(manager.pluginsFolder)
+                }
+                .buttonStyle(KlackButtonStyle())
+                .fixedSize()
             }
             // Fehlersuche eingeklappt wie die Tastenkürzel: Die meisten brauchen sie nie
             Button {
@@ -367,7 +372,7 @@ private struct NavigationRow: View {
 // MARK: Installiert
 
 /// Eine Zeile je Plugin: Symbol, Name, darunter die Beschreibung oder was gerade ansteht;
-/// rechts „Ein“ oder „Aus“ und der Pfeil. Ein Klick öffnet die Seite des Plugins.
+/// rechts „Aus“ (nur wenn aus) und der Pfeil. Ein Klick öffnet die Seite des Plugins.
 private struct InstalledRow: View {
     let plugin: InstalledPlugin
     @ObservedObject var manager: PluginManager
@@ -379,37 +384,47 @@ private struct InstalledRow: View {
     private var state: PluginState { manager.state(plugin.id) }
     private var running: Int { manager.runningCounts[plugin.id] ?? 0 }
 
-    /// Zustand vor der Beschreibung: läuft, hat nicht geklappt, gerade aktualisiert. Fehlt eine
-    /// Erlaubnis, ist das Plugin aus (kein „Ein“ mit „Braucht Erlaubnis“ mehr)
-    private var subtitle: (String, Color) {
-        if running > 0 { return (L("Running", "Läuft"), Color(nsColor: .controlAccentColor)) }
-        if manager.lastErrors[plugin.id] != nil { return (L("Last run failed", "Letzter Lauf fehlgeschlagen"), .orange) }
-        if let version = manager.recentlyUpdated[plugin.id] {
-            return (L("Updated to \(version)", "Aktualisiert auf \(version)"), Color(nsColor: .controlAccentColor))
-        }
+    /// Unter dem Namen immer Version und Größe. Was gerade ansteht (läuft, hat nicht geklappt,
+    /// gerade aktualisiert), zeigt ein farbiges Zeichen rechts (vor „Aus“) (Nutzer, 25.10.2026: vorher
+    /// stand es als Text unter dem Namen). Fehlt eine Erlaubnis, ist das Plugin aus
+    private var subtitle: String {
         var parts = [L("Version \(plugin.manifest.version)", "Version \(plugin.manifest.version)")]
         if let size { parts.append(PluginSize.text(size)) }
-        return (parts.joined(separator: " · "), .secondary)
+        return parts.joined(separator: " · ")
+    }
+
+    private var status: PluginStatus? {
+        PluginStatus.current(of: plugin.id, manager: manager)
     }
 
     var body: some View {
         Button(action: open) {
             HStack(spacing: 10) {
                 PluginIconView(icon: plugin.manifest.icon, size: 26)
+                    .modifier(PluginOffLook(off: !manager.isOn(plugin)))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(plugin.manifest.name.text)
                         .font(.system(size: 13.5))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    Text(subtitle.0)
+                    Text(subtitle)
                         .font(.system(size: 11))
-                        .foregroundStyle(subtitle.1)
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                Text(manager.isOn(plugin) ? L("On", "Ein") : L("Off", "Aus"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                if let status {
+                    PluginStatusSymbol(status: status, size: 14)
+                        .help(status.text)
+                        .accessibilityLabel(status.text)
+                        .transition(.opacity)
+                }
+                // Nur „Aus“ steht da; eingeschaltet ist der Normalfall (Nutzer, 28.10.2026)
+                if !manager.isOn(plugin) {
+                    Text(L("Off", "Aus"))
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.tertiary)
@@ -421,8 +436,10 @@ private struct InstalledRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.2), value: status)
         .onAppear(perform: measure)
         .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in measure() }
+        .onChange(of: manager.toolsChanged) { _, _ in measure() }
     }
 
     private func measure() {
@@ -431,7 +448,7 @@ private struct InstalledRow: View {
     }
 }
 
-// MARK: Weitere Plugins (Galerie)
+// MARK: Alle Plugins (Galerie)
 
 private struct GalleryPage: View {
     @ObservedObject var manager: PluginManager
@@ -440,9 +457,10 @@ private struct GalleryPage: View {
     let open: (String) -> Void
     @State private var query = ""
 
-    /// Nur, was noch nicht installiert ist: Installierte stehen in der Liste darüber
+    /// Nur, was noch nicht installiert ist: Installierte stehen in der Liste darüber.
+    /// Meistgeladene zuerst wie auf der Startseite (Nutzer, 28.10.2026)
     private var available: [PluginCatalogEntry] {
-        manager.catalogEntries.filter { manager.plugin($0.id) == nil }
+        PluginManager.byDownloads(manager.catalogEntries.filter { manager.plugin($0.id) == nil })
     }
 
     private var entries: [PluginCatalogEntry] {
@@ -457,7 +475,7 @@ private struct GalleryPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SettingsHeader(title ?? L("Available", "Verfügbar")) {
+            SettingsHeader(title ?? L("Gallery", "Galerie")) {
                 if manager.syncing && !manager.catalogEntries.isEmpty { ProgressView().controlSize(.small) }
             }
             .padding(.horizontal, 8)
@@ -579,8 +597,11 @@ struct GalleryRow: View {
         }
     }
 
-    /// „Offline · 14 KB“ (Internet nur, wenn der Katalog die Rechte nennt)
-    private var meta: String {
+    private var meta: String { Self.summary(entry) }
+
+    /// „Läuft lokal · 14 KB“ (Internet nur, wenn der Katalog die Rechte nennt); auch im
+    /// Fenster vor dem Laden über einen Link der Website (PluginLink)
+    static func summary(_ entry: PluginCatalogEntry) -> String {
         var parts: [String] = []
         if let permissions = entry.permissions {
             parts.append(PluginConnectivity(permissions: permissions.compactMap(PluginPermission.init(rawValue:)),
@@ -601,6 +622,8 @@ private struct PluginPageView: View {
     @ObservedObject var settings: AppSettings
     let open: (PluginPage) -> Void
     @State private var sizes: PluginSize.Parts?
+    /// Text des letzten Fehlers unter seiner Zeile aufgeklappt
+    @State private var showError = false
 
     private var state: PluginState { manager.state(plugin.id) }
     private var manifest: PluginManifest { plugin.manifest }
@@ -638,6 +661,8 @@ private struct PluginPageView: View {
         SettingsCard {
             HStack(spacing: 12) {
                 PluginIconView(icon: manifest.icon, size: 36)
+                    .modifier(PluginOffLook(off: !manager.isOn(plugin)))
+                    .animation(.easeOut(duration: 0.2), value: manager.isOn(plugin))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(manifest.name.text)
                         .font(.system(size: 14, weight: .semibold))
@@ -656,8 +681,9 @@ private struct PluginPageView: View {
             .padding(.vertical, 12)
             .frame(minHeight: 60)
 
+            // Dieselben Zeichen und Farben wie in der Liste der installierten Plugins
             if running > 0 {
-                StatusRow(symbol: "gearshape.2", text: L("Running", "Läuft"), color: .secondary) {
+                StatusRow(status: .running, text: L("Running", "Läuft")) {
                     Button(L("Stop", "Beenden")) { manager.stopRuns?(plugin.id) }
                         .buttonStyle(KlackButtonStyle())
                         .help(L("Stops all runs of this plugin, including stuck scripts.",
@@ -665,14 +691,32 @@ private struct PluginPageView: View {
                 }
             }
             if let error = manager.lastErrors[plugin.id] {
-                StatusRow(symbol: "exclamationmark.triangle", text: L("Last run failed", "Letzter Lauf fehlgeschlagen"), color: .orange) {
-                    CopyButton(text: error, title: L("Copy Error", "Fehler kopieren"))
+                // Erst „Fehler anzeigen“: Der Text erscheint darunter und lässt sich dort
+                // markieren oder kopieren (vorher nur „Fehler kopieren“ ohne ihn zu sehen)
+                // Eine Zeile der Karte (ohne Trennlinie zwischen Zeile und Text)
+                VStack(spacing: 0) {
+                    StatusRow(status: .failed, text: L("Last run failed", "Letzter Lauf fehlgeschlagen")) {
+                        Button(showError ? L("Hide Error", "Fehler ausblenden") : L("Show Error", "Fehler anzeigen")) {
+                            withAnimation(.easeInOut(duration: 0.2)) { showError.toggle() }
+                        }
+                        .buttonStyle(KlackButtonStyle())
+                    }
+                    if showError {
+                        ErrorTextRow(text: error)
+                            .transition(.opacity)
+                    }
                 }
-                .help(error)
+            }
+            if let version = manager.recentlyUpdated[plugin.id] {
+                StatusRow(status: .updated(version), text: L("Updated to \(version)", "Aktualisiert auf \(version)")) {
+                    EmptyView()
+                }
             }
         }
+        .onChange(of: manager.lastErrors[plugin.id]) { _, _ in showError = false }
         .onAppear { sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
         .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
+        .onChange(of: manager.toolsChanged) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
 
         if hasTriggers {
             SettingsSection(L("Behavior", "Verhalten")) {
@@ -756,41 +800,178 @@ private struct PluginPageView: View {
         return PluginSize.text(programs)
     }
 
+    /// Hat das Plugin Programme geladen oder selbst etwas eingerichtet, fragt das Fenster, ob das
+    /// mitgehen soll (Hauptwahl) oder nur das Plugin (Nutzer, 25.10.2026)
     private func confirmRemove() {
+        let parts = manager.components(of: plugin)
         let alert = PluginDialogs.makeAlert(manifest)
         alert.messageText = L("Remove “\(manifest.name.text)”?", "„\(manifest.name.text)“ entfernen?")
-        alert.informativeText = L("The plugin and its settings will be deleted. Items in the shelf aren’t affected.",
-                                  "Das Plugin und seine Einstellungen werden gelöscht. Die Objekte in der Ablage bleiben.")
-        alert.addButton(withTitle: L("Remove", "Entfernen"))
+        if parts.isEmpty {
+            alert.informativeText = L("The plugin and its settings will be deleted. Items in the shelf aren’t affected.",
+                                      "Das Plugin und seine Einstellungen werden gelöscht. Die Objekte in der Ablage bleiben.")
+            alert.addButton(withTitle: L("Remove", "Entfernen"))
+        } else {
+            let size = PluginSize.text(parts.all.reduce(Int64(0)) { $0 + PluginSize.folder($1) })
+            let names = componentNames(parts)
+            let trash = parts.installed.isEmpty ? ""
+                : L(" Folders outside BarDrop go to the Trash.", " Ordner außerhalb von BarDrop kommen in den Papierkorb.")
+            let others = parts.sharedWith.joined(separator: ", ")
+            let shared = parts.shared.isEmpty ? ""
+                : L(" Programs also used by \(others) are downloaded again there when needed.",
+                    " Von \(others) mitbenutzte Programme werden dort bei Bedarf neu geladen.")
+            alert.informativeText = L("The plugin and its settings will be deleted. It also installed programs (\(size)): \(names).\(shared)\(trash) Items in the shelf aren’t affected.",
+                                      "Das Plugin und seine Einstellungen werden gelöscht. Dazu hat es Programme eingerichtet (\(size)): \(names).\(shared)\(trash) Die Objekte in der Ablage bleiben.")
+            alert.addButton(withTitle: L("Remove With Programs", "Mit Programmen entfernen"))
+            alert.addButton(withTitle: L("Remove Plugin Only", "Nur Plugin entfernen"))
+        }
         alert.addButton(withTitle: L("Cancel", "Abbrechen"))
         alert.buttons.first?.hasDestructiveAction = true
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let answer = alert.runModal()
+        let withPrograms: Bool
+        switch answer {
+        case .alertFirstButtonReturn: withPrograms = !parts.isEmpty
+        case .alertSecondButtonReturn where !parts.isEmpty: withPrograms = false
+        default: return
+        }
         open(.list)
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) { manager.remove(plugin.id) }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.88)) {
+            manager.remove(plugin.id, withComponents: withPrograms)
+        }
+    }
+
+    /// „mytool, ~/.local/share/env“: Programme mit ihrem Namen aus dem Manifest, Ordner als Pfad
+    private func componentNames(_ parts: PluginManager.Components) -> String {
+        var names: [String] = []
+        let tools = manager.plugins.flatMap { $0.manifest.tools ?? [] }
+        for folder in parts.programs + parts.shared {
+            let tool = tools.first { manager.tools.storedFolders($0).contains(folder) }
+            let name = tool?.name ?? folder.lastPathComponent
+            if !names.contains(name) { names.append(name) }
+        }
+        let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
+        for folder in parts.installed {
+            let path = folder.path
+            names.append(path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path)
+        }
+        return names.joined(separator: ", ")
     }
 }
 
-/// Zeile unter dem Kopf einer Plugin-Seite: kleines Zeichen, kurzer Satz, rechts ein Knopf
+/// Symbol eines ausgeschalteten Plugins: grau und dunkler, wie ausgegraut (Nutzer, 28.10.2026)
+struct PluginOffLook: ViewModifier {
+    let off: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .saturation(off ? 0 : 1)
+            .brightness(off ? -0.12 : 0)
+            .opacity(off ? 0.55 : 1)
+    }
+}
+
+/// Was bei einem Plugin gerade ansteht: in der Liste ein farbiges Zeichen vor „Aus“, auf
+/// seiner Seite dasselbe Zeichen mit einem kurzen Satz
+enum PluginStatus: Equatable {
+    case running, failed, updated(String)
+
+    /// Läuft geht vor Fehler, Fehler vor „aktualisiert“
+    static func current(of id: String, manager: PluginManager) -> PluginStatus? {
+        if (manager.runningCounts[id] ?? 0) > 0 { return .running }
+        if manager.lastErrors[id] != nil { return .failed }
+        if let version = manager.recentlyUpdated[id] { return .updated(version) }
+        return nil
+    }
+
+    var symbol: String {
+        switch self {
+        // Wird als Ladekreis gezeichnet (PluginStatusSymbol); das Zeichen nur als Ersatz
+        case .running: return "arrow.triangle.2.circlepath"
+        case .failed: return "exclamationmark.triangle"
+        // Grün mit Funkeln wie „Neu“ bei Apple: frisch aktualisiert, nichts zu tun (ein Pfeil
+        // hätte nach „Update verfügbar“ ausgesehen)
+        case .updated: return "sparkles"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .running: return Color(nsColor: .controlAccentColor)
+        case .failed: return .orange
+        case .updated: return Color(nsColor: .systemGreen)
+        }
+    }
+
+    var text: String {
+        switch self {
+        case .running: return L("Running", "Läuft")
+        case .failed: return L("Last run failed", "Letzter Lauf fehlgeschlagen")
+        case .updated(let version): return L("Updated to \(version)", "Aktualisiert auf \(version)")
+        }
+    }
+}
+
+/// Zeichen eines Zustands. Läuft das Plugin, dreht sich der Ladekreis von macOS
+/// (Nutzer: lieber das bekannte Laden als Zahnräder)
+struct PluginStatusSymbol: View {
+    let status: PluginStatus
+    var size: CGFloat = 13
+
+    var body: some View {
+        if status == .running {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                // Der kleine Kreis ist 16 pt groß; auf die Größe der anderen Zeichen bringen
+                .scaleEffect(size / 16)
+                .frame(width: size + 2, height: size + 2)
+        } else {
+            Image(systemName: status.symbol)
+                .font(.system(size: size))
+                .foregroundStyle(status.color)
+        }
+    }
+}
+
+/// Zeile unter dem Kopf einer Plugin-Seite: Zeichen des Zustands, kurzer Satz, rechts ein Knopf
 private struct StatusRow<Control: View>: View {
-    let symbol: String
+    let status: PluginStatus
     let text: String
-    let color: Color
     @ViewBuilder let control: () -> Control
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.system(size: 13))
-                .foregroundStyle(color)
+            PluginStatusSymbol(status: status)
                 .frame(width: 20)
             Text(text)
                 .font(.system(size: 13))
-                .foregroundStyle(color == .secondary ? Color.primary : color)
+                .foregroundStyle(status == .running ? Color.primary : status.color)
             Spacer(minLength: 8)
             control()
         }
         .padding(.horizontal, SettingsTheme.rowPadding)
         .frame(minHeight: 42)
+    }
+}
+
+/// Aufgeklappter Fehler: der ganze Text zum Markieren, darunter rechts „Kopieren“
+private struct ErrorTextRow: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            Text(text)
+                .font(.system(size: 12, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.primary.opacity(0.05)))
+            CopyButton(text: text)
+        }
+        .padding(.horizontal, SettingsTheme.rowPadding)
+        .padding(.bottom, 10)
     }
 }
 
@@ -1196,17 +1377,18 @@ struct PluginConnectivity {
     var text: String {
         if usesNetwork { return L("Connects to the internet", "Verbindet sich mit dem Internet") }
         if !tools.isEmpty {
-            return L("Downloads \(tools.joined(separator: ", ")) once, then offline",
-                     "Lädt einmal \(tools.joined(separator: ", ")), dann offline")
+            return L("Downloads \(tools.joined(separator: ", ")) once, then runs locally",
+                     "Lädt einmal \(tools.joined(separator: ", ")), läuft dann lokal")
         }
-        return L("Works offline", "Funktioniert offline")
+        return L("Runs locally", "Läuft lokal")
     }
 
     /// Kurz für die Zeilen der Galerie
     var short: String {
         if usesNetwork { return L("Internet", "Internet") }
-        if !tools.isEmpty { return L("Offline after setup", "Offline nach Einrichtung") }
-        return L("Offline", "Offline")
+        // „Läuft lokal“ statt „Offline“ (Nutzer, 28.10.2026)
+        if !tools.isEmpty { return L("Runs locally after setup", "Läuft lokal nach Einrichtung") }
+        return L("Runs locally", "Läuft lokal")
     }
 
     var symbol: String {
@@ -1225,18 +1407,6 @@ extension PluginConnectivity {
         if usesNetwork { return L("Yes", "Ja") }
         if !tools.isEmpty { return L("Once, for programs", "Einmal, für Programme") }
         return L("No", "Nein")
-    }
-
-    struct LegendItem: Hashable {
-        let symbol: String
-        let text: String
-    }
-
-    /// Erklärung der Zeichen unter der Liste
-    static var legend: [LegendItem] {
-        [LegendItem(symbol: "wifi.slash", text: L("offline", "offline")),
-         LegendItem(symbol: "globe", text: L("internet", "Internet")),
-         LegendItem(symbol: "arrow.down.circle", text: L("downloads a program", "lädt ein Programm"))]
     }
 }
 
@@ -1285,28 +1455,11 @@ enum PluginSize {
     }
 
     static func parts(of plugin: InstalledPlugin, tools: PluginTools) -> Parts {
-        let folders = Set((plugin.manifest.tools ?? []).compactMap { tools.installed($0)?.deletingLastPathComponent() })
+        // Alles, was auf der Platte liegt, auch ein veraltetes Programm (wie beim Entfernen):
+        // Vorher stand dann „noch nicht geladen“, obwohl es Platz belegte
+        let folders = Set((plugin.manifest.tools ?? []).flatMap(tools.storedFolders))
         return Parts(own: folder(plugin.directory),
                      programs: folders.isEmpty ? nil : folders.reduce(Int64(0)) { $0 + folder($1) })
-    }
-
-    /// Summe unter der Liste; Programme, die sich Plugins teilen, zählen einmal
-    struct Totals: Equatable {
-        let plugins: Int64
-        let programs: Int64
-
-        func text(count: Int) -> String {
-            var parts = [count == 1 ? L("1 plugin", "1 Plugin") : L("\(count) plugins", "\(count) Plugins"),
-                         PluginSize.text(plugins)]
-            if programs > 0 { parts.append(L("programs ", "Programme ") + PluginSize.text(programs)) }
-            return parts.joined(separator: " · ")
-        }
-    }
-
-    static func totals(_ plugins: [InstalledPlugin], tools: PluginTools) -> Totals {
-        let own = plugins.reduce(Int64(0)) { $0 + folder($1.directory) }
-        let folders = Set(plugins.flatMap { ($0.manifest.tools ?? []).compactMap { tools.installed($0)?.deletingLastPathComponent() } })
-        return Totals(plugins: own, programs: folders.reduce(Int64(0)) { $0 + folder($1) })
     }
 
     private static func programsLabel(_ count: Int) -> String {

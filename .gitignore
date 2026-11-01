@@ -7,3 +7,4 @@ __pycache__/
 
 # Arbeitsordner der Galerie (Zweig plugin-katalog, scripts/publish_plugin.py)
 .katalog/
+build-lokal/

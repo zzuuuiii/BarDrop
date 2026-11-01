@@ -50,7 +50,7 @@ final class PluginLog {
                 try? fm.removeItem(at: old)
                 try? fm.moveItem(at: logURL, to: old)
             }
-            if !fm.fileExists(atPath: logURL.path) { fm.createFile(atPath: logURL.path, contents: nil) }
+            if !fm.fileExists(atPath: logURL.path) { fm.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600]) }
             if let handle = try? FileHandle(forWritingTo: logURL) {
                 handle.seekToEndOfFile()
                 handle.write(Data(line.utf8))

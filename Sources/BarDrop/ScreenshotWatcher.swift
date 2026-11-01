@@ -18,7 +18,6 @@ final class ScreenshotWatcher {
     private let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.screenshots"))
     /// Beobachteter Ordner und Zeitpunkt des Starts (ältere Dateien zählen nicht)
     private var folderSource: DispatchSourceFileSystemObject?
-    private var folderDescriptor: Int32 = -1
     private var watchedFolder: URL?
     private var startedAt = Date()
     /// Prüft regelmäßig, ob der Ort für Bildschirmfotos umgestellt wurde
@@ -45,6 +44,8 @@ final class ScreenshotWatcher {
         folderCheck = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             self?.followFolderChange()
         }
+        // Mit Spielraum: macOS legt das Aufwecken dann mit anderem zusammen (Energie im Leerlauf)
+        folderCheck?.tolerance = 1
         let query = NSMetadataQuery()
         // Nur, was ab jetzt aufgenommen wird
         query.predicate = NSPredicate(format: "kMDItemIsScreenCapture == 1 AND kMDItemFSCreationDate >= %@",
@@ -130,7 +131,6 @@ final class ScreenshotWatcher {
             Diagnostics.shared.failure("screenshots", "Ordner nicht lesbar \(Diagnostics.anon(folder)) errno=\(errno) \(String(cString: strerror(errno)))")
             return
         }
-        folderDescriptor = fd
         watchedFolder = folder
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
         source.setEventHandler { [weak self] in self?.folderChanged() }

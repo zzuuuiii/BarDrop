@@ -30,13 +30,22 @@ final class DragSourceNSView: NSView, NSDraggingSource {
 
     /// Drop-Ziel: Objekte auf diese Kachel legen (Stapel bilden bzw. ergänzen).
     var dropTargetID: UUID? {
-        didSet {
-            guard dropTargetID != oldValue else { return }
-            if dropTargetID != nil {
-                registerForDraggedTypes(ShelfStore.acceptedTypes)
-            } else {
-                unregisterDraggedTypes()
-            }
+        didSet { if dropTargetID != oldValue { updateDropRegistration() } }
+    }
+    /// Unterordner im geöffneten Ordner: Darauf Abgelegtes kommt nach kurzem Verweilen hinein,
+    /// wie bei Ordnern im Finder (Nutzer, 28.10.2026). Lässt man vorher los, landet es im
+    /// geöffneten Ordner selbst
+    var folderTarget: URL? {
+        didSet { if folderTarget != oldValue { updateDropRegistration() } }
+    }
+    /// Ablegen im geöffneten Ordner; `into`: der Unterordner oder der geöffnete Ordner
+    var onFolderDrop: (NSDraggingInfo, URL) -> Void = { _, _ in }
+
+    private func updateDropRegistration() {
+        if dropTargetID != nil || folderTarget != nil {
+            registerForDraggedTypes(ShelfStore.acceptedTypes)
+        } else {
+            unregisterDraggedTypes()
         }
     }
     var onDropTargeted: (Bool) -> Void = { _ in }
@@ -275,8 +284,10 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         // Innerhalb der App: nur die Aktionsleiste nimmt eigene Objekte an.
         guard context == .outsideApplication else { return [.copy, .generic] }
         // Wie im Finder: Ziele dürfen Dateien auch verschieben (nach boring.notch),
-        // außer „Beim Herausziehen immer kopieren“ ist eingestellt.
-        return AppSettings.shared.dragOutCopyOnly ? [.copy] : [.copy, .move]
+        // außer „Beim Herausziehen immer kopieren“ ist eingestellt. Der Schalter gilt nur mit
+        // „Dateien aus dem Finder: Original“ (sonst ist er ausgeblendet, siehe ItemSettings)
+        let settings = AppSettings.shared
+        return settings.dragOutCopyOnly && !settings.copyAllFiles ? [.copy] : [.copy, .move]
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
@@ -302,6 +313,17 @@ final class DragSourceNSView: NSView, NSDraggingSource {
 
     /// Eigene Objekte dürfen nur auf andere Kacheln, nicht auf sich selbst.
     private func canMerge(_ sender: NSDraggingInfo) -> Bool {
+        if let target = folderTarget {
+            let urls = droppedFileURLs(sender)
+            // Nicht in sich selbst und nicht in einen eigenen Unterordner
+            let inside = urls.contains { url in
+                let path = url.standardizedFileURL.path
+                let targetPath = target.standardizedFileURL.path
+                return targetPath == path || targetPath.hasPrefix(path + "/")
+            }
+            if inside { return false }
+            return !urls.isEmpty || (!isOwn(sender) && Self.hasPromises(sender))
+        }
         guard IntroGate.allowsMerge, let id = dropTargetID else { return false }
         guard isOwn(sender) else { return true }
         return !(ui?.draggedEntryIDs ?? []).subtracting([id]).isEmpty
@@ -325,6 +347,10 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         if canMerge(sender), let start = hoverStart, Date().timeIntervalSince(start) > Self.armDelay {
             setArmed(true)
         }
+        if let target = folderTarget {
+            if armed { return folderOperation(sender, into: target) }
+            return isOwn(sender) ? .generic : folderOperation(sender, into: target.deletingLastPathComponent())
+        }
         if armed { return .copy }
         return isOwn(sender) ? .generic : .copy   // eigenes Objekt: zurücklegen; von außen: in die Ablage
     }
@@ -335,6 +361,18 @@ final class DragSourceNSView: NSView, NSDraggingSource {
 
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         defer { resetDropState() }
+        if let target = folderTarget {
+            if armed {
+                if isOwn(sender) { ui?.lastDropWasInternal = true }
+                onFolderDrop(sender, target)
+            } else if isOwn(sender) {
+                ui?.lastDropWasInternal = true          // im selben Ordner losgelassen
+            } else {
+                onFolderDrop(sender, target.deletingLastPathComponent())
+            }
+            Haptics.drop()
+            return true
+        }
         if armed {
             if isOwn(sender) { onOwnDrop() } else { onExternalDrop(sender.draggingPasteboard) }
         } else if isOwn(sender) {
@@ -349,6 +387,23 @@ final class DragSourceNSView: NSView, NSDraggingSource {
 
     override func concludeDragOperation(_ sender: NSDraggingInfo?) { resetDropState() }
     override func draggingEnded(_ sender: NSDraggingInfo) { resetDropState() }
+
+    /// Gezogene Dateien: eigene aus der Ablage bzw. dem Ordner, sonst aus dem Pasteboard
+    private func droppedFileURLs(_ sender: NSDraggingInfo) -> [URL] {
+        if isOwn(sender) { return ui?.draggedFileURLs ?? [] }
+        return (sender.draggingPasteboard.readObjects(forClasses: [NSURL.self],
+                                                      options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+    }
+
+    private static func hasPromises(_ sender: NSDraggingInfo) -> Bool {
+        sender.draggingPasteboard.canReadObject(forClasses: [NSFilePromiseReceiver.self], options: nil)
+    }
+
+    /// Wie beim Ablegen im geöffneten Ordner: gleiche Platte verschieben, sonst kopieren
+    private func folderOperation(_ sender: NSDraggingInfo, into folder: URL) -> NSDragOperation {
+        guard let first = droppedFileURLs(sender).first else { return Self.hasPromises(sender) ? .copy : [] }
+        return ShelfActions.folderOperation(for: first, into: folder, modifiers: NSEvent.modifierFlags)
+    }
 
     private func resetDropState() {
         hoverStart = nil
@@ -370,6 +425,8 @@ struct DragSource: NSViewRepresentable {
     var menu: (NSView) -> NSMenu? = { _ in nil }
     var draggedIDs: () -> Set<UUID> = { [] }
     var dropTargetID: UUID? = nil
+    var folderTarget: URL? = nil
+    var onFolderDrop: (NSDraggingInfo, URL) -> Void = { _, _ in }
     var onDropTargeted: (Bool) -> Void = { _ in }
     var onExternalDrop: (NSPasteboard) -> Void = { _ in }
     var onOwnDrop: () -> Void = {}
@@ -396,6 +453,8 @@ struct DragSource: NSViewRepresentable {
         view.menuProvider = menu
         view.draggedIDs = draggedIDs
         view.dropTargetID = dropTargetID
+        view.folderTarget = folderTarget
+        view.onFolderDrop = onFolderDrop
         view.onDropTargeted = onDropTargeted
         view.onExternalDrop = onExternalDrop
         view.onOwnDrop = onOwnDrop

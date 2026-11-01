@@ -66,3 +66,35 @@ jobs:
         run: |
           echo "::error title=Galerie::Mindestens eine Datei in Plugins/ wurde übersprungen, siehe Annotationen oben"
           exit 1
+
+  # Symbole der Plugins als Bilder für die Website (icons/<id>.png im Katalog). Nur ein Mac hat
+  # die SF-Symbole; unveränderte Symbole werden nicht neu gezeichnet (scripts/render_plugin_icons.swift)
+  icons:
+    needs: gallery
+    if: ${{ !cancelled() }}
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: plugin-katalog
+          path: katalog
+
+      - name: Symbole zeichnen
+        run: swift scripts/render_plugin_icons.swift katalog
+
+      - name: Hochladen
+        working-directory: katalog
+        run: |
+          git add -A icons
+          if git diff --cached --quiet; then
+            echo "::notice title=Symbole::keine Änderung"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "Galerie: Symbole der Plugins gezeichnet"
+          git push origin HEAD:plugin-katalog
+          echo "::notice title=Symbole::aktualisiert ($(git rev-parse --short HEAD))"

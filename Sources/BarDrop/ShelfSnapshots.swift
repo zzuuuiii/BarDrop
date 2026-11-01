@@ -110,7 +110,7 @@ enum ShelfSnapshots {
 /// Fehler genau gleich wiederholen lässt. Liegt ~/Library/Logs/BarDrop/Befehl.txt vor, wird
 /// sie gelesen, gelöscht und Zeile für Zeile ausgeführt: open, close, add <Pfad>,
 /// folder <Pfad>, back, move <von> <nach>, shot <Name>, intro-shot <Name>, edge left|right,
-/// intro, wait <Sekunden>. Nachgesehen wird
+/// intro [Schritt], wait <Sekunden>. Nachgesehen wird
 /// nur, solange das Diagnoseprotokoll läuft.
 final class DiagnosticCommands {
     /// Befehl „intro“: die Einführung öffnen (AppDelegate)
@@ -195,7 +195,8 @@ final class DiagnosticCommands {
         case "edge":
             if let edge = ScreenEdge(rawValue: argument) { controller.settings.edge = edge }
         case "intro":
-            NotificationCenter.default.post(name: DiagnosticCommands.showIntro, object: nil)
+            // Mit Nummer gleich zu diesem Schritt (0 = Willkommen)
+            NotificationCenter.default.post(name: DiagnosticCommands.showIntro, object: Int(argument))
         default:
             Diagnostics.shared.record("cmd", "unbekannt")
         }

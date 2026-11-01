@@ -935,4 +935,93 @@ final class ShelfStore: ObservableObject {
             takeOut([fileID], undoable: true, animated: false)
         }
     }
+
+    // MARK: Duplizieren
+
+    /// ⌘D wie im Finder: Jeder Eintrag (auch ein Stapel) bekommt direkt dahinter einen Zwilling
+    /// aus Kopien. Liefert die neuen Einträge (für die Auswahl). ⌘Z nimmt sie wieder heraus.
+    @discardableResult
+    func duplicate(entries ids: Set<UUID>) -> [UUID] {
+        var updated = entries
+        var taken = takenNames()
+        var made: [UUID] = []
+        var newFiles: [UUID] = []
+        // Von hinten, damit die Stellen der vorderen Einträge gleich bleiben
+        for index in updated.indices.reversed() where ids.contains(updated[index].id) {
+            let copies = updated[index].files.compactMap { duplicateFile($0, taken: &taken) }
+            guard !copies.isEmpty else { continue }
+            let entry = ShelfEntry(files: copies)
+            // Gespeichert und gezeigt wird neueste zuerst: „dahinter“ ist der nächste Platz
+            updated.insert(entry, at: index + 1)
+            made.append(entry.id)
+            newFiles += copies.map(\.id)
+        }
+        finishDuplicate(updated, files: newFiles)
+        return made
+    }
+
+    /// ⌘D im Stapel: Jede gewählte Datei bekommt ihre Kopie direkt dahinter. Liefert die neuen Dateien.
+    @discardableResult
+    func duplicate(files ids: Set<UUID>, in entryID: UUID) -> [UUID] {
+        guard let e = entries.firstIndex(where: { $0.id == entryID }) else { return [] }
+        var updated = entries
+        var taken = takenNames()
+        var newFiles: [UUID] = []
+        for index in updated[e].files.indices.reversed() where ids.contains(updated[e].files[index].id) {
+            guard let copy = duplicateFile(updated[e].files[index], taken: &taken) else { continue }
+            updated[e].files.insert(copy, at: index + 1)
+            newFiles.append(copy.id)
+        }
+        finishDuplicate(updated, files: newFiles)
+        return newFiles
+    }
+
+    /// Namen, die in der Ablage schon vorkommen (für „Kopie 2“, „Kopie 3“ …)
+    private func takenNames() -> Set<String> {
+        Set(entries.flatMap(\.files).map { $0.url.lastPathComponent.lowercased() })
+    }
+
+    /// Kopiert eine Datei in den eigenen Speicher („Bild Kopie.png“ wie im Finder; auf APFS ein
+    /// Klon, also sofort und ohne Platz). nil, wenn sie sich nicht lesen lässt
+    private func duplicateFile(_ file: ShelfFile, taken: inout Set<String>) -> ShelfFile? {
+        let fm = FileManager.default
+        guard let source = Self.locate(file)?.url, fm.fileExists(atPath: source.path) else { return nil }
+        let name = source.lastPathComponent
+        let ext = (name as NSString).pathExtension
+        let base = ext.isEmpty ? name : (name as NSString).deletingPathExtension
+        let word = L("copy", "Kopie")
+        var candidate = ""
+        for n in 1... {
+            let stem = n == 1 ? "\(base) \(word)" : "\(base) \(word) \(n)"
+            candidate = ext.isEmpty ? stem : "\(stem).\(ext)"
+            if !taken.contains(candidate.lowercased()) { break }
+        }
+        let dir = itemsDir.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let target = dir.appendingPathComponent(candidate)
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            try fm.copyItem(at: source, to: target)
+        } catch {
+            try? fm.removeItem(at: dir)
+            diagnostics?.failure("store", "Duplizieren fehlgeschlagen", error)
+            return nil
+        }
+        taken.insert(candidate.lowercased())
+        // Wie die Kopien beim Ablegen: „Im Finder zeigen“ führt zum Original des Nutzers
+        var copy = ShelfFile(url: target, owned: true)
+        copy.originBookmark = file.owned ? file.originBookmark : ShelfFile.makeBookmark(source)
+        return copy
+    }
+
+    private func finishDuplicate(_ updated: [ShelfEntry], files: [UUID]) {
+        guard !files.isEmpty else { return NSSound.beep() }
+        diagnostics?.record("store", "duplicate \(files.count)")
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.86)) { entries = updated }
+        // Widerrufen nimmt die Kopien heraus und löscht sie (sie liegen nur in BarDrop)
+        let ids = Set(files)
+        undoManager.registerUndo(withTarget: self) { store in
+            store.takeOut(ids, undoable: false)
+        }
+        undoManager.setActionName(L("Duplicate", "Duplizieren"))
+    }
 }

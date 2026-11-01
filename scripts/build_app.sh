@@ -38,6 +38,9 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
 
+# Symbole der .bdrop-Dateien (festes Symbol und Quick-Look-Erweiterung je Plugin)
+scripts/build_plugin_icons.sh "$APP_DIR" arm64 x86_64
+
 # Feste Signatur, wenn das Zertifikat da ist (Geheimnisse in GitHub), sonst ad hoc
 scripts/sign_app.sh "$APP_DIR"
 

@@ -56,7 +56,11 @@ final class FolderBrowser: ObservableObject {
     }
 
     static func displayName(_ url: URL) -> String {
-        FileManager.default.displayName(atPath: url.path)
+        // Der Verlauf heißt wie seine Aktion, in der gewählten Sprache
+        if url.standardizedFileURL == ClipboardHistory.shared.folder.standardizedFileURL {
+            return L("Clipboard", "Zwischenablage")
+        }
+        return FileManager.default.displayName(atPath: url.path)
     }
 
     /// Ordner, in die man hineingehen kann (keine Pakete wie Apps)

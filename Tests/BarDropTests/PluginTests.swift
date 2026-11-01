@@ -78,6 +78,20 @@ final class PluginTests: XCTestCase {
         XCTAssertThrowsError(try badID.validate(appVersion: "1.31.0"))
     }
 
+    /// Höchstens 100 Zeichen je Sprache; zu lang blockiert nur den Import neuer Versionen, nicht `validate`
+    func testDescriptionLengthLimit() throws {
+        func manifest(_ description: String) throws -> PluginManifest {
+            try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(extra: ", \"description\": \(description)").utf8))
+        }
+        let ok = String(repeating: "ä", count: 100)
+        XCTAssertNil(try manifest("{\"en\": \"Short\", \"de\": \"\(ok)\"}").tooLongDescription)
+        XCTAssertNil(try manifest("\"  \(ok)  \"").tooLongDescription)            // Leerraum am Rand zählt nicht
+        XCTAssertNil(PluginManifest(id: "a.b", name: LocalizedText("A"), version: "1", match: PluginMatch()).tooLongDescription)
+        let long = try manifest("{\"en\": \"Short\", \"de\": \"\(ok)x\"}")
+        XCTAssertEqual(long.tooLongDescription, 101)
+        XCTAssertNoThrow(try long.validate(appVersion: "1.31.0"))
+    }
+
     func testAutomaticDefaultNeedsHarmlessPlugin() throws {
         let harmless = try JSONDecoder().decode(PluginManifest.self,
                                                 from: Data(manifestJSON(extra: ", \"automaticByDefault\": true").utf8))
@@ -169,6 +183,126 @@ final class PluginTests: XCTestCase {
 
         manager.remove(plugin.id)
         XCTAssertTrue(manager.plugins.isEmpty)
+    }
+
+    /// `installs`: nur Ordner, die ein Plugin selbst anlegt, nie eigene Dateien oder Schlüssel
+    func testInstallPathsAllowOnlyOwnFolders() throws {
+        let extra = #", "installs": ["~/.local/share/mytool", "~/.cache/mytool", "~/Library/Application Support/mytool", "#
+            + #""~/Documents/x", "~/.ssh/keys", "~/.local", "~/.local/../Desktop", "/tmp/x", "~/Library/Caches/BarDrop", "~/.config/gh/x", "~/.local/share", "~/.local/bin"]"#
+        let manifest = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(extra: extra).utf8))
+        let home = URL(fileURLWithPath: "/Users/test", isDirectory: true)
+        XCTAssertEqual(manifest.installPaths(home: home).map(\.path),
+                       ["/Users/test/.local/share/mytool", "/Users/test/.cache/mytool",
+                        "/Users/test/Library/Application Support/mytool"])
+        // Ohne den Schlüssel nichts; ein falscher Typ lässt das Plugin nicht scheitern
+        let plain = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON().utf8))
+        XCTAssertTrue(plain.installPaths(home: home).isEmpty)
+        let wrong = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(extra: #", "installs": "~/.x/y""#).utf8))
+        XCTAssertTrue(wrong.installPaths(home: home).isEmpty)
+    }
+
+    /// „Mit Programmen entfernen“ löscht geladene Programme, „Nur Plugin“ lässt sie liegen
+    func testRemoveWithComponentsDeletesOwnPrograms() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let tool = #", "tools": [{"id": "mytool", "name": "My Tool", "url": "https://example.com/mytool", "sha256": ""#
+            + String(repeating: "a", count: 64) + #""}]"#
+        func install() throws -> InstalledPlugin {
+            let file = base.appendingPathComponent("p-\(UUID().uuidString).bdrop")
+            try PluginPackage.pack(makePluginFolder(permissions: ["run"], script: "function run(item) {}", extra: tool), to: file)
+            return try manager.install(try manager.inspect(file), standard: false)
+        }
+        // Ordner wie aus einer älteren Fassung (nur nach `id` benannt)
+        let folder = manager.toolsDirectory.appendingPathComponent("mytool", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: folder.appendingPathComponent("mytool"))
+
+        var plugin = try install()
+        XCTAssertEqual(manager.components(of: plugin).programs.map(\.standardizedFileURL), [folder.standardizedFileURL])
+        manager.remove(plugin.id)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path))
+
+        plugin = try install()
+        manager.remove(plugin.id, withComponents: true)
+        XCTAssertTrue(manager.plugins.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+    }
+
+    /// Braucht eine neue Fassung ein Programm nicht mehr, verschwindet sein Ordner mit dem
+    /// Aktualisieren; ein Programm, das ein anderes Plugin noch nennt, bleibt
+    func testUpdateRemovesProgramsNoLongerUsed() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let tool = #", "tools": [{"id": "mytool", "name": "My Tool", "url": "https://example.com/mytool", "sha256": ""#
+            + String(repeating: "a", count: 64) + #""}]"#
+        func install(_ id: String, extra: String) throws {
+            let file = base.appendingPathComponent("\(id)-\(UUID().uuidString).bdrop")
+            try PluginPackage.pack(makePluginFolder(id: id, permissions: ["run"], script: "function run(item) {}", extra: extra), to: file)
+            _ = try manager.install(try manager.inspect(file), standard: false)
+        }
+        let folder = manager.toolsDirectory.appendingPathComponent("mytool", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: folder.appendingPathComponent("mytool"))
+
+        try install("com.example.first", extra: tool)
+        try install("com.example.second", extra: tool)
+        try install("com.example.first", extra: "")          // braucht es nicht mehr
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.path))
+        try install("com.example.second", extra: "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+    }
+
+    /// Ein Fehler bleibt nach einem gelungenen Lauf noch eine Weile stehen und übersteht das Beenden
+    func testLastErrorStaysAndSurvivesRestart() throws {
+        let support = base.appendingPathComponent("support")
+        let manager = PluginManager(baseDirectory: support, appVersion: "1.31.0")
+        let plugin = try installed(manager, script: "function run(item) {}")
+        manager.recordError(plugin.id, "kaputt")
+        manager.clearError(plugin.id)                         // gleich danach gelungen: bleibt
+        XCTAssertEqual(manager.lastErrors[plugin.id], "kaputt")
+
+        let reopened = PluginManager(baseDirectory: support, appVersion: "1.31.0")
+        XCTAssertEqual(reopened.lastErrors[plugin.id], "kaputt")
+        // Nach der Mindestzeit geht er mit dem nächsten gelungenen Lauf
+        reopened.clearError(plugin.id, now: Date().addingTimeInterval(PluginManager.errorMinimum + 1))
+        XCTAssertNil(reopened.lastErrors[plugin.id])
+        XCTAssertNil(PluginManager(baseDirectory: support, appVersion: "1.31.0").lastErrors[plugin.id])
+    }
+
+    /// Meistgeladene zuerst, gleich oft geladene in der Reihenfolge des Katalogs
+    func testGallerySortsByDownloads() throws {
+        func entry(_ id: String, _ downloads: Int?) throws -> PluginCatalogEntry {
+            var json = #"{"id": "\#(id)", "name": "\#(id)", "version": "1.0.0", "url": "https://example.com/\#(id).bdrop", "sha256": "\#(String(repeating: "a", count: 64))""#
+            if let downloads { json += #", "downloads": \#(downloads)"# }
+            return try JSONDecoder().decode(PluginCatalogEntry.self, from: Data((json + "}").utf8))
+        }
+        let sorted = PluginManager.byDownloads([try entry("a", nil), try entry("b", 5), try entry("c", 0), try entry("d", 5)])
+        XCTAssertEqual(sorted.map(\.id), ["b", "d", "a", "c"])
+    }
+
+    /// Teilen sich zwei Plugins ein Programm, fragt das Entfernen trotzdem und nennt das
+    /// andere Plugin; „Mit Programmen“ löscht es (das andere lädt es bei Bedarf neu)
+    func testRemoveAsksForSharedPrograms() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let tool = #", "tools": [{"id": "mytool", "name": "My Tool", "url": "https://example.com/mytool", "sha256": ""#
+            + String(repeating: "a", count: 64) + #""}]"#
+        func install(_ id: String) throws -> InstalledPlugin {
+            let file = base.appendingPathComponent("\(id).bdrop")
+            try PluginPackage.pack(makePluginFolder(id: id, permissions: ["run"], script: "function run(item) {}", extra: tool), to: file)
+            return try manager.install(try manager.inspect(file), standard: false)
+        }
+        let folder = manager.toolsDirectory.appendingPathComponent("mytool", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: folder.appendingPathComponent("mytool"))
+        let first = try install("com.example.first")
+        let second = try install("com.example.second")
+
+        let parts = manager.components(of: first)
+        XCTAssertFalse(parts.isEmpty)
+        XCTAssertTrue(parts.programs.isEmpty)
+        XCTAssertEqual(parts.shared.map(\.standardizedFileURL), [folder.standardizedFileURL])
+        XCTAssertEqual(parts.sharedWith, [second.manifest.name.text])
+        manager.remove(first.id, withComponents: true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: folder.path))
+        XCTAssertNotNil(manager.plugin(second.id))
     }
 
     /// Ein Erlauben gilt für alles, was das Plugin angibt; die Zwischenablage fragt nie

@@ -46,6 +46,11 @@ extension ShelfActions {
         guard modifiers.isDisjoint(with: [.command, .shift]) else { return }
         ui.memberSelection = [file.id]
         ui.memberAnchor = file.id
+        // Im Verlauf der Zwischenablage kopiert ein Klick den Eintrag wieder
+        if isFolderOpen, ClipboardHistory.shared.contains(file.url) {
+            ClipboardHistory.shared.copyBack(file.url)
+            announceCopy(1, pathsOnly: false)
+        }
     }
 
     func memberDragFiles(for file: ShelfFile) -> [ShelfFile] {
@@ -190,6 +195,27 @@ extension ShelfActions {
 
     /// ⌘⌫ wie im Finder: Auswahl in den Papierkorb. Danach ist wie bei ⌫ das Objekt
     /// dahinter ausgewählt.
+    /// ⌘D: Auswahl duplizieren wie im Finder, in der Ablage und im Stapel. Danach sind die
+    /// Kopien ausgewählt. In angehefteten Ordnern nicht (dort lägen die Kopien im Finder)
+    func duplicateCurrentSelection() {
+        guard !isFolderOpen else { return NSSound.beep() }
+        if isInStack, let stack = openStackEntry {
+            let ids = Set(selectedMembers.map(\.id))
+            guard !ids.isEmpty else { return NSSound.beep() }
+            let made = store.duplicate(files: ids, in: stack.id)
+            guard !made.isEmpty else { return }
+            ui.memberSelection = Set(made)
+            ui.memberAnchor = made.last
+        } else {
+            let ids = Set(selectedEntries.map(\.id))
+            guard !ids.isEmpty else { return NSSound.beep() }
+            let made = store.duplicate(entries: ids)
+            guard !made.isEmpty else { return }
+            ui.selection = Set(made)
+            ui.selectionAnchor = made.last
+        }
+    }
+
     func trashCurrentSelection() {
         let urls = currentSelectionURLs
         guard !urls.isEmpty else { return NSSound.beep() }

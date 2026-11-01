@@ -33,6 +33,36 @@ extension AnyTransition {
 
 // MARK: Wurzelansicht: die schwarze Form und ihr Inhalt
 
+/// Die Randform, solange die Ablage vom Rand gezogen ist: beobachtet nur Form und Glas, die sich
+/// beim Ziehen in jedem Bild ändern (siehe ShelfUIModel.tearState)
+private struct TornShape: View {
+    @ObservedObject var state: TearState
+    let m: ShelfMetrics
+    let outline: Bool
+    let light: Bool
+
+    var body: some View {
+        if let tear = state.tear {
+            TearGoo(tear: tear, inset: m.fillet, reach: EdgeTear.reach,
+                    outline: outline, glass: state.glass,
+                    light: light,
+                    docked: EdgeBlobShape(edge: tear.side, cornerRadius: m.cornerRadius, fillet: m.fillet,
+                                          filletStretch: m.filletStretch, cornerStretch: m.cornerStretch))
+        }
+    }
+}
+
+/// Deckkraft des oberen Übergangs: Auf Glas (losgelöst) nur angedeutet. Eigene Ansicht, damit
+/// nur sie dem Glas folgt und nicht der ganze Inhalt der Ablage
+private struct GlassDimmedOpacity: ViewModifier {
+    @ObservedObject var state: TearState
+    let visible: Bool
+
+    func body(content: Content) -> some View {
+        content.opacity(visible ? 1 - 0.6 * state.glass : 0)
+    }
+}
+
 struct ShelfRootView: View {
     @ObservedObject var ui: ShelfUIModel
     @ObservedObject var store: ShelfStore
@@ -47,16 +77,16 @@ struct ShelfRootView: View {
         // Vom Rand gezogen (EdgeTear): Das Fenster ist dann breiter und die Ablage steht in
         // seiner Mitte. Die Form zeichnet TearGoo, die Kacheln bleiben dieselben Ansichten
         // (nur ihre Umgebung ändert sich, damit Scrollstand und Auswahl erhalten bleiben).
-        let tear = ui.level == .expanded ? ui.tear : nil
+        let torn = ui.level == .expanded && ui.isTorn
         let shape = EdgeBlobShape(edge: settings.edge, cornerRadius: m.cornerRadius, fillet: m.fillet,
                                   filletStretch: m.filletStretch, cornerStretch: m.cornerStretch,
-                                  detached: tear != nil)
+                                  detached: torn)
 
-        ZStack(alignment: tear == nil ? edgeAlignment : .center) {
+        ZStack(alignment: torn ? .center : edgeAlignment) {
             Color.clear
 
             ZStack(alignment: edgeAlignment) {
-                if tear == nil {
+                if !torn {
                     // Weicher Schatten, der innerhalb des Fensterrands ganz ausläuft
                     // (Platz dafür: ShelfMetrics.panelMargin). Nur eine Ebene: Jeder Schatten
                     // wird in jedem Bild der Animation neu berechnet.
@@ -83,12 +113,9 @@ struct ShelfRootView: View {
             }
             .frame(width: m.width, height: m.height + 2 * m.fillet, alignment: edgeAlignment)
             .background {
-                if let tear {
-                    TearGoo(tear: tear, inset: m.fillet, reach: EdgeTear.reach,
-                            outline: settings.showOutline || ui.forcesOutline, glass: ui.tearGlass,
-                            light: ui.systemLight,
-                            docked: EdgeBlobShape(edge: tear.side, cornerRadius: m.cornerRadius, fillet: m.fillet,
-                                                  filletStretch: m.filletStretch, cornerStretch: m.cornerStretch))
+                if torn {
+                    TornShape(state: ui.tearState, m: m, outline: settings.showOutline || ui.forcesOutline,
+                              light: ui.systemLight)
                         .frame(width: m.width + 2 * EdgeTear.reach, height: m.height + 2 * m.fillet)
                 }
             }
@@ -98,7 +125,7 @@ struct ShelfRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Schwebend aus Glas im hellen Erscheinungsbild: helles Glas mit dunkler Schrift
         // (wie die Fenster von macOS); sonst immer dunkel
-        .environment(\.colorScheme, tear != nil && settings.detachedGlass && ui.systemLight && ui.tearGlass > 0.5 ? .light : .dark)
+        .environment(\.colorScheme, torn && settings.detachedGlass && ui.systemLight && ui.tearGlassMostly ? .light : .dark)
     }
 
     /// Maske für den Rahmen am Rand: im Bereich der Bögen zum Bildschirmrand so stark wie
@@ -269,10 +296,6 @@ struct ShelfContent: View {
 
     private var folderOpen: Bool { actions.isFolderOpen }
 
-    /// Wohin „Zurück“ führt: der Ordner darüber, sonst die Ablage (mit ihrem Titel)
-    private var backTitle: String? {
-        folderOpen ? (folder.parentName ?? title) : title
-    }
 
     private var backHelp: String {
         if folderOpen, let parent = folder.parentName {
@@ -358,7 +381,7 @@ struct ShelfContent: View {
                     .overlay(alignment: .top) {
                         // Auf Glas (losgelöst) nur angedeutet, sonst läge ein dunkles Band darüber
                         topFade
-                            .opacity(scroll.scrolled && !switchingView ? 1 - 0.6 * ui.tearGlass : 0)
+                            .modifier(GlassDimmedOpacity(state: ui.tearState, visible: scroll.scrolled && !switchingView))
                             .animation(switchingView ? nil : .easeOut(duration: 0.15), value: scroll.scrolled)
                     }
                     .coordinateSpace(name: "viewport")
@@ -490,12 +513,10 @@ struct ShelfContent: View {
                     HStack(spacing: 3) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 11, weight: .semibold))
-                        if let backTitle {
-                            Text(backTitle)
-                                .font(.system(size: 13, weight: .semibold))
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                        }
+                        // Im Stapel steht oben links „Stapel“ statt „BarDrop“ (Nutzer, 27.10.2026)
+                        Text(L("Stack", "Stapel"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .lineLimit(1)
                     }
                     .foregroundStyle(Color.primary.opacity(0.92))
                     .contentShape(Rectangle())
@@ -505,11 +526,13 @@ struct ShelfContent: View {
                 .help(backHelp)
                 Spacer(minLength: 8)
                 let selected = ui.memberSelection.intersection(stack.files.map(\.id)).count
+                let count = stack.files.count
                 if ui.notice == nil && selected == 0 && runner.hasVisibleJobs {
                     runningPlugins
                 } else {
+                    // Kurz und gleich wie in der Ablage und im Ordner (vorher „1 Objekte im Stapel“)
                     status(selected > 0 ? L("\(selected) selected", "\(selected) ausgewählt")
-                                        : L("\(stack.files.count) items in stack", "\(stack.files.count) Objekte im Stapel"))
+                           : (count == 1 ? L("1 item", "1 Objekt") : L("\(count) items", "\(count) Objekte")))
                 }
             } else {
                 if let title {
@@ -532,7 +555,7 @@ struct ShelfContent: View {
                     // Große Dateien, Downloads und iCloud brauchen einen Moment
                     HStack(spacing: 5) {
                         ProgressView().controlSize(.mini)
-                        countLabel(L("Importing", "Importieren"))
+                        countLabel(L("Importing", "Wird importiert"))
                     }
                 } else if ui.notice == nil && selected == 0 && runner.hasVisibleJobs {
                     // Plugins arbeiten: das statt der Anzahl
@@ -558,8 +581,13 @@ struct ShelfContent: View {
     /// Plugins mit Anzahl. Meldungen und eine Auswahl haben Vorrang.
     @ViewBuilder
     private var runningPlugins: some View {
-        let running = Set(runner.visibleJobs.map(\.plugin.id)).count
-        if running > 0 {
+        let visible = runner.visibleJobs
+        let running = Set(visible.filter { !$0.isNative }.map(\.plugin.id)).count
+        if running == 0 && !visible.isEmpty {
+            // Nur Uploads in die Cloud
+            countLabel(L("Uploading", "Wird hochgeladen"))
+                .transition(.opacity)
+        } else if running > 0 {
             countLabel(running == 1 ? L("Plugin running", "Plugin läuft")
                                     : L("\(running) plugins running", "\(running) Plugins laufen"))
                 .transition(.opacity)
@@ -728,7 +756,7 @@ struct ShelfContent: View {
     @ViewBuilder
     private var pendingTiles: some View {
         ForEach(0..<max(store.pendingImports, 0), id: \.self) { _ in
-            TileLabel(title: L("Importing", "Importieren"), isSelected: false, isKey: false) {
+            TileLabel(title: L("Importing", "Wird importiert"), isSelected: false, isKey: false) {
                 ProgressView()
                     .controlSize(.small)
             }
@@ -763,12 +791,12 @@ struct ShelfContent: View {
             Text(L("No access to this folder", "Kein Zugriff auf diesen Ordner"))
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(Color.primary.opacity(0.6))
-            Text(L("Allow BarDrop under Files and Folders.", "Erlaube BarDrop den Zugriff unter „Dateien und Ordner“."))
+            Text(L("Allow BarDrop under Files and Folders.", "Erlaub BarDrop den Zugriff unter „Dateien und Ordner“."))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.primary.opacity(0.45))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
-            Button(L("Open Settings", "Einstellungen öffnen")) { FolderBrowser.openPrivacySettings() }
+            Button(L("Open System Settings", "Systemeinstellungen öffnen")) { FolderBrowser.openPrivacySettings() }
                 .controlSize(.small)
         }
     }
@@ -1173,6 +1201,7 @@ struct TileView: View {
                 StackPreview(files: Array(entry.files.prefix(3)), size: (iconSize * 0.82).rounded())
             } else if let file = entry.files.first {
                 ThumbnailView(url: file.url, size: iconSize)
+                    .cloudUpload(file.url, size: iconSize)
             }
         }
         .tileHitAreas { hitRects = $0 }
@@ -1223,11 +1252,20 @@ struct StackMemberTile: View {
 
     /// Bild und Name in der Kachel: nur dort reagiert sie auf Klicks
     @State private var hitRects: [CGRect] = []
+    /// Etwas wird gerade auf diesen Unterordner gelegt
+    @State private var dropTargeted = false
+
+    /// Ein Ordner im geöffneten Ordner nimmt Dateien auf wie im Finder
+    private var folderTarget: URL? {
+        actions.isFolderOpen && FolderBrowser.isBrowsable(file.url) ? file.url : nil
+    }
 
     var body: some View {
-        TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded,
+        TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected || dropTargeted,
+                  isKey: ui.isKey || ui.level == .expanded,
                   iconSize: iconSize) {
             ThumbnailView(url: file.url, size: iconSize)
+                .cloudUpload(file.url, size: iconSize)
         }
         .tileHitAreas { hitRects = $0 }
         .overlay(Group { if !shelfDemo {
@@ -1243,7 +1281,12 @@ struct StackMemberTile: View {
                 onDragEnded: { operation in
                     actions.dragEnded(actions.memberTargets(for: file), operation: operation)
                 },
-                menu: { anchor in actions.menu(for: file, in: entry, anchor: anchor) }
+                menu: { anchor in actions.menu(for: file, in: entry, anchor: anchor) },
+                folderTarget: folderTarget,
+                onFolderDrop: { info, target in actions.fileDrop(info, into: target) },
+                onDropTargeted: { targeted in
+                    withAnimation(.easeOut(duration: 0.15)) { dropTargeted = targeted }
+                }
             )
         } })
         .opacity(file.offlineVolumeNameForDisplay != nil ? 0.4 : 1)
@@ -1304,4 +1347,33 @@ private struct OpenBlur: ViewModifier {
             content
         }
     }
+}
+
+/// Wird die Datei gerade in die Cloud geladen: durchsichtig und mit demselben Balken wie ein
+/// laufendes Plugin, statt einer eigenen Kachel daneben (`CloudUploads`). Nutzer, 30.10.2026:
+/// erst ein Ring, aber den Balken kannte man schon
+private struct CloudUploadOverlay: ViewModifier {
+    let url: URL
+    let size: CGFloat
+    @ObservedObject private var uploads = CloudUploads.shared
+
+    func body(content: Content) -> some View {
+        let value = uploads.progress[url.path]
+        content
+            .opacity(value.map { 0.45 + 0.55 * $0 } ?? 1)
+            .animation(.easeOut(duration: 0.3), value: value)
+            .overlay(alignment: .bottom) {
+                if let value {
+                    PluginProgressBar(progress: value)
+                        .frame(width: (size * 0.78).rounded(), height: PluginProgressBar.height)
+                        .offset(y: PluginProgressBar.offset(size))
+                        .help(L("Uploading", "Wird hochgeladen"))
+                        .transition(.opacity)
+                }
+            }
+    }
+}
+
+extension View {
+    func cloudUpload(_ url: URL, size: CGFloat) -> some View { modifier(CloudUploadOverlay(url: url, size: size)) }
 }

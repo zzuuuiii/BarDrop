@@ -16,6 +16,8 @@
 <p align="center">
   <a href="https://github.com/zzuuuiii/BarDrop/releases/latest/download/BarDrop.dmg"><b>Herunterladen</b></a>
   &nbsp;·&nbsp;
+  <a href="https://bardrop.app/?lang=de"><b>Website</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/zzuuuiii/BarDrop/releases">Alle Versionen</a>
   &nbsp;·&nbsp;
   <a href="../CHANGELOG.md">Änderungen (englisch)</a>
@@ -55,7 +57,7 @@ Bilder aus dem Browser, Links und Text funktionieren genauso wie Dateien. Beim e
 >
 > Einmalig freigeben: Meldung schließen, dann **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**.
 
-Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht benutzt, jeweils zwei Tage nach dem Erscheinen einer Version. Das und frühe Beta-Versionen stellst du unter Einstellungen → Über BarDrop ein.
+Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht benutzt, jeweils zwei Tage nach dem Erscheinen einer Version. Abschalten oder Beta-Versionen früher bekommen kannst du unter Einstellungen → Über BarDrop.
 
 ## Bildschirmfotos
 
@@ -70,15 +72,15 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 
 **Ablage**
 * Links oder rechts, an fester Stelle oder dort, wo der Zeiger den Rand erreicht, in einem Bereich von einem kleinen Stück bis zum ganzen Rand
-* Öffnet sofort, nach einem kurzen Moment (Standard) oder nach 1 bis 5 Sekunden am Rand, per Klick oder per Kurzbefehl; ein Klick auf den Streifen überspringt die Wartezeit
-* Großzügiger Trefferbereich, du musst den Streifen nicht genau treffen, oder auf Wunsch ein kleiner, der nur auf den Streifen selbst reagiert
+* Öffnet sofort, nach einem kurzen Moment (Standard) oder nach 1 bis 3 Sekunden am Rand, per Klick oder per Tastaturkurzbefehl; ein Klick auf den Streifen überspringt die Wartezeit
+* Großzügiger Trefferbereich, du musst den Streifen nicht genau treffen
 * Apps ausnehmen, in denen der Rand die Ablage nicht öffnen soll, zum Beispiel Spiele, und auf Wunsch im Vollbild geschlossen bleiben
 * Auch schnell an den Rand geworfene Dateien werden sicher aufgenommen
 * Feiner heller Rahmen, damit sie auch auf dunklem Hintergrund zu sehen ist
-* Am Griff vom Rand ziehen: Sie schwebt über allen Fenstern, auf Wunsch als dunkles Glas, und dockt an beiden Rändern wieder an
+* Am Griff vom Rand ziehen: Sie schwebt über allen Fenstern, auf Wunsch als dunkles Glas, und geht an beide Ränder zurück
 * Mit gedrücktem `⌘` an einer Ecke oder Seite ziehen ändert ihre Größe wie bei einem Fenster
 * Auf allen Bildschirmen oder nur auf dem integrierten bzw. den externen
-* Verbraucht im Ruhezustand praktisch keine Energie
+* Verbraucht im Leerlauf praktisch keine Energie
 
 **Objekte**
 * Dateien, Ordner, Bilder aus dem Web (WebP, AVIF und HEIC lassen sich als PNG oder JPEG speichern), Links und Text
@@ -92,13 +94,17 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Inhalt bleibt nach einem Neustart erhalten, auf Wunsch nach 1 bis 24 Stunden automatisch aufgeräumt; auf Wunsch öffnet die Ablage an der letzten Stelle
 
 **Aktionsleiste**
-* AirDrop, Mail, Nachrichten, Teilen, Papierkorb, beliebige Ordner und Apps sowie deine Kurzbefehle (zurückgegebene Dateien landen in der Ablage)
-* Objekte darauf ziehen
+* AirDrop, Mail, Nachrichten, Teilen, Zwischenablage, Papierkorb, beliebige Ordner und Apps, Cloud-Dienste sowie deine Kurzbefehle (zurückgegebene Dateien landen in der Ablage)
+* Objekte darauf ziehen; Doppelklick auf eine Aktion öffnet, wohin sie führt
 * Klick auf einen Ordner zeigt seinen Inhalt direkt in der Ablage, wie einen Stapel: auswählen, herausziehen, Übersicht und Papierkorb wie im Finder, Unterordner öffnen und Dateien hineinziehen, um sie in den Ordner zu legen; `esc` geht zurück
-* Ordner und Papierkorb wie im Finder: auf derselben Platte verschiebt ein Ordner, auf einer anderen kopiert er (`⌥` kopiert immer, `⌘` verschiebt immer)
+* Ordner und Papierkorb wie im Finder: auf demselben Laufwerk verschiebt ein Ordner, auf einer anderen kopiert er (`⌥` kopiert immer, `⌘` verschiebt immer)
 * Zwei Reihen mit je bis zu fünf Aktionen; Namen bei allen Aktionen, nur bei Ordnern oder keinen
 * Der Papierkorb sieht voll oder leer aus wie der Papierkorb deines Mac
 * Mit gedrückter `⌘`-Taste eine Aktion an eine andere Stelle ziehen, auch in die andere Reihe; auf Wunsch Ordner und Apps per Ziehen auf die Ablage anheften und Aktionen mit `⌘` herausziehen, um sie zu entfernen
+
+**Zwischenablage und Cloud**
+* Verlauf der Zwischenablage (standardmäßig aus): BarDrop merkt sich die letzten 50 Dinge, die du kopiert hast, ein Klick auf die Aktion „Zwischenablage“ zeigt sie in der Ablage. Als privat markierte Passwörter werden übersprungen
+* Cloud (Beta): iCloud Drive, Dropbox oder Google Drive unter Einstellungen → Cloud verbinden, dann Dateien auf die Aktion ziehen und den Link in der Zwischenablage bekommen. OneDrive folgt später. Einrichtung für Entwickler: [CLOUD.de.md](CLOUD.de.md)
 
 **Plugins** (optional, standardmäßig aus)
 * Kleine Erweiterungen, die BarDrop Neues beibringen: im Rechtsklick-Menü, in der Aktionsleiste oder automatisch beim Ablegen passender Dateitypen und Links
@@ -106,7 +112,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * In JavaScript geschrieben, du kannst also auch eigene erstellen; Ergebnisse erscheinen direkt neben dem Original. BarDrop bringt selbst kein Plugin mit. So schreibst und veröffentlichst du eins: [PLUGINS.de.md](PLUGINS.de.md)
 
 **Einstellungen**
-* Kurze Einführung beim ersten Start: Ablegen, Öffnen mit dem Zeiger, wieder Herausziehen, Aktionen und Kurzbefehl
+* Kurze Einführung beim ersten Start: Ablegen, Öffnen mit dem Zeiger, wieder Herausziehen, Aktionen, Tastaturkurzbefehl und Abziehen vom Rand
 * Startet standardmäßig beim Anmelden
 * Englisch oder Deutsch, standardmäßig wie die Sprache des Systems
 * Kein Symbol in der Menüleiste: Rechtsklick in die Ablage für Einstellungen und Beenden
@@ -123,6 +129,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 | `⌘A` | Alle auswählen |
 | `⌘X` | Ausschneiden: in die Zwischenablage und aus der Ablage |
 | `⌘C`, `⌥⌘C` | Kopieren, Pfad kopieren |
+| `⌘D` | Duplizieren |
 | `⌘V` | Aus der Zwischenablage einfügen |
 | `⌫` | Auswahl aus der Ablage entfernen, danach ist das nächste Objekt ausgewählt; bricht ausgewählte Plugins ab |
 | `⌘⌫` | Auswahl in den Papierkorb legen |
@@ -134,7 +141,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 
 ## Datenschutz
 
-BarDrop sammelt keine Daten und sendet nichts über dich. Die Ablage liegt nur auf deinem Mac unter `~/Library/Application Support/BarDrop`. BarDrop verbindet sich nur mit GitHub: für die Suche nach Updates, die sich abschalten lässt, und für „Was ist neu“, wenn du Einstellungen → Über BarDrop öffnest. Bilder und Links aus dem Web werden nur dann geladen, wenn du sie selbst in die Ablage ziehst.
+BarDrop sammelt keine Daten und sendet nichts über dich. Die Ablage liegt nur auf deinem Mac unter `~/Library/Application Support/BarDrop`. BarDrop verbindet sich mit GitHub: für die Suche nach Updates (lässt sich abschalten), für „Was ist neu“ und bei eingeschalteten Plugins für die Plugin-Galerie. Alles andere passiert nur, wenn du es willst: Bilder und Links aus dem Web, wenn du sie in die Ablage ziehst, Programme, die ein Plugin nach deiner Erlaubnis lädt, und ein Cloud-Dienst, den du selbst verbindest.
 
 **Diagnoseprotokoll (nur Beta-Versionen, standardmäßig aus).** Wer Beta-Versionen nutzt, kann unter Einstellungen → Über BarDrop ein Diagnoseprotokoll einschalten, nach einem Hinweis, was es erfasst. Es hält ausführlich fest, was in der App passiert (Ablegen, Vorschaubilder, die Ablage am Rand, Tastaturfokus, Aktionen, die Einführung, Fehler), dazu deine Einstellungen sowie Mac-Modell und macOS-Version. Datei- und Ordnernamen, Pfade und Inhalte werden nie erfasst; Dateien erscheinen nur als anonyme Kennung mit ihrem Typ. Das Protokoll bleibt auf deinem Mac unter `~/Library/Logs/BarDrop` und wird nirgendwohin geschickt. Erst „Protokoll sichern“ erstellt eine Textdatei, die du selbst weitergeben kannst, um bei der Fehlersuche zu helfen. Ausschalten löscht das Protokoll. Nur wenn du dort selbst den Ordner `Bilder` anlegst, speichert es zusätzlich Bilder der Ablage, auf denen Namen und Vorschauen zu sehen sind; den Ordner löschen beendet das.
 
@@ -163,9 +170,9 @@ Die Ablage speichert ihren Inhalt in `shelf.json`. Damit ein Update nie Einträg
 |---|---|
 | `EdgeController.swift`, `EdgeLogic.swift` | Erkennen von Zeiger und Ziehen, Entscheidung über die Stufen |
 | `ShelfPanel.swift`, `ShelfViews.swift`, `TileGridLayout.swift`, `EdgeBlobShape.swift` | Fenster, Oberfläche und Form der Ablage |
-| `EdgeTear.swift`, `ShelfGlassWindow.swift` | Ablage vom Rand ziehen, schweben, andocken, Glas |
+| `EdgeTear.swift`, `ShelfGlassWindow.swift` | Ablage vom Rand abziehen, schweben, zurück an den Rand, Glas |
 | `ShelfStore.swift` | Inhalt, Speicherung, Widerrufen |
-| `ContentImporter.swift`, `ImageNormalizer.swift`, `CloudFiles.swift`, `FileSanitizer.swift` | Dateien, Web-Bilder, Links und Text übernehmen |
+| `ContentImporter.swift`, `ImageNormalizer.swift`, `CloudFiles.swift`, `FileSanitizer.swift` | Dateien, Bilder aus dem Web, Links und Text übernehmen |
 | `DragExport.swift`, `DragSource.swift` | Herausziehen |
 | `ShelfActions.swift`, `ActionBar.swift`, `QuickActions.swift`, `ShortcutRunner.swift` | Auswahl, Menüs, Aktionsleiste, Kurzbefehle als Aktionen |
 | `FolderBrowser.swift` | Inhalt von Ordnern in der Ablage |
@@ -175,6 +182,9 @@ Die Ablage speichert ihren Inhalt in `shelf.json`. Damit ein Update nie Einträg
 | `Onboarding.swift` | Einführung beim ersten Start |
 | `IntroDemo.swift` | Szenen der Einführung: die echte Ablage im Vorführmodus |
 | `Updater.swift`, `ReleaseNotes.swift` | Updates und Änderungen von GitHub |
+| `ScreenshotWatcher.swift`, `AirDropWatcher.swift`, `FolderAccess.swift` | Bildschirmfotos und AirDrop-Dateien in die Ablage, fehlender Ordnerzugriff |
+| `ClipboardHistory.swift` | Verlauf der Zwischenablage |
+| `Cloud/` | Cloud-Dienste: Anmelden, Hochladen, Links, Ordner „BarDrop Share“ |
 | `Diagnostics.swift`, `FocusDiagnostics.swift`, `FramePacer.swift`, `ShelfSnapshots.swift` | Diagnoseprotokoll (Beta-Versionen): Abläufe, Flüssigkeit, und Bilder der Ablage nur, wenn man den Ordner `Bilder` selbst anlegt |
 | `Plugins/` | Plugins: installieren, Rechte, ausführen |
 | `Tests/` | Automatische Tests |

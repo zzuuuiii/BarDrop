@@ -21,19 +21,19 @@ body:
     attributes:
       label: BarDrop version
       description: Settings → About BarDrop
-      placeholder: "1.16.0"
+      placeholder: "1.31.0-beta.10"
     validations:
       required: true
   - type: input
     id: macos
     attributes:
       label: macOS version
-      placeholder: "macOS 15.2"
+      placeholder: "macOS 26.1"
     validations:
       required: true
   - type: textarea
     id: log
     attributes:
       label: Log (optional)
-      description: In the Console app, filter for “com.zzuuuiii.bardrop” and paste the relevant lines here. Please remove personal file names first.
+      description: With a beta version, turn on the diagnostic log in Settings → About BarDrop, reproduce the bug, then use “Save Log” and attach the file. Otherwise, filter for “com.zzuuuiii.bardrop” in the Console app and paste the relevant lines here. Please remove personal file names first.
       render: text

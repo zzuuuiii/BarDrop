@@ -151,11 +151,15 @@ final class PluginManager: ObservableObject {
     /// Die meistgeladenen noch nicht installierten Plugins für die Startseite (ohne Zahlen in
     /// der Reihenfolge des Katalogs)
     func popularExtras(_ count: Int = 5) -> [PluginCatalogEntry] {
-        let extras = catalogExtras.enumerated().sorted { a, b in
+        Array(Self.byDownloads(catalogExtras).prefix(count))
+    }
+
+    /// Meistgeladene zuerst; gleich oft geladene (oder ohne Zahlen) in der Reihenfolge des Katalogs
+    static func byDownloads(_ entries: [PluginCatalogEntry]) -> [PluginCatalogEntry] {
+        entries.enumerated().sorted { a, b in
             let da = a.element.downloads ?? 0, db = b.element.downloads ?? 0
             return da != db ? da > db : a.offset < b.offset
-        }
-        return Array(extras.prefix(count).map(\.element))
+        }.map(\.element)
     }
 
     /// Alles, was die Galerie zeigt (auch schon installierte Plugins), in der Reihenfolge des Katalogs
@@ -168,13 +172,77 @@ final class PluginManager: ObservableObject {
     @Published private(set) var syncFailed = false
     /// Plugins, deren Ordner nicht mehr lesbar ist (z. B. nach dem Bearbeiten): Fehlertext
     @Published private(set) var broken: [String: String] = [:]
-    /// Letzter Fehler je Plugin (nur bis zum Beenden), sichtbar in den Einstellungen
+    /// Letzter Fehler je Plugin, sichtbar in den Einstellungen (Dreieck in der Liste,
+    /// „Letzter Lauf fehlgeschlagen“ auf der Seite). Bleibt bis zum nächsten gelungenen Lauf,
+    /// mindestens aber `errorMinimum`, und übersteht das Beenden: Vorher war das Dreieck nach
+    /// einem gelungenen Lauf sofort weg und nach einem Neustart ganz (Nutzer, 28.10.2026)
+    /// (Setzen nur über `recordError`/`clearError`; direkt nur in Tests und Vorschaubildern)
     @Published var lastErrors: [String: String] = [:]
+    /// Wann der jeweilige Fehler kam
+    private var errorTimes: [String: Date] = [:]
+    /// So lange bleibt ein Fehler mindestens sichtbar, auch wenn der nächste Lauf gelingt
+    static let errorMinimum: TimeInterval = 5 * 60
+    private var errorsFile: URL { baseDirectory.appendingPathComponent("LastErrors.json") }
+
+    private struct StoredError: Codable {
+        var text: String
+        var date: Date
+    }
+
+    /// Ein Lauf ist fehlgeschlagen
+    func recordError(_ id: String, _ text: String) {
+        lastErrors[id] = text
+        errorTimes[id] = Date()
+        saveErrors()
+    }
+
+    /// Ein Lauf ist gelungen: Der Fehler geht, aber frühestens `errorMinimum` nach seinem
+    /// Auftreten (bis dahin bleibt er stehen, damit man ihn noch sieht)
+    func clearError(_ id: String, now: Date = Date()) {
+        guard lastErrors[id] != nil else { return }
+        let since = errorTimes[id] ?? .distantPast
+        let left = Self.errorMinimum - now.timeIntervalSince(since)
+        guard left > 0 else { return dropError(id) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + left) { [weak self] in
+            // Nur, wenn es noch derselbe Fehler ist (kein neuer dazwischen)
+            guard let self, self.errorTimes[id] == since else { return }
+            self.dropError(id)
+        }
+    }
+
+    private func dropError(_ id: String) {
+        lastErrors.removeValue(forKey: id)
+        errorTimes.removeValue(forKey: id)
+        saveErrors()
+    }
+
+    private func saveErrors() {
+        var stored: [String: StoredError] = [:]
+        for (id, text) in lastErrors { stored[id] = StoredError(text: text, date: errorTimes[id] ?? Date()) }
+        if let data = try? JSONEncoder().encode(stored) { try? data.write(to: errorsFile, options: .atomic) }
+    }
+
+    private func loadErrors() {
+        guard let data = try? Data(contentsOf: errorsFile),
+              let stored = try? JSONDecoder().decode([String: StoredError].self, from: data) else { return }
+        // Nur Fehler noch installierter Plugins
+        for (id, error) in stored where plugin(id) != nil || broken[id] != nil {
+            lastErrors[id] = error.text
+            errorTimes[id] = error.date
+        }
+    }
     /// Geladene Programme, gemeinsam für alle Läufe (lädt jedes Programm nur einmal gleichzeitig)
-    lazy var tools = PluginTools(directory: toolsDirectory)
+    lazy var tools: PluginTools = {
+        let tools = PluginTools(directory: toolsDirectory)
+        tools.onLoaded = { [weak self] in DispatchQueue.main.async { self?.toolsChanged &+= 1 } }
+        return tools
+    }()
     /// „Programme aktualisieren“ je Plugin: läuft gerade bzw. Ergebnis
     enum ToolRefresh: Equatable { case running, done, failed(String) }
     @Published var toolRefresh: [String: ToolRefresh] = [:]
+    /// Zählt hoch, wenn Programme geladen oder gelöscht wurden: Größen in der Liste und auf der
+    /// Seite rechnen dann neu (vorher nur nach „Aktualisieren“, Prüfung 28.10.2026)
+    @Published var toolsChanged = 0
 
     /// Programme eines Plugins neu laden (nur die, die es schon geladen und erlaubt hat).
     /// Läuft im Hintergrund; Stand in `toolRefresh`.
@@ -224,6 +292,7 @@ final class PluginManager: ObservableObject {
         try? FileManager.default.createDirectory(at: pluginsDirectory, withIntermediateDirectories: true)
         loadState()
         reload()
+        loadErrors()
         // Arbeitsordner laufender Plugins vom letzten Mal sind verwaist
         try? FileManager.default.removeItem(at: scratchDirectory)
     }
@@ -243,7 +312,7 @@ final class PluginManager: ObservableObject {
                 self?.syncActionBar()
                 if on { self?.syncCatalog(force: true) }
             }
-        // Gespeicherten Katalog sofort zeigen: Vorher blieb „Weitere Plugins“ leer, bis man
+        // Gespeicherten Katalog sofort zeigen: Vorher blieb „Alle Plugins“ (damals „Weitere Plugins“) leer, bis man
         // „Aktualisieren“ drückte, weil der tägliche Abgleich den Speicher nicht anwendete
         applyCatalog(cachedCatalog, online: false)
         if settings.pluginsEnabled {
@@ -621,6 +690,9 @@ final class PluginManager: ObservableObject {
         let fm = FileManager.default
         let target = pluginsDirectory.appendingPathComponent(id, isDirectory: true)
         let staging = pluginsDirectory.appendingPathComponent(".install-\(UUID().uuidString)", isDirectory: true)
+        // Programme der bisherigen Fassung: Braucht die neue eines nicht mehr (oder lädt es von
+        // einer neuen Adresse), blieb sein Ordner sonst für immer liegen (Prüfung 28.10.2026)
+        let previousTools = plugin(id).flatMap { $0.manifest.tools } ?? []
         do {
             try fm.copyItem(at: unpacked.directory, to: staging)
             if fm.fileExists(atPath: target.path) {
@@ -648,6 +720,7 @@ final class PluginManager: ObservableObject {
         if !order.contains(id) { order.append(id) }
         PluginLog.shared.record(id, "install", "\(unpacked.manifest.version)\(standard ? " (Standard)" : "")")
         reload()
+        removeUnusedPrograms(previousTools.flatMap(tools.storedFolders))
         guard let installed = plugin(id) else { throw InstallError.failed(L("The plugin couldn’t be read.", "Das Plugin ließ sich nicht lesen.")) }
         return installed
     }
@@ -663,16 +736,89 @@ final class PluginManager: ObservableObject {
         uninstall(id)
     }
 
+    /// Ordner mit allen installierten Plugins („Im Finder zeigen“ unter „Erweitert“)
+    var pluginsFolder: URL { pluginsDirectory }
+
+    /// Was beim Entfernen mit dem Plugin gehen kann: geladene Programme und Ordner, die das
+    /// Plugin selbst eingerichtet hat (`installs`)
+    struct Components: Equatable {
+        /// Ordner unter Tools, nur von diesem Plugin benutzt
+        var programs: [URL] = []
+        /// Ordner unter Tools, die auch andere Plugins laden. Sie gehören mit zur Frage: Ohne
+        /// sie fragte BarDrop bei Plugins mit gemeinsamem Programm gar nicht (Nutzer, 25.10.2026).
+        /// Die anderen Plugins laden es beim nächsten Lauf neu
+        var shared: [URL] = []
+        /// Namen der anderen Plugins, die `shared` auch benutzen
+        var sharedWith: [String] = []
+        /// Vom Plugin selbst eingerichtete Ordner im Benutzerordner (kommen in den Papierkorb)
+        var installed: [URL] = []
+
+        var isEmpty: Bool { programs.isEmpty && shared.isEmpty && installed.isEmpty }
+        var all: [URL] { programs + shared + installed }
+    }
+
+    func components(of plugin: InstalledPlugin) -> Components {
+        let fm = FileManager.default
+        // Programme, die ein anderes Plugin genauso lädt (gleiche Datei, gleiche Adresse), stehen
+        // getrennt: Das Fenster nennt, wer sie noch braucht
+        let others = plugins.filter { $0.id != plugin.id }
+        let usedPaths = Set(others.flatMap { $0.manifest.installPaths(home: fm.homeDirectoryForCurrentUser) })
+        var parts = Components()
+        for folder in (plugin.manifest.tools ?? []).flatMap(tools.storedFolders)
+        where !parts.programs.contains(folder) && !parts.shared.contains(folder) {
+            let users = others.filter { ($0.manifest.tools ?? []).flatMap(tools.storedFolders).contains(folder) }
+            if users.isEmpty {
+                parts.programs.append(folder)
+            } else {
+                parts.shared.append(folder)
+                for name in users.map({ $0.manifest.name.text }) where !parts.sharedWith.contains(name) {
+                    parts.sharedWith.append(name)
+                }
+            }
+        }
+        parts.installed = plugin.manifest.installPaths(home: fm.homeDirectoryForCurrentUser)
+            .filter { fm.fileExists(atPath: $0.path) && !usedPaths.contains($0) }
+        return parts
+    }
+
     /// Entfernt ein importiertes Plugin. Standard-Plugins lassen sich nur ausschalten.
-    func remove(_ id: String) {
+    /// `withComponents`: auch seine Programme (gelöscht, lassen sich wieder laden) und die
+    /// Ordner, die es selbst eingerichtet hat (in den Papierkorb, sie liegen außerhalb von BarDrop)
+    func remove(_ id: String, withComponents: Bool = false) {
         guard let plugin = plugin(id), !plugin.isStandard else { return }
+        // Laufende Läufe zuerst beenden: Ein Lauf, der gerade ein Programm lädt, legte dessen
+        // Ordner sonst nach dem Entfernen wieder an (Prüfung 28.10.2026)
+        stopRuns?(id)
+        if withComponents {
+            let parts = components(of: plugin)
+            let fm = FileManager.default
+            for folder in parts.programs + parts.shared { try? fm.removeItem(at: folder) }
+            if !(parts.programs + parts.shared).isEmpty { toolsChanged &+= 1 }
+            for folder in parts.installed {
+                do { try fm.trashItem(at: folder, resultingItemURL: nil) } catch {
+                    PluginLog.shared.record(id, "install", "Papierkorb fehlgeschlagen: \(folder.path) \(error.localizedDescription)")
+                }
+            }
+            PluginLog.shared.record(id, "install", "mit \(parts.programs.count + parts.shared.count) Programmen und \(parts.installed.count) Ordnern")
+        }
         uninstall(id)
+    }
+
+    /// Löscht Programm-Ordner, die kein installiertes Plugin mehr nennt
+    private func removeUnusedPrograms(_ folders: [URL]) {
+        let used = Set(plugins.flatMap { ($0.manifest.tools ?? []).flatMap(tools.folderNames) })
+        for folder in folders where !used.contains(folder.lastPathComponent) {
+            try? FileManager.default.removeItem(at: folder)
+            PluginLog.shared.record("tools", "programm", "nicht mehr gebraucht, gelöscht: \(folder.lastPathComponent)")
+        }
+        toolsChanged &+= 1
     }
 
     private func uninstall(_ id: String) {
         PluginLog.shared.record(id, "install", "entfernt")
         try? FileManager.default.removeItem(at: pluginsDirectory.appendingPathComponent(id, isDirectory: true))
         states.removeValue(forKey: id)
+        if lastErrors[id] != nil { dropError(id) }
         order.removeAll { $0 == id }
         reload()
         // Steht es in der Galerie, gehört es wieder zu den ladbaren (Top 5 auf der Startseite);

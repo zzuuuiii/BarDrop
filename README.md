@@ -16,6 +16,8 @@
 <p align="center">
   <a href="https://github.com/zzuuuiii/BarDrop/releases/latest/download/BarDrop.dmg"><b>Download</b></a>
   &nbsp;·&nbsp;
+  <a href="https://bardrop.app"><b>Website</b></a>
+  &nbsp;·&nbsp;
   <a href="https://github.com/zzuuuiii/BarDrop/releases">All versions</a>
   &nbsp;·&nbsp;
   <a href="CHANGELOG.md">Changelog</a>
@@ -55,7 +57,7 @@ Images from the browser, links and text work just like files. On first launch a 
 >
 > To allow it once: close the message, then go to **System Settings → Privacy & Security → Open Anyway**.
 
-After that, BarDrop keeps itself up to date in the background while you’re not using it, two days after each release. Both this and early beta versions can be set in Settings → About BarDrop.
+After that, BarDrop keeps itself up to date in the background while you’re not using it, two days after each release. You can turn this off, or get beta versions early, in Settings → About BarDrop.
 
 ## Screenshots
 
@@ -70,12 +72,12 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 
 **Shelf**
 * Left or right edge, at a fixed spot or wherever the pointer reaches the edge, in an area you choose from a small part to the whole edge
-* Opens instantly, after a short moment (standard) or after 1 to 5 seconds at the edge, on click or with a keyboard shortcut; a click on the strip skips the wait
-* Generous hit area, so you don’t have to hit the strip exactly, or optionally a small one that only reacts to the strip itself
+* Opens instantly, after a short moment (standard) or after 1 to 3 seconds at the edge, on click or with a keyboard shortcut; a click on the strip skips the wait
+* Generous hit area, so you don’t have to hit the strip exactly
 * Exclude apps in which the edge shouldn’t open the shelf, for example games, and optionally stay closed in full screen
 * Files flung quickly at the edge are still caught
 * Thin light outline so it stays visible on dark backgrounds
-* Pull it off the edge by its handle: it floats above all windows, optionally as dark glass, and docks again at either edge
+* Pull it off the edge by its handle: it floats above all windows, optionally as dark glass, and goes back to either edge
 * Hold `⌘` and drag a corner or side to change its size, like a window
 * On all displays, or only the built-in or external ones
 * Uses practically no energy while idle
@@ -92,13 +94,17 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * Contents survive a restart and can be cleaned up automatically after 1 to 24 hours; optionally reopen where you left off
 
 **Action bar**
-* AirDrop, Mail, Messages, Share, Trash, any folder or app, and your shortcuts (files they return land in the shelf)
-* Drag items onto it
+* AirDrop, Mail, Messages, Share, Clipboard, Trash, any folder or app, cloud services and your shortcuts (files they return land in the shelf)
+* Drag items onto it; double-click an action to open where it leads
 * Click a folder to see its contents right in the shelf, like a stack: select, drag out, Quick Look and move to the Trash like in the Finder, open subfolders, and drop files there to put them in the folder; `esc` goes back
-* Folders and the Trash work like in the Finder: on the same disk a folder moves, on another disk it copies (`⌥` always copies, `⌘` always moves)
+* Folders and the Trash work like in the Finder: on the same drive a folder moves, on another drive it copies (`⌥` always copies, `⌘` always moves)
 * Two rows with up to five actions each; names for all actions, folders only, or none
 * The Trash looks full or empty like the Trash of your Mac
 * Hold `⌘` and drag an action to move it, also into the other row; optionally pin a folder or app by dragging it onto the shelf, and remove an action by dragging it out with `⌘`
+
+**Clipboard and cloud**
+* Clipboard history (off by default): BarDrop keeps the last 50 things you copied, a click on the Clipboard action shows them in the shelf. Passwords marked as private are skipped
+* Cloud (beta): connect iCloud Drive, Dropbox or Google Drive in Settings → Cloud, then drop files on its action to get a link on the clipboard. OneDrive follows later. Setup for developers: [docs/CLOUD.md](docs/CLOUD.md)
 
 **Plugins** (optional, off by default)
 * Small add-ons that teach BarDrop new things: in the right-click menu, in the action bar, or automatically when you drop a matching file type or link
@@ -106,7 +112,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * Written in JavaScript, so you can also create your own; results appear right next to the original. BarDrop doesn’t come with any plugin. How to write and publish one: [docs/PLUGINS.md](docs/PLUGINS.md)
 
 **Settings**
-* A short introduction on first launch: dropping, opening with the pointer, dragging back out, actions and the shortcut
+* A short introduction on first launch: dropping, opening with the pointer, dragging back out, actions, the keyboard shortcut and pulling the shelf off the edge
 * Opens at login by default
 * English or German, following the system language by default
 * No menu bar icon: right-click the shelf for Settings and Quit
@@ -123,6 +129,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 | `⌘A` | Select all |
 | `⌘X` | Cut: to the clipboard and out of the shelf |
 | `⌘C`, `⌥⌘C` | Copy, copy path |
+| `⌘D` | Duplicate |
 | `⌘V` | Paste from clipboard |
 | `⌫` | Remove selection from the shelf, the next item is selected; cancels selected plugins |
 | `⌘⌫` | Move selection to the Trash |
@@ -134,7 +141,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 
 ## Privacy
 
-BarDrop collects no data and sends nothing about you. The shelf lives only on your Mac in `~/Library/Application Support/BarDrop`. BarDrop only connects to GitHub: to check for updates, which you can turn off, and to load “What’s new” when you open Settings → About BarDrop. Images and links from the web are only downloaded when you drag them into the shelf yourself.
+BarDrop collects no data and sends nothing about you. The shelf lives only on your Mac in `~/Library/Application Support/BarDrop`. BarDrop connects to GitHub to check for updates (you can turn this off), to load “What’s new” and, with plugins turned on, the plugin gallery. Everything else happens only when you ask for it: images and links from the web when you drag them into the shelf, programs a plugin downloads after you allow it, and a cloud service you connect yourself.
 
 **Diagnostic log (beta versions only, off by default).** If you use beta versions, you can turn on a diagnostic log in Settings → About BarDrop, after a notice explaining what it records. It records in detail what happens in the app (drops, previews, the shelf at the edge, keyboard focus, actions, the introduction, errors), your settings and your Mac model and macOS version. File and folder names, paths and contents are never recorded; files appear only as an anonymous code with their type. The log stays in `~/Library/Logs/BarDrop` on your Mac and is never sent anywhere. Only “Save Log” creates a text file, which you can pass on yourself to help fix bugs. Turning it off deletes the log. Only if you create the folder `Bilder` in that folder yourself does it also save pictures of the shelf, which do show names and previews; delete the folder to stop.
 
@@ -163,9 +170,9 @@ The shelf stores its contents in `shelf.json`. So that an update never loses ite
 |---|---|
 | `EdgeController.swift`, `EdgeLogic.swift` | Detects the pointer and drags, decides which stage to show |
 | `ShelfPanel.swift`, `ShelfViews.swift`, `TileGridLayout.swift`, `EdgeBlobShape.swift` | Window, interface and shape of the shelf |
-| `EdgeTear.swift`, `ShelfGlassWindow.swift` | Pulling the shelf off the edge, floating, docking, glass |
+| `EdgeTear.swift`, `ShelfGlassWindow.swift` | Pulling the shelf off the edge, floating, going back to the edge, glass |
 | `ShelfStore.swift` | Contents, storage, undo |
-| `ContentImporter.swift`, `ImageNormalizer.swift`, `CloudFiles.swift`, `FileSanitizer.swift` | Taking in files, web images, links and text |
+| `ContentImporter.swift`, `ImageNormalizer.swift`, `CloudFiles.swift`, `FileSanitizer.swift` | Taking in files, images from the web, links and text |
 | `DragExport.swift`, `DragSource.swift` | Dragging out |
 | `ShelfActions.swift`, `ActionBar.swift`, `QuickActions.swift`, `ShortcutRunner.swift` | Selection, menus, action bar, shortcuts as actions |
 | `FolderBrowser.swift` | Folder contents shown in the shelf |
@@ -175,6 +182,9 @@ The shelf stores its contents in `shelf.json`. So that an update never loses ite
 | `Onboarding.swift` | Introduction on first launch |
 | `IntroDemo.swift` | Scenes of the introduction: the real shelf in demo mode |
 | `Updater.swift`, `ReleaseNotes.swift` | Updates and release notes from GitHub |
+| `ScreenshotWatcher.swift`, `AirDropWatcher.swift`, `FolderAccess.swift` | Screenshots and AirDrop files into the shelf, missing folder access |
+| `ClipboardHistory.swift` | Clipboard history |
+| `Cloud/` | Cloud services: sign-in, upload, links, the “BarDrop Share” folder |
 | `Diagnostics.swift`, `FocusDiagnostics.swift`, `FramePacer.swift`, `ShelfSnapshots.swift` | Diagnostic log (beta versions): events, smoothness, and pictures of the shelf only if you create the folder `Bilder` yourself |
 | `Plugins/` | Plugins: installing, permissions, running |
 | `Tests/` | Automated tests |

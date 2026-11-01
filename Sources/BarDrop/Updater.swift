@@ -75,6 +75,7 @@ final class Updater: ObservableObject {
     func start() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 20) { [weak self] in self?.automaticCheck() }
         let timer = Timer(timeInterval: 6 * 3600, repeats: true) { [weak self] _ in self?.automaticCheck() }
+        timer.tolerance = 600
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }
@@ -210,6 +211,7 @@ final class Updater: ObservableObject {
             self.idleTimer = nil
             self.install(silent: true)
         }
+        timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         idleTimer = timer
     }

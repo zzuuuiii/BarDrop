@@ -26,7 +26,9 @@ Terms and conventions for all texts in BarDrop, the README, the changelog and th
 | Entfernen | remove | Aus der Ablage nehmen, nicht löschen / take out of the shelf, not delete |
 | Widerrufen, Wiederholen | undo, redo | |
 | Einführung | introduction | |
-| Kurzbefehl | shortcut | Der globale Kurzbefehl zum Öffnen der Ablage / the global hotkey |
+| Tastaturkurzbefehl | keyboard shortcut | Der globale zum Öffnen der Ablage (Wort von macOS). Nicht „Kurzbefehl“, das ist die App Kurzbefehle / the global hotkey; not “shortcut”, that is the Shortcuts app |
+| Kurzbefehl | shortcut | Nur ein Kurzbefehl aus der App Kurzbefehle (Aktion) / only a shortcut from the Shortcuts app (action) |
+| Vom Rand abziehen, vom Rand abgezogen | pull off the edge, pulled off the edge | Die Ablage oben greifen und frei schweben lassen; nicht „losgelöst“ / grab the shelf at the top so it floats; not “detached” |
 | Tastenkürzel | keyboard shortcuts | Die Tasten in der offenen Ablage / keys in the open shelf |
 | Sondertaste | modifier key | |
 | Zeiger | pointer | |

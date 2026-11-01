@@ -251,7 +251,7 @@ final class Outbox {
         guard result == 0 else {
             let code = errno
             try? FileManager.default.removeItem(at: dir)
-            Log.export.error("Frische Kopie nicht möglich (\(errno, privacy: .public)), nehme Original")
+            Log.export.error("Frische Kopie nicht möglich (\(code, privacy: .public)), nehme Original")
             Diagnostics.shared.failure("export", "Frische Kopie nicht möglich, nehme Original errno=\(code) \(String(cString: strerror(code)))")
             return nil
         }

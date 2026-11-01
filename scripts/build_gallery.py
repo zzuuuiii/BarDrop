@@ -10,7 +10,9 @@ Läuft in .github/workflows/plugin-gallery.yml, sobald sich etwas in `Plugins/` 
 
 Was passiert:
 1. Jede `*.bdrop` in `Plugins/` (auch in Unterordnern) wird mit denselben Regeln geprüft wie
-   in `check_plugin.py`. Fehlerhafte werden übersprungen und als Annotation gemeldet.
+   in `check_plugin.py`. Fehlerhafte werden übersprungen und als Annotation gemeldet. Die Grenze
+   für die Länge der Beschreibung gilt nur für neue Versionen: Steht dieselbe Version schon in
+   der Galerie, ist sie nur ein Hinweis.
 2. Liegt dieselbe id mehrfach dort, gilt die höchste `version`.
 3. Die Datei wird unverändert nach `plugins/<id>/<id>-<version>.bdrop` im Katalog kopiert
    (ältere Fassungen dort werden entfernt), der Eintrag wird neu gebaut wie in
@@ -58,8 +60,10 @@ def display(path):
         return str(path)
 
 
-def check(path):
-    """Prüft eine .bdrop wie check_plugin.py; liefert (manifest, Fehlerliste)"""
+def check(path, old_entries):
+    """Prüft eine .bdrop wie check_plugin.py; liefert (manifest, Fehlerliste). Regeln, die erst
+    für neue Versionen gelten (Länge der Beschreibung), sind für eine Version, die schon so in
+    der Galerie steht, nur Hinweise"""
     check_plugin.errors.clear()
     check_plugin.hints.clear()
     root, files, tmp = check_plugin.load(path)
@@ -71,7 +75,9 @@ def check(path):
             except (OSError, UnicodeDecodeError, json.JSONDecodeError) as e:
                 check_plugin.error(f"manifest.json ist kein gültiges JSON: {e}")
             else:
-                check_plugin.check_manifest(manifest, files)
+                old = old_entries.get(manifest.get("id")) if isinstance(manifest, dict) else None
+                published = bool(old and not old.get("removed") and str(old.get("version")) == str(manifest.get("version")))
+                check_plugin.check_manifest(manifest, files, published=published)
                 script = root / str(manifest.get("script", "main.js")) if isinstance(manifest, dict) else None
                 if script and script.is_file():
                     data = script.read_bytes()
@@ -91,13 +97,17 @@ def check(path):
     return manifest, list(check_plugin.errors)
 
 
-def collect(source):
+def collect(source, old_entries):
     """Gültige Plugins im Quellordner: {id: (Pfad, manifest)}, höchste Version je id"""
     found, skipped = {}, 0
     paths = sorted(p for p in source.rglob("*.bdrop")
                    if p.is_file() and not any(part.startswith(".") for part in p.relative_to(source).parts))
     for path in paths:
-        manifest, errors = check(path)
+        # Ordnung: Plugins gehören nach Plugins/Gallery/. Andere Orte zählen weiter (sonst fiele
+        # ein Plugin aus der Galerie), werden aber angemerkt
+        if path.relative_to(source).parts[0] != "Gallery":
+            annotate("notice", path, "Bitte nach Plugins/Gallery/ legen (wird trotzdem übernommen)")
+        manifest, errors = check(path, old_entries)
         if errors:
             skipped += 1
             annotate("error", path, "Übersprungen: " + "; ".join(errors))
@@ -208,7 +218,7 @@ def main():
     except (OSError, json.JSONDecodeError, AttributeError):
         managed = set()
 
-    found, skipped = collect(source)
+    found, skipped = collect(source, old_entries)
     entries, lines = {}, []
     for pid, (path, manifest) in sorted(found.items()):
         old = old_entries.get(pid)

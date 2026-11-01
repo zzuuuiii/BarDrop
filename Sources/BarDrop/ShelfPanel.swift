@@ -16,7 +16,10 @@ final class ShelfPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        // `canJoinAllApplications`: In Stage Manager gehört die Ablage zu keiner App-Gruppe,
+        // sondern liegt über allen wie ein Teil des Systems. Ohne das behandelte Stage Manager sie
+        // als eigenes Fenster und zeichnete beim Darüberfahren eckige Schatten (Nutzer, 28.10.2026)
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle, .canJoinAllApplications]
         isFloatingPanel = true
         // Erst nach isFloatingPanel: Das setzt die Ebene sonst auf „schwebend“ zurück, und die
         // Ablage lag unter dem abgedunkelten Hintergrund der Einführung
@@ -118,6 +121,9 @@ final class ShelfPanel: NSPanel {
             actions.copyCurrent(pathsOnly: event.modifierFlags.contains(.option))   // ⌥⌘C: nur Pfade
         case "x":
             actions.cutCurrentSelection()
+        case "d":
+            // Wie im Finder: Auswahl duplizieren (gehaltene Taste nur einmal)
+            if !event.isARepeat { actions.duplicateCurrentSelection() }
         case "v":
             if actions.isFolderOpen { actions.pasteIntoFolder() } else { actions.store.pasteFromClipboard() }
         case "y":

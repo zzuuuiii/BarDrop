@@ -131,7 +131,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Stapel, eine einzelne als eigenes Objekt
     func unzip(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
-        announce(L("Unzipping", "Entpacken"))
+        announce(L("Unzipping", "Wird entpackt"))
         for url in urls {
             let anchor = store.entries.flatMap(\.files).first { $0.url == url }?.id
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -248,7 +248,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     func undo() {
         Diagnostics.shared.record("undo", "canUndo=\(store.undoManager.canUndo) action=\(store.undoManager.undoActionName)")
         guard store.undoManager.canUndo else { return NSSound.beep() }
+        // ⌘D widerrufen nimmt nur die Kopien heraus und holt nichts zurück: kein Piepen
+        let undoesDuplicate = store.undoManager.undoActionName == L("Duplicate", "Duplizieren")
         let restored = store.undoLast()
+        if undoesDuplicate { return }
         if restored.isEmpty, !store.lastPutBack.isEmpty {
             // Papierkorb aus einem angehefteten Ordner: zurück an den alten Platz
             let back = store.lastPutBack
@@ -532,18 +535,46 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         switch action.kind {
         case .folder:
             guard let url = action.url, FolderBrowser.isBrowsable(url) else { return NSSound.beep() }
-            if isFolderOpen, folder.root?.standardizedFileURL == url.standardizedFileURL {
-                // Derselbe Ordner noch einmal: Er bleibt offen. Aus einem Unterordner geht es
-                // zurück zu seiner obersten Ebene, sonst passiert nichts
-                if folder.isNested { openFolder(url) }
-            } else {
-                openFolder(url)
-            }
+            showPinnedFolder(url)
         case .app:
             guard let url = action.url else { return NSSound.beep() }
             NSWorkspace.shared.open(url)
+        case .cloud:
+            // Der Ordner „BarDrop Share“ des Dienstes mit allen hochgeladenen Dateien in der
+            // Ablage, wie ein angehefteter Ordner (Nutzer, 28.10.2026). Ohne Ordner auf dem Mac
+            // (Dienst nur übers Netz verbunden) eine Kopie davon (`CloudMirror`), nicht die
+            // Website (Nutzer, 30.10.2026)
+            guard let service = action.cloudService else { return NSSound.beep() }
+            if let url = service.localFolder {
+                showPinnedFolder(url)
+            } else if service.provider.isConnected {
+                showPinnedFolder(CloudMirror.shared.folder(for: service))
+                syncMirror(service)
+            } else {
+                service.provider.openFolder()
+            }
+        case .clipboard:
+            // Verlauf der Zwischenablage in der Ablage, wie ein angehefteter Ordner (Nutzer,
+            // 31.10.2026). Ausgeschaltet: zu seinem Schalter in den Einstellungen
+            if settings.clipboardHistory {
+                showPinnedFolder(ClipboardHistory.shared.folder)
+            } else {
+                SettingsNavigation.shared.pane = .actions
+                openSettings()
+            }
         default:
             break
+        }
+    }
+
+    /// Ordner einer Aktion in der Ablage zeigen
+    private func showPinnedFolder(_ url: URL) {
+        if isFolderOpen, folder.root?.standardizedFileURL == url.standardizedFileURL {
+            // Derselbe Ordner noch einmal: Er bleibt offen. Aus einem Unterordner geht es
+            // zurück zu seiner obersten Ebene, sonst passiert nichts
+            if folder.isNested { openFolder(url) }
+        } else {
+            openFolder(url)
         }
     }
 
@@ -588,6 +619,56 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         case .shortcut:
             guard let name = action.path else { return }
             runShortcut(name, on: urls)
+        case .cloud:
+            guard let service = action.cloudService else { return }
+            let keys = Set(urls.map(\.standardizedFileURL))
+            var seen = Set<URL>()
+            let files = (store.entries.flatMap(\.files) + folder.files)
+                .filter { keys.contains($0.url.standardizedFileURL) && seen.insert($0.url.standardizedFileURL).inserted }
+            CloudManager.shared.share(files, via: service, actions: self)
+        case .clipboard:
+            // Wie ⌘C: Die Dateien bleiben in der Ablage, sonst könnte BarDrop eine eigene Kopie
+            // löschen, bevor sie eingefügt ist
+            Self.copyFiles(urls)
+            announceCopy(urls.count, pathsOnly: false)
+        }
+    }
+
+    /// Doppelklick auf eine Aktion: dort öffnen, wo sie hinführt (Nutzer, 27.10.2026). Der
+    /// erste Klick ist schon als einfacher Klick angekommen (Ordner zeigt seinen Inhalt)
+    func doubleClick(_ action: QuickAction) {
+        Diagnostics.shared.record("action", "double click \(action.kind.rawValue)")
+        let workspace = NSWorkspace.shared
+        switch action.kind {
+        case .folder, .app:
+            guard let url = action.url else { return NSSound.beep() }
+            workspace.open(url)
+        case .trash:
+            if let trash = FileManager.default.urls(for: .trashDirectory, in: .userDomainMask).first {
+                workspace.open(trash)
+            }
+        case .airdrop:
+            workspace.open(URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Applications/AirDrop.app"))
+        case .mail, .messages:
+            let id = action.kind == .mail ? "com.apple.mail" : "com.apple.MobileSMS"
+            if let app = workspace.urlForApplication(withBundleIdentifier: id) { workspace.open(app) }
+        case .shortcut:
+            // Öffnet den Kurzbefehl zum Bearbeiten in der App Kurzbefehle
+            var parts = URLComponents(string: "shortcuts://open-shortcut")
+            parts?.queryItems = [URLQueryItem(name: "name", value: action.path ?? "")]
+            if let url = parts?.url { workspace.open(url) }
+        case .plugin:
+            // Seite des Plugins in den Einstellungen
+            guard let id = action.path else { return }
+            SettingsNavigation.shared.pane = .plugins
+            SettingsNavigation.shared.openPluginPage(.plugin(id))
+            openSettings()
+        case .cloud:
+            // Der erste Klick zeigt den Ordner schon in der Ablage: dazu im Finder. Ohne Ordner
+            // auf dem Mac hat schon der erste Klick den Browser geöffnet
+            if let url = action.cloudService?.localFolder { workspace.open(url) }
+        case .share, .clipboard, .convert:
+            break
         }
     }
 
@@ -605,7 +686,8 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             case .failed:
                 self.shortcutOnlyInputs.subtract(urls)
                 NSSound.beep()
-                self.announce(L("Shortcut failed", "Kurzbefehl fehlgeschlagen"))
+                // Kurz wie bei Plugins: „Kurzbefehl fehlgeschlagen“ wurde oben rechts abgeschnitten
+                self.announce(L("Failed", "Fehlgeschlagen"))
             case .done(let results, let folder):
                 // Wie bei den anderen Aktionen: Verwendetes verlässt die Ablage (außer
                 // „Nach dem Verwenden“ sagt behalten), es bleibt nur, was herauskam
@@ -637,6 +719,17 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Dateien nicht mehr in der Ablage; ⌘Z legt sie zurück, auch an ihren alten Ort.
     func moveToTrash(_ urls: [URL], then: @escaping () -> Void = {}) {
         guard !urls.isEmpty else { return }
+        // In der Kopie eines Cloud-Ordners: beim Dienst löschen, nicht nur hier
+        if isFolderOpen, let root = folder.root, let service = CloudMirror.shared.service(forFolder: root) {
+            CloudMirror.shared.delete(urls, in: service) { [weak self] deleted, error in
+                defer { then() }
+                guard let self else { return }
+                if deleted > 0 { Sounds.trash() }
+                self.folder.reload(after: 0)
+                self.announce(error ?? L("Deleted in \(service.title)", "In \(service.title) gelöscht"))
+            }
+            return
+        }
         // Aus einem angehefteten Ordner: ⌘Z legt sie nur dorthin zurück, nicht in die Ablage
         store.moveToTrash(urls, intoShelf: !isFolderOpen) { [weak self] count in
             defer { then() }
@@ -675,7 +768,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     }
 
     private func convert(_ urls: [URL], to target: Converter.Target) {
-        announce(L("Converting", "Umwandeln"))
+        announce(L("Converting", "Wird umgewandelt"))
         Converter.convert(urls, to: target) { [weak self] results in
             guard let self else { return }
             guard !results.isEmpty else {
@@ -1054,8 +1147,24 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Plugins, die zu den Dateien passen: unter den normalen Einträgen, nach einer
     /// Trennlinie. Bis zu drei direkt im Menü, ab vier gesammelt unter „Plugins“.
     private func addPluginItems(to menu: NSMenu, files: [ShelfFile]) {
-        guard settings.pluginsEnabled, !files.isEmpty else { return }
-        let matching = plugins.plugins(for: files.map(\.url), trigger: .menu)
+        guard !files.isEmpty else { return }
+        let matching = settings.pluginsEnabled ? plugins.plugins(for: files.map(\.url), trigger: .menu) : []
+        // Verbundene Cloud-Dienste, die im Rechtsklick stehen sollen, vor den Plugins
+        let clouds = CloudManager.shared.contextMenuServices
+        guard !matching.isEmpty || !clouds.isEmpty else { return }
+        if !clouds.isEmpty {
+            menu.addItem(.separator())
+            for service in clouds {
+                let item = ClosureMenuItem(L("Share with \(service.title)", "Über \(service.title) teilen")) { [weak self] in
+                    DispatchQueue.main.async {
+                        guard let self else { return }
+                        CloudManager.shared.share(files, via: service, actions: self)
+                    }
+                }
+                item.image = CloudLogoTile.image(service)
+                menu.addItem(item)
+            }
+        }
         guard !matching.isEmpty else { return }
         let items = matching.map { plugin -> NSMenuItem in
             let item = ClosureMenuItem(plugin.manifest.title) { [weak self] in
@@ -1090,8 +1199,8 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
         menu.addItem(status)
         menu.addItem(.separator())
-        if !job.isStarted {
-            // Wartet noch: nur abbrechen
+        if !job.isStarted || job.isNative {
+            // Wartet noch oder lädt in die Cloud (lässt sich nicht anhalten): nur abbrechen
         } else if job.paused {
             menu.addItem(ClosureMenuItem(L("Resume", "Fortsetzen")) { [weak job] in job?.resume() })
         } else {
@@ -1149,7 +1258,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             })
         }
         if !folder.files.isEmpty {
-            menu.addItem(ClosureMenuItem(L("Select All", "Alle auswählen"), key: "a") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Select All", "Alles auswählen"), key: "a") { [weak self] in
                 self?.selectAllCurrent()
             })
         }
@@ -1171,7 +1280,53 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// …): wie auf die Ordner-Aktion, gleiche Platte verschieben, sonst kopieren
     func fileIntoOpenFolder(_ urls: [URL], modifiers: NSEvent.ModifierFlags = NSEvent.modifierFlags) {
         guard let target = folder.folder, !urls.isEmpty else { return }
+        // In die Kopie eines Cloud-Ordners: gleich hineinlegen (die Kachel erscheint sofort und
+        // zeigt das Hochladen) und hochladen; der Link kommt in die Zwischenablage
+        if let service = CloudMirror.shared.service(forFolder: target) {
+            let fm = FileManager.default
+            let copies = urls.compactMap { url -> URL? in
+                let copy = ShelfActions.uniqueURL(for: url.lastPathComponent, in: target)
+                return (try? fm.copyItem(at: url, to: copy)) != nil ? copy : nil
+            }
+            folder.reload(after: 0)
+            for copy in copies {
+                CloudManager.shared.share([ShelfFile(url: copy, owned: true)], via: service, actions: self, linkToClipboard: true)
+            }
+            return
+        }
         file(urls, into: target, modifiers: modifiers) { _ in }
+    }
+
+    /// Kopie eines Cloud-Ordners abgleichen; ist sie offen, zeigt die Ablage den neuen Stand
+    func syncMirror(_ service: CloudService) {
+        CloudMirror.shared.sync(service, changed: { [weak self] in
+            guard let self, self.isFolderOpen,
+                  let open = self.folder.root, CloudMirror.shared.service(forFolder: open) == service else { return }
+            self.folder.reload()
+        }, failed: { [weak self] message in
+            self?.announce(message)
+        })
+    }
+
+    /// Auf einen Unterordner im geöffneten Ordner gezogen (oder daneben auf den Ordner selbst):
+    /// Dateien und Datei-Versprechen (Mail, Fotos …) hineinlegen wie im Finder
+    func fileDrop(_ sender: NSDraggingInfo, into target: URL) {
+        let pasteboard = sender.draggingPasteboard
+        let urls = sender.draggingSource is DragSourceNSView ? ui.draggedFileURLs
+            : (pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
+        if !urls.isEmpty {
+            file(urls, into: target, modifiers: NSEvent.modifierFlags) { _ in }
+            return
+        }
+        guard let receivers = pasteboard.readObjects(forClasses: [NSFilePromiseReceiver.self], options: nil)
+                as? [NSFilePromiseReceiver] else { return }
+        let queue = OperationQueue()
+        for receiver in receivers {
+            receiver.receivePromisedFiles(atDestination: target, options: [:], operationQueue: queue) { [weak self] _, error in
+                if let error { Diagnostics.shared.failure("drop", "Versprochene Datei nicht erhalten", error) }
+                DispatchQueue.main.async { self?.folder.reload() }
+            }
+        }
     }
 
     /// Kontextmenü für die leere Fläche der Ablage.
@@ -1187,7 +1342,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             })
         }
         if !store.entries.isEmpty {
-            menu.addItem(ClosureMenuItem(L("Select All", "Alle auswählen"), key: "a") { [weak self] in
+            menu.addItem(ClosureMenuItem(L("Select All", "Alles auswählen"), key: "a") { [weak self] in
                 self?.selectAllCurrent()
             })
             menu.addItem(.separator())

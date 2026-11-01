@@ -91,6 +91,20 @@ final class PluginTools {
         directory.appendingPathComponent(PluginTools.safeName(tool.id), isDirectory: true)
     }
 
+    /// Ein Programm wurde geladen oder mitbenutzt (auf irgendeinem Thread)
+    var onLoaded: (() -> Void)?
+
+    /// Namen der Ordner, die zu diesem Programm gehören können (ob vorhanden oder nicht)
+    func folderNames(_ tool: PluginTool) -> [String] {
+        [folder(tool).lastPathComponent, legacyFolder(tool).lastPathComponent]
+    }
+
+    /// Ordner, in denen dieses Programm liegt (auch veraltet oder aus älteren Fassungen), zum
+    /// Entfernen mit dem Plugin
+    func storedFolders(_ tool: PluginTool) -> [URL] {
+        [folder(tool), legacyFolder(tool)].filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
     private func storedMeta(of tool: PluginTool) -> Meta? {
         guard let data = try? Data(contentsOf: folder(tool).appendingPathComponent("meta.json")) else { return nil }
         return try? JSONDecoder().decode(Meta.self, from: data)
@@ -145,6 +159,7 @@ final class PluginTools {
                 do { try fm.linkItem(at: shared.binary, to: target) } catch { try fm.copyItem(at: shared.binary, to: target) }
                 try JSONEncoder().encode(shared.meta).write(to: folder(tool).appendingPathComponent("meta.json"))
                 PluginLog.shared.record(who, "programm", "\(tool.id): von einem anderen Plugin mitbenutzt (\(shared.meta.sha256.prefix(12)))")
+                onLoaded?()
                 return target
             } catch {
                 try? fm.removeItem(at: target)   // dann eben laden
@@ -153,9 +168,11 @@ final class PluginTools {
         PluginLog.shared.record(who, "programm", "\(tool.id): lade \(tool.resolvedURL)")
         let started = Date()
         let expected = try expectedChecksum(tool)
+        // validate() hat die Adresse schon geprüft; trotzdem kein Absturz, falls nicht
+        guard let source = URL(string: tool.resolvedURL) else { throw ToolError.download(tool.resolvedURL) }
         let file: URL
         do {
-            file = try fetch(URL(string: tool.resolvedURL)!, cancelled: cancelled, progress: progress)
+            file = try fetch(source, cancelled: cancelled, progress: progress)
         } catch {
             PluginLog.shared.record(who, "programm", "\(tool.id): Laden nach \(String(format: "%.1f", Date().timeIntervalSince(started))) s beendet: \((error as? ToolError)?.message ?? error.localizedDescription)")
             throw error
@@ -196,6 +213,7 @@ final class PluginTools {
         // Fassung aus dem alten, nur nach `id` benannten Ordner wird nicht mehr gebraucht
         try? fm.removeItem(at: legacyFolder(tool))
         PluginLog.shared.record(who, "programm", "\(tool.id): geladen und geprüft, \(size / 1_000_000) MB in \(String(format: "%.1f", Date().timeIntervalSince(started))) s (\(expected.prefix(12)))")
+        onLoaded?()
         return target
     }
 

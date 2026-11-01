@@ -9,6 +9,8 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     var onDrop: (NSPasteboard, NSView) -> Void = { _, _ in }
     var onOwnDrop: ([URL], NSView) -> Void = { _, _ in }
     var onClick: (NSView) -> Void = { _ in }
+    /// Zweiter Klick eines Doppelklicks (der erste kam als `onClick`)
+    var onDoubleClick: () -> Void = {}
     /// Maustaste gedrückt bzw. losgelassen (die Aktion wird dabei kurz größer)
     var onPress: (Bool) -> Void = { _ in }
     /// Vorgang, den der Zeiger beim Drüberziehen zeigt (Ordner: verschieben oder kopieren)
@@ -73,6 +75,13 @@ final class ActionDropNSView: NSView, NSDraggingSource {
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    /// Verschwindet die Ansicht mitten im Ziehen mit ⌘, käme ihr Loslassen nie an und die
+    /// Ablage bliebe gesperrt offen (`actionMoving`)
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        if newWindow == nil, mode == .inBar { endInBar() }
+    }
+
     override func mouseDown(with event: NSEvent) {
         pressed = true
         downEvent = event
@@ -87,7 +96,9 @@ final class ActionDropNSView: NSView, NSDraggingSource {
         }
         let inside = bounds.contains(convert(event.locationInWindow, from: nil))
         if pressed { onPress(false) }
-        if pressed && inside { onClick(self) }
+        if pressed && inside {
+            if event.clickCount >= 2 { onDoubleClick() } else { onClick(self) }
+        }
         pressed = false
         downEvent = nil
     }
@@ -357,6 +368,7 @@ struct ActionDropTarget: NSViewRepresentable {
     var onDrop: (NSPasteboard, NSView) -> Void
     var onOwnDrop: ([URL], NSView) -> Void
     var onClick: (NSView) -> Void
+    var onDoubleClick: () -> Void = {}
     var onPress: (Bool) -> Void = { _ in }
     var operation: (NSDraggingInfo) -> NSDragOperation = { _ in .copy }
     var kind: QuickAction.Kind? = nil
@@ -380,6 +392,7 @@ struct ActionDropTarget: NSViewRepresentable {
         view.onDrop = onDrop
         view.onOwnDrop = onOwnDrop
         view.onClick = onClick
+        view.onDoubleClick = onDoubleClick
         view.onPress = onPress
         view.operation = operation
         view.kind = kind
@@ -400,48 +413,61 @@ struct QuickActionIcon: View {
     var size: CGFloat = 34
     /// Zeichnet neu, wenn sich der Papierkorb füllt oder leert
     @ObservedObject private var trash = TrashState.shared
+    /// Hell oder dunkel (Einstellungen → Aussehen → Symbole)
+    @ObservedObject private var appearance = IconAppearance.shared
+    @Environment(\.colorfulIcons) private var colorful
+
+    /// App-Symbole und eigene Kacheln etwas größer als die Fläche: Mit dem Rand der
+    /// App-Symbole von macOS (Kachel 80,5 %) wirkten sie neben Ordner und Papierkorb, die fast
+    /// die ganze Fläche füllen, zu klein (Nutzer, 30.10.2026). Der Zuschlag liegt im
+    /// durchsichtigen Rand, die Kachel nimmt so knapp 89 % ein
+    private var scale: CGFloat { action.kind == .folder || action.kind == .trash ? 1 : 1.1 }
+
+    /// Kante der Kachel in der Fläche des Symbols
+    private var tileSize: CGFloat { size * AppIconShape.bodyFraction * scale }
 
     var body: some View {
-        if let icon = action.icon {
+        if let service = action.cloudService {
+            // Logo des Dienstes, so groß wie die anderen Kacheln der Leiste
+            CloudLogoTile(service: service, size: tileSize)
+                .frame(width: size, height: size)
+        } else if action.kind == .airdrop && appearance.isDark {
+            // Das AirDrop-Symbol des Systems gibt es nur hell: im dunklen Stil auf dem dunklen
+            // Grund nachgezeichnet, gut erkennbar im Blau von AirDrop (Nutzer, 29.10.2026)
+            AppIconBackground(size: tileSize, dark: true, light: SettingsTheme.iconGradient(.blue))
+                .overlay(AirDropDarkGlyph(size: tileSize))
+                .appIconShadow(size: tileSize)
+                .frame(width: size, height: size)
+        } else if let icon = action.icon {
             Image(nsImage: icon)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
+                .frame(width: size * scale, height: size * scale)
                 .frame(width: size, height: size)
         } else {
-            fallbackTile
+            ownTile
         }
     }
 
-    /// Teilen im Blau von AirDrop, Plugins in ihrer eigenen Farbe
-    private var tileGradient: LinearGradient {
+    /// Teilen und AirDrop im Blau von AirDrop, Plugins in ihrer eigenen Farbe
+    private var tileColors: [Color] {
         if action.kind == .plugin {
             let tint = PluginManager.shared.plugin(action.path)?.manifest.icon?.tint ?? PluginIconView.fallbackTint
-            return SettingsTheme.iconGradient(tint)
+            return SettingsTheme.iconColors(tint)
         }
-        return LinearGradient(colors: AirDropColors.shared.gradient, startPoint: .top, endPoint: .bottom)
+        if let service = action.cloudService {
+            return SettingsTheme.iconColors(service.tint)
+        }
+        return AirDropColors.shared.gradient
     }
 
-    private var fallbackTile: some View {
-        // Eigene Kachel im macOS-Icon-Raster, im Blau von AirDrop: heller oben, satter
-        // unten, ein Glanz an der Oberkante und ein leichter Schatten wie bei App-Symbolen
-        let shape = RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-        return shape
-            .fill(tileGradient)
-            .overlay(
-                shape.fill(LinearGradient(colors: [Color.white.opacity(0.22), Color.white.opacity(0)],
-                                          startPoint: .top, endPoint: .center))
-            )
-            .overlay(shape.strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5))
-            .overlay(
-                Image(systemName: action.fallbackSymbol)
-                    .font(.system(size: size * 0.4, weight: .bold))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.18), radius: 1, y: 0.5)
-                    .offset(y: action.kind == .share ? -size * 0.035 : 0)
-            )
-            .shadow(color: .black.opacity(0.3), radius: size * 0.04, y: size * 0.02)
-            .frame(width: size * 0.82, height: size * 0.82)
+    /// Eigene Kachel im macOS-Icon-Raster (Form und Größe wie die App-Symbole daneben)
+    private var ownTile: some View {
+        SymbolIconTile(symbol: action.fallbackSymbol, colors: tileColors, size: tileSize,
+                       glyphOffset: action.kind == .share ? -0.043 : 0)
+            // Nur Plugins bleiben in den Einstellungen farbig (siehe colorfulIcons)
+            .environment(\.colorfulIcons, action.kind == .plugin && colorful)
             .frame(width: size, height: size)
     }
 }
@@ -625,7 +651,8 @@ struct QuickActionButton: View {
                                                 options: [.urlReadingFileURLsOnly: true]) as? [URL]) ?? []
                     // Plugins arbeiten mit Objekten der Ablage (das Ergebnis erscheint daneben):
                     // Dateien aus dem Finder erst übernehmen, sonst hieß es „Nicht passend“ (Issue 57)
-                    if action.kind != .plugin && !files.isEmpty && files.allSatisfy(ContentImporter.isUserFile) {
+                    // Ebenso Cloud: Der Platzhalter steht neben dem Objekt in der Ablage
+                    if action.kind != .plugin && action.kind != .cloud && !files.isEmpty && files.allSatisfy(ContentImporter.isUserFile) {
                         // Dateien aus dem Finder direkt verwenden
                         DispatchQueue.main.async {
                             actions.perform(action, urls: files, anchor: anchor, modifiers: modifiers)
@@ -648,6 +675,7 @@ struct QuickActionButton: View {
                     // ziehen): Ordner zeigen ihren Inhalt in der Ablage, Apps öffnen sich
                     actions.click(action)
                 },
+                onDoubleClick: { actions.doubleClick(action) },
                 onPress: { down in setPressed(down) },
                 operation: { info in dropOperation(info) },
                 kind: action.kind,
@@ -696,6 +724,7 @@ struct QuickActionBar: View {
     @ObservedObject private var pluginManager = PluginManager.shared
     let store: ShelfStore
     let actions: ShelfActions
+    @Environment(\.shelfDemo) private var shelfDemo
 
     /// Eine Stelle in der Leiste: eine Aktion oder der freie Platz zum Anheften
     private enum Slot: Identifiable {
@@ -711,26 +740,35 @@ struct QuickActionBar: View {
 
     var body: some View {
         // Plugins nur, solange sie eingeschaltet sind
-        let all = settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
+        // In der Einführung immer die Standardaktionen in einer Reihe
+        let all = shelfDemo ? QuickAction.demo
+            : settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
         // Der Platz zum Anheften kommt dorthin, wo die Aktion danach stünde: ans Ende
         let pin = ui.pinCandidate.flatMap { settings.pinFromShelf ? $0 : nil }
         let slots = all.map(Slot.action) + (pin.map { [Slot.pin($0)] } ?? [])
         Group {
-            // Zwei Reihen, wie in den Einstellungen verteilt. Beide auf demselben
-            // Raster von fünf Plätzen, damit die Symbole übereinander stehen.
-            let split = AppSettings.clampSplit(settings.actionRowSplit, count: slots.count)
+            // Zwei Reihen, wie in den Einstellungen verteilt
+            let split = shelfDemo ? slots.count : AppSettings.clampSplit(settings.actionRowSplit, count: slots.count)
             let top = Array(slots.prefix(split))
             let bottom = Array(slots.dropFirst(split).prefix(QuickAction.perRow))
             // Beide Reihen gleich groß: so groß, wie es die vollere Reihe erlaubt
             let size = iconSize(forActions: max(Self.actionCount(top), Self.actionCount(bottom)))
-            if top.isEmpty || bottom.isEmpty {
-                row(top.isEmpty ? bottom : top, iconSize: size)
-            } else {
-                VStack(spacing: 4) {
-                    row(top, iconSize: size)
-                    row(bottom, iconSize: size)
+            // Beide Reihen in einem Container mit einem ForEach: Jede Aktion behält ihre Ansicht,
+            // auch wenn sie beim Ziehen mit ⌘ in die andere Reihe wechselt. Mit einem HStack je
+            // Reihe baute SwiftUI sie dabei neu: Sie folgte dem Zeiger nicht mehr, ihr Loslassen
+            // kam nie an und die Ablage blieb gesperrt offen (Nutzer, 25.10.2026)
+            ActionRowsLayout(split: top.count) {
+                ForEach(top + bottom) { slot in
+                    switch slot {
+                    case .action(let action):
+                        QuickActionButton(action: action, ui: ui, store: store, actions: actions, iconSize: size)
+                    case .pin(let url):
+                        PinSlot(url: url, ui: ui, settings: settings, iconSize: size)
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    }
                 }
             }
+            .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
@@ -760,20 +798,60 @@ struct QuickActionBar: View {
         items.filter { if case .action = $0 { return true } else { return false } }.count
     }
 
-    /// Eine Reihe: die Aktionen teilen sich die ganze Breite, jede mittig in ihrem Teil.
-    private func row(_ items: [Slot], iconSize size: CGFloat) -> some View {
-        HStack(spacing: 2) {
-            ForEach(items) { slot in
-                switch slot {
-                case .action(let action):
-                    QuickActionButton(action: action, ui: ui, store: store, actions: actions, iconSize: size)
-                case .pin(let url):
-                    PinSlot(url: url, ui: ui, settings: settings, iconSize: size)
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
-                }
+}
+
+/// Die Aktionsleiste in bis zu zwei Reihen: oben die ersten `split` Plätze, unten der Rest. In
+/// jeder Reihe teilen sich die Aktionen die ganze Breite, jede mittig in ihrem Teil (wie ein
+/// HStack mit 2 pt Abstand), die Reihen 4 pt auseinander.
+private struct ActionRowsLayout: Layout {
+    let split: Int
+    var spacing: CGFloat = 2
+    var rowSpacing: CGFloat = 4
+
+    private func rows(_ count: Int) -> [Range<Int>] {
+        let s = min(max(split, 0), count)
+        return [0..<s, s..<count].filter { !$0.isEmpty }
+    }
+
+    private func itemWidth(_ width: CGFloat, count: Int) -> CGFloat {
+        max(0, (width - spacing * CGFloat(count - 1)) / CGFloat(max(count, 1)))
+    }
+
+    private func rowHeight(_ range: Range<Int>, width: CGFloat?, subviews: Subviews) -> CGFloat {
+        let proposal = ProposedViewSize(width: width.map { itemWidth($0, count: range.count) }, height: nil)
+        return range.map { subviews[$0].sizeThatFits(proposal).height }.max() ?? 0
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let all = rows(subviews.count)
+        guard !all.isEmpty else { return .zero }
+        var width: CGFloat = 0
+        if let proposed = proposal.width {
+            width = proposed
+        } else {
+            for range in all {
+                var row: CGFloat = spacing * CGFloat(range.count - 1)
+                for index in range { row += subviews[index].sizeThatFits(.unspecified).width }
+                width = max(width, row)
             }
         }
-        .frame(maxWidth: .infinity)
+        var height: CGFloat = rowSpacing * CGFloat(all.count - 1)
+        for range in all { height += rowHeight(range, width: width, subviews: subviews) }
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for range in rows(subviews.count) {
+            let w = itemWidth(bounds.width, count: range.count)
+            let h = rowHeight(range, width: bounds.width, subviews: subviews)
+            for (n, index) in range.enumerated() {
+                let x = bounds.minX + CGFloat(n) * (w + spacing)
+                subviews[index].place(at: CGPoint(x: x + w / 2, y: y + h / 2), anchor: .center,
+                                      proposal: ProposedViewSize(width: w, height: nil))
+            }
+            y += h + rowSpacing
+        }
     }
 }
 

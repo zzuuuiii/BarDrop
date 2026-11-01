@@ -59,15 +59,6 @@ enum PluginPermission: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Frage im Dialog beim ersten Gebrauch
-    func question(for plugin: String) -> String {
-        switch self {
-        case .network: return L("Allow “\(plugin)” to access the internet?", "Darf „\(plugin)“ auf das Internet zugreifen?")
-        case .run: return L("Allow “\(plugin)” to run programs?", "Darf „\(plugin)“ Programme ausführen?")
-        case .clipboard: return L("Allow “\(plugin)” to use the clipboard?", "Darf „\(plugin)“ die Zwischenablage verwenden?")
-        }
-    }
-
     /// Ein Satz unter der Frage, wenn ein Plugin ein Recht zum ersten Mal nutzt
     var explanation: String {
         switch self {
@@ -284,6 +275,9 @@ struct PluginManifest: Codable, Hashable {
     var consent: LocalizedText?
     /// Wie das Plugin nach dem Installieren eingestellt ist (der Nutzer ändert es danach selbst)
     var defaults: Defaults?
+    /// Ordner, die das Plugin selbst außerhalb von BarDrop einrichtet (z. B. eine Python-Umgebung),
+    /// als „~/…“. „Plugin entfernen“ legt sie auf Wunsch mit in den Papierkorb (`installPaths`)
+    var installs: [String]?
 
     struct Defaults: Codable, Hashable {
         /// Gleich als Aktion in der Aktionsleiste (wenn dort Platz ist)
@@ -303,7 +297,7 @@ struct PluginManifest: Codable, Hashable {
     private enum CodingKeys: String, CodingKey {
         case schema, id, name, description, version, author, homepage, icon, actionTitle, minAppVersion,
              script, match, triggers, automaticByDefault, permissions, tools, settings, canReplaceOriginal, batch, consent,
-             defaults
+             defaults, installs
     }
 
     init(id: String, name: LocalizedText, version: String, match: PluginMatch) {
@@ -339,6 +333,7 @@ struct PluginManifest: Codable, Hashable {
         batch = try c.decodeIfPresent(Bool.self, forKey: .batch)
         consent = try c.decodeIfPresent(LocalizedText.self, forKey: .consent)
         defaults = try c.decodeIfPresent(Defaults.self, forKey: .defaults)
+        installs = try? c.decodeIfPresent([String].self, forKey: .installs)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -364,6 +359,7 @@ struct PluginManifest: Codable, Hashable {
         try c.encodeIfPresent(batch, forKey: .batch)
         try c.encodeIfPresent(consent, forKey: .consent)
         try c.encodeIfPresent(defaults, forKey: .defaults)
+        try c.encodeIfPresent(installs, forKey: .installs)
     }
 
     /// Rechte im Manifest, die diese Version nicht kennt (das Plugin braucht eine neuere BarDrop)
@@ -379,6 +375,38 @@ struct PluginManifest: Codable, Hashable {
     }
 
     var allTriggers: [PluginTrigger] { triggers ?? PluginTrigger.allCases }
+
+    /// `installs` als Pfade, nur die erlaubten: im Benutzerordner, in einem versteckten Ordner
+    /// (`~/.local/share/x`, `~/.cache/x`) oder unter `~/Library/Application Support/x` bzw.
+    /// `~/Library/Caches/x`, mindestens eine Ebene unter diesen Ordnern. Nie Ordner mit eigenen
+    /// Dateien des Nutzers oder Schlüsseln (Schreibtisch, Dokumente, `.ssh` …): Ein Plugin soll
+    /// beim Entfernen nur wegräumen können, was es selbst angelegt hat.
+    func installPaths(home: URL) -> [URL] {
+        let blocked: Set<String> = [".ssh", ".gnupg", ".Trash", ".aws", ".kube", ".docker", ".config/gh", ".password-store"]
+        var result: [URL] = []
+        for raw in installs ?? [] {
+            guard raw.hasPrefix("~/") else { continue }
+            let parts = raw.dropFirst(2).split(separator: "/").map(String.init)
+            guard !parts.isEmpty, !parts.contains(where: { $0 == ".." || $0 == "." || $0.isEmpty }) else { continue }
+            let first = parts[0]
+            let allowed: Bool
+            if first == "Library" {
+                allowed = parts.count >= 3 && ["Application Support", "Caches"].contains(parts[1])
+                    && !["BarDrop", "com.zzuuuiii.bardrop"].contains(parts[2])
+            } else {
+                // `~/.local` ist ein Sammelordner mit Sammelordnern (`share`, `bin`): Erst darunter
+                // beginnt der Ordner eines Programms (`~/.local/share/x`). Vorher hätte
+                // „~/.local/share“ alles darin in den Papierkorb gelegt (Prüfung 28.10.2026)
+                let minimum = first == ".local" ? 3 : 2
+                allowed = first.hasPrefix(".") && parts.count >= minimum
+                    && !blocked.contains(first) && !blocked.contains(parts.prefix(2).joined(separator: "/"))
+            }
+            guard allowed else { continue }
+            let url = parts.reduce(home) { $0.appendingPathComponent($1, isDirectory: true) }.standardizedFileURL
+            if !result.contains(url) { result.append(url) }
+        }
+        return result
+    }
     var allPermissions: [PluginPermission] { permissions ?? [] }
     var title: String { (actionTitle ?? name).text }
 
@@ -457,6 +485,18 @@ struct PluginManifest: Codable, Hashable {
         }
     }
 
+    /// Längste erlaubte Beschreibung je Sprache (wie MAX_DESCRIPTION in scripts/check_plugin.py).
+    /// Gilt nur für neue Plugins und Versionen: Installierte und solche aus der Galerie laufen
+    /// weiter, deshalb nicht in `validate`, sondern beim Import aus einer Datei
+    static let maxDescriptionLength = 100
+
+    /// Die längste Beschreibung über alle Sprachen, wenn sie die Grenze überschreitet
+    var tooLongDescription: Int? {
+        let longest = description?.values.values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars.count }.max() ?? 0
+        return longest > Self.maxDescriptionLength ? longest : nil
+    }
+
     /// „1.31.0-beta.2“ zählt für Plugins wie „1.31.0“
     static func releaseVersion(_ version: String) -> String {
         version.components(separatedBy: "-").first ?? version
@@ -480,7 +520,7 @@ extension PluginManifest.ValidationError {
             return L("The plugin has an invalid link pattern: \(p)", "Das Plugin hat ein ungültiges Link-Muster: \(p)")
         case .unknownPermission(let p):
             return L("The plugin asks for the permission “\(p)”, which this version of BarDrop doesn’t know.",
-                     "Das Plugin verlangt die Berechtigung „\(p)“, das diese Version von BarDrop nicht kennt.")
+                     "Das Plugin verlangt die Berechtigung „\(p)“, die diese Version von BarDrop nicht kennt.")
         case .insecureToolURL(let t):
             return L("The program “\(t)” isn’t loaded over a secure connection.",
                      "Das Programm „\(t)“ wird nicht über eine sichere Verbindung geladen.")
@@ -539,9 +579,23 @@ struct PluginIconView: View {
     static let fallbackSymbol = "puzzlepiece.extension.fill"
     static let fallbackTint = Color(red: 0.45, green: 0.45, blue: 0.5)
 
+    /// Hell oder dunkel wie die Kacheln der Aktionsleiste (Einstellungen → Aussehen → Symbole)
+    @ObservedObject private var appearance = IconAppearance.shared
+    @Environment(\.colorfulIcons) private var colorful
+
     var body: some View {
         let tint = icon?.tint ?? Self.fallbackTint
-        RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+        if appearance.isDark && !colorful {
+            SymbolIconTile(symbol: icon?.resolvedSymbol ?? Self.fallbackSymbol, colors: SettingsTheme.iconColors(tint),
+                           size: size, weight: .semibold, glyphScale: 0.5)
+        } else {
+            lightTile(tint)
+        }
+    }
+
+    /// Farbige Kachel mit weißem Zeichen (Form wie App-Symbole: 26 % Ecken, AppIconShape)
+    private func lightTile(_ tint: Color) -> some View {
+        AppIconShape.shape(size)
             .fill(SettingsTheme.iconGradient(tint))
             .overlay(
                 Image(systemName: icon?.resolvedSymbol ?? Self.fallbackSymbol)
@@ -553,7 +607,9 @@ struct PluginIconView: View {
             .iconTileShadow(size: size)
     }
 
-    /// Als Bild für Menüs und Dialoge, dieselbe Kachel (nur auf dem Hauptthread)
+    /// Als Bild für Dialoge (Installieren, Erlauben, Link der Website), dieselbe Kachel (nur auf
+    /// dem Hauptthread). Immer farbig wie in der Galerie, unabhängig von Aussehen → Symbole
+    /// (Nutzer, 30.10.2026: im dunklen Stil wirkte das Installieren-Fenster fremd)
     static func image(_ icon: PluginManifest.Icon?, size: CGFloat = 16) -> NSImage? {
         MainActor.assumeIsolated {
             // Rundum Platz für den Schatten der Kachel: Am Bildrand abgeschnitten zeichnete er
@@ -561,7 +617,8 @@ struct PluginIconView: View {
             let margin = size >= 32 ? (size * 0.1).rounded() : 1
             let renderer = ImageRenderer(content: PluginIconView(icon: icon, size: size - 2 * margin)
                 .frame(width: size, height: size)
-                .environment(\.colorScheme, .dark))
+                .environment(\.colorScheme, .dark)
+                .environment(\.colorfulIcons, true))
             renderer.scale = NSScreen.screens.map(\.backingScaleFactor).max() ?? 2
             return renderer.nsImage
         }

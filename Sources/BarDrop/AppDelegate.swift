@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var airDrop: AirDropWatcher?
     /// Geöffnete .bdrop-Dateien, solange BarDrop noch startet
     private var pendingPluginFiles: [URL] = []
+    /// Plugin-IDs aus Links der Website, die vor dem Start kamen
+    private var pendingPluginLinks: [String] = []
     /// Gibt den Einstellungen den Fokus zurück, wenn ein Menü der Menüleiste ihn kurz hatte
     private var focusReturn: SettingsFocusReturn?
     /// Diagnoseprotokoll: Fokuswechsel
@@ -39,14 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller = EdgeController(store: store, ui: ui, settings: settings)
         controller.actions.openSettings = { [weak self] in self?.showSettings() }
         diagnosticCommands = DiagnosticCommands(controller: controller)
-        NotificationCenter.default.addObserver(forName: DiagnosticCommands.showIntro, object: nil, queue: .main) { [weak self] _ in
+        NotificationCenter.default.addObserver(forName: DiagnosticCommands.showIntro, object: nil, queue: .main) { [weak self] note in
             self?.showOnboarding()
+            if let number = note.object as? Int, let step = OnboardingModel.Step(rawValue: number) {
+                self?.onboarding?.model.go(to: step)
+            }
         }
         controller.keepAppActive = { [weak self] in
             self?.settingsWindow?.isVisible == true || self?.onboarding?.isVisible == true
         }
         // Herausziehen fehlgeschlagen: Objekt zurück in die Ablage
         DragExporter.shared.onFailed = { [weak self] url in self?.store.restore(url) }
+        // Verlauf der Zwischenablage: läuft nur, solange er eingeschaltet ist
+        ClipboardHistory.shared.follow(settings)
         // Neue Bildschirmfotos: kurz den Streifen zeigen, damit man sieht, wo sie liegen
         screenshots = ScreenshotWatcher(store: store) { [weak self] in
             guard let self, self.ui.level == .hidden else { return }
@@ -90,6 +97,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let early = pendingPluginFiles
         pendingPluginFiles = []
         if !early.isEmpty { DispatchQueue.main.async { [weak self] in self?.importPlugins(early) } }
+        // Links der Website (Plus bei einem Plugin), auch die, die BarDrop gestartet haben
+        PluginLinkHandler.shared.showPluginsPane = { [weak self] in self?.showSettings(pane: .plugins) }
+        let earlyLinks = pendingPluginLinks
+        pendingPluginLinks = []
+        if !earlyLinks.isEmpty { DispatchQueue.main.async { earlyLinks.forEach { PluginLinkHandler.shared.handle($0) } } }
         Diagnostics.shared.installCrashHandler()
         Diagnostics.shared.record("app", "launch \(Updater.shared.currentVersion) firstLaunch=\(!settings.didLaunchBefore) afterUpdate=\(Updater.launchedAfterUpdate)")
 
@@ -131,15 +143,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: Plugins öffnen
 
-    /// Doppelklick auf eine .bdrop-Datei: Import mit Prüfung und Rückfrage, nie still
+    /// Doppelklick auf eine .bdrop-Datei: Import mit Prüfung und Rückfrage, nie still.
+    /// Links `bardrop://plugin/install?id=…` von der Website: siehe PluginLink
     func application(_ application: NSApplication, open urls: [URL]) {
+        let links = urls.compactMap(PluginLink.installID(from:))
         let plugins = urls.filter { $0.pathExtension.lowercased() == PluginPackage.fileExtension }
-        guard !plugins.isEmpty else { return }
+        guard !plugins.isEmpty || !links.isEmpty else { return }
         guard store != nil else {
+            // BarDrop startet gerade durch den Link oder die Datei: nach dem Start bearbeiten
             pendingPluginFiles += plugins
+            pendingPluginLinks += links
             return
         }
         importPlugins(plugins)
+        links.forEach { PluginLinkHandler.shared.handle($0) }
     }
 
     private func importPlugins(_ urls: [URL]) {
@@ -213,6 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             onboarding.wakeShelf = { [weak self] in self?.controller.wake() }
             onboarding.showGuide = { [weak self] level in self?.controller.showGuide(level) }
+            onboarding.returnShelfToEdge = { [weak self] in self?.controller.returnFloatingToEdge(close: false) }
             onboarding.shelfScreen = { [weak self] in self?.controller.shelfScreen }
             onboarding.openSettings = { [weak self] in
                 DispatchQueue.main.async { self?.showSettings() }

@@ -18,7 +18,7 @@ import Combine
 /// Ablauf einer Szene: setzt nacheinander Zustände der Vorführablage, in einer Schleife.
 /// Mit „Bewegung reduzieren“ (und in Vorschaubildern) steht der aussagekräftigste Moment.
 final class DemoShelf: ObservableObject {
-    enum Scene { case overview, drop, takeOut, dragOut, shortcut, hover }
+    enum Scene { case overview, drop, takeOut, dragOut, shortcut, hover, detach }
 
     let scene: Scene
     let settings = AppSettings.shared
@@ -37,6 +37,10 @@ final class DemoShelf: ObservableObject {
     @Published var folderTargeted = false
     /// Gerade gedrückte Tasten
     @Published var keys: [(symbol: String, name: String)]?
+    /// Vom Rand abziehen: so weit ist die Ablage vom Rand weg
+    @Published var shift: CGFloat = 0
+    /// Bewegung beim Abziehen, Bild für Bild wie in EdgeController (Dehnen, dann Lösen)
+    private var tearTimer: Timer?
 
     private let directory: URL?
     /// Das Bild, um das es geht (wie das Beispielbild der Einführung)
@@ -75,6 +79,7 @@ final class DemoShelf: ObservableObject {
     }
 
     deinit {
+        tearTimer?.invalidate()
         if let directory { try? FileManager.default.removeItem(at: directory) }
     }
 
@@ -98,7 +103,7 @@ final class DemoShelf: ObservableObject {
 
     /// Mitte der Aktion „Papierkorb“ in der Leiste (ohne Papierkorb: die letzte Aktion)
     private var trashAction: CGPoint {
-        let all = settings.quickActions
+        let all = QuickAction.demo
         let index = all.firstIndex { $0.kind == .trash } ?? max(0, all.count - 1)
         return layout.actionCenter(index, count: max(1, min(all.count, QuickAction.perRow)))
     }
@@ -190,6 +195,78 @@ final class DemoShelf: ObservableObject {
             set(level: .expanded, animation: nil)
             keys = hotKeys
             pointer = l.away(l.full.width + 170, y: l.size.height * 0.7)
+        case .detach:
+            fill(withSample: true)
+            set(level: .expanded, animation: nil)
+            pull(Self.detachDistance)
+            pointer = grip(Self.detachDistance)
+        }
+    }
+
+    // MARK: Vom Rand abziehen
+
+    /// So weit wird die Ablage in der Vorführung vom Rand gezogen
+    static let detachDistance: CGFloat = 190
+
+    /// Griff oben in der Kopfzeile, `distance` vom Rand weggezogen
+    private func grip(_ distance: CGFloat) -> CGPoint {
+        let l = layout
+        return l.away(l.full.width / 2 + distance, y: l.shelfFrame.minY + l.full.fillet + 14)
+    }
+
+    /// Stand nach `distance` Punkten Ziehen, gerechnet wie beim echten Abziehen
+    /// (EdgeController.updateTear): erst dehnt sie sich am Rand, ab `tearDistance` löst sie
+    /// sich und folgt dem Zeiger
+    private func pull(_ distance: CGFloat) {
+        let edge = settings.edge
+        var tear = ShelfUIModel.Tear(gap: 0, attach: 1, side: edge, dock: 1)
+        if distance < EdgeTear.tearDistance {
+            let gap = EdgeTear.stretchMax * (1 - exp(-distance / EdgeTear.stretchSoftness))
+            tear.gap = gap
+            tear.attach = 1 - 0.8 * pow(distance / EdgeTear.tearDistance, 1.4)
+            tear.dock = max(0, 1 - distance / 14)
+            shift = gap
+        } else {
+            // Gelöst: Die Verbindung zum Rand läuft auf den ersten Punkten aus
+            let start = EdgeTear.stretchMax * (1 - exp(-EdgeTear.tearDistance / EdgeTear.stretchSoftness))
+            let fade = min(1, (distance - EdgeTear.tearDistance) / 30)
+            tear.gap = start + distance - EdgeTear.tearDistance
+            tear.attach = 0.2 * (1 - fade)
+            tear.dock = 0
+            shift = tear.gap
+        }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { ui.tear = tear }
+    }
+
+    /// Von `from` nach `to` ziehen, in `duration` Sekunden, sanft beschleunigt und gebremst
+    private func animatePull(from: CGFloat, to: CGFloat, duration: Double) {
+        tearTimer?.invalidate()
+        let start = CACurrentMediaTime()
+        let g = generation
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+            guard let self, self.running, self.generation == g else { timer.invalidate(); return }
+            let t = min(1, (CACurrentMediaTime() - start) / duration)
+            let eased = t * t * (3 - 2 * t)
+            let distance = from + (to - from) * CGFloat(eased)
+            self.pull(distance)
+            self.pointer = self.grip(distance)
+            if t >= 1 { timer.invalidate() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        tearTimer = timer
+    }
+
+    /// Wieder angedockt (ohne Bewegung, die Ablage ist dabei zu)
+    private func resetTear() {
+        tearTimer?.invalidate()
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            ui.tear = nil
+            ui.grabbing = false
+            shift = 0
         }
     }
 
@@ -225,6 +302,7 @@ final class DemoShelf: ObservableObject {
     func stop() {
         running = false
         generation += 1
+        tearTimer?.invalidate()
     }
 
     /// Führt `f` nach `delay` aus, solange die Szene noch läuft
@@ -252,6 +330,27 @@ final class DemoShelf: ObservableObject {
         switch scene {
         case .overview:
             return
+
+        case .detach:
+            // Offene Ablage oben an der Kopfzeile greifen, vom Rand wegziehen: sie dehnt sich,
+            // löst sich und bleibt frei liegen. Dann zu und wieder angedockt
+            period = 6.6
+            resetTear()
+            fill(withSample: true)
+            set(level: .hidden, animation: nil)
+            pointer = l.away(l.full.width + 220, y: l.size.height * 0.7)
+            after(0.3) { self.set(level: .expanded, animation: style.open) }
+            after(0.9) { self.move(to: self.grip(0), duration: 0.7) }
+            after(1.8) {
+                self.click()
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { self.ui.grabbing = true }
+                self.pull(0)
+            }
+            after(2.0) { self.animatePull(from: 0, to: Self.detachDistance, duration: 1.5) }
+            after(3.6) { withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { self.ui.grabbing = false } }
+            after(4.0) { self.move(to: self.grip(Self.detachDistance + 60), duration: 0.5) }
+            after(5.4) { self.set(level: .hidden, animation: style.close) }
+            after(6.0) { self.resetTear() }
 
         case .drop:
             // Bild vom Schreibtisch an den Rand ziehen: die Ablage öffnet sich, loslassen
@@ -342,17 +441,18 @@ final class DemoShelf: ObservableObject {
             after(3.9) { self.set(level: .hidden, animation: style.close) }
 
         case .shortcut:
-            // Kurzbefehl öffnet die Ablage, noch einmal schließt sie
-            period = 5.6
+            // Kurzbefehl öffnet die Ablage, noch einmal schließt sie. Zu nur kurz: Vorher stand
+            // die Bühne gut die Hälfte der Zeit leer da (Bildschirmfoto des Nutzers, 31.10.2026)
+            period = 4.6
             fill(withSample: true)
             set(level: .hidden, animation: nil)
             pointer = l.away(l.full.width + 170, y: l.size.height * 0.7)
-            after(0.8) { self.show(self.hotKeys) }
-            after(0.9) { self.set(level: .expanded, animation: style.open) }
-            after(1.6) { self.show(nil) }
-            after(3.4) { self.show(self.hotKeys) }
-            after(3.5) { self.set(level: .hidden, animation: style.close) }
-            after(4.2) { self.show(nil) }
+            after(0.4) { self.show(self.hotKeys) }
+            after(0.5) { self.set(level: .expanded, animation: style.open) }
+            after(1.2) { self.show(nil) }
+            after(3.0) { self.show(self.hotKeys) }
+            after(3.1) { self.set(level: .hidden, animation: style.close) }
+            after(3.8) { self.show(nil) }
         }
         after(period) { self.loop() }
     }
@@ -534,10 +634,14 @@ struct ShelfStage: View {
                     .position(x: l.sample.x, y: l.sample.y + 14)
             }
 
+            // Vom Rand gezogen: wie das Fenster der echten Ablage breiter, die Ablage in seiner
+            // Mitte, um `shift` vom Rand weg. Eine Ansicht für beide Fälle, sonst würde die
+            // Ablage beim Lösen neu aufgebaut
+            let torn = demo.ui.isTorn
+            let width = torn ? l.full.width + 2 * EdgeTear.reach : l.full.width + ShelfMetrics.panelMargin
             ShelfRootView(ui: demo.ui, store: demo.store, settings: settings, actions: demo.actions)
-                .frame(width: l.full.width + ShelfMetrics.panelMargin, height: l.size.height)
-                .position(x: l.edge == .right ? l.size.width - (l.full.width + ShelfMetrics.panelMargin) / 2
-                                              : (l.full.width + ShelfMetrics.panelMargin) / 2,
+                .frame(width: width, height: l.size.height)
+                .position(x: torn ? l.away(l.full.width / 2 + demo.shift, y: 0).x : l.away(width / 2, y: 0).x,
                           y: l.size.height / 2)
 
             if let keys = demo.keys {

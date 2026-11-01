@@ -13,8 +13,10 @@ import Carbon
 final class OnboardingModel: ObservableObject {
     enum Step: Int, CaseIterable, Identifiable {
         // Erst ablegen (danach weiß man, wo die Ablage sitzt), dann mit dem Zeiger öffnen,
-        // wieder herausziehen, eine Aktion; der Kurzbefehl nach der Maus
-        case welcome, drop, hover, takeOut, retrieve, shortcut, features
+        // wieder herausziehen, eine Aktion; der Tastaturkurzbefehl nach der Maus. Zuletzt vom
+        // Rand abziehen, zum Ausprobieren wie auf der Website (Nutzer, 31.10.2026): Nur in
+        // diesem Schritt lässt sich die Ablage abziehen (IntroGate.allowsTear)
+        case welcome, drop, hover, takeOut, retrieve, shortcut, detach, features
         var id: Int { rawValue }
     }
 
@@ -57,10 +59,15 @@ final class OnboardingModel: ObservableObject {
     }
 
     /// Schritte zum Mitmachen
-    static let practice: [Step] = [.drop, .hover, .takeOut, .retrieve, .shortcut]
+    static let practice: [Step] = [.drop, .hover, .takeOut, .retrieve, .shortcut, .detach]
 
     /// Herausziehen: Das Foto liegt auf dem kleinen Schreibtisch der Übung
     @Published var onDesk = false
+
+    /// Vom Rand abziehen: Die echte Ablage schwebt gerade frei
+    @Published var shelfFloating = false
+    /// Schwebende Ablage zurück an den Rand (esc im Fenster der Einführung)
+    var onReturnShelf: () -> Void = {}
 
     /// Das Foto kam aus der Ablage auf dem Schreibtisch der Übung an
     func deskReceived() {
@@ -82,6 +89,9 @@ final class OnboardingModel: ObservableObject {
     }
 
     func advance() {
+        // Mit „Los geht’s“ ist die erste Seite erledigt: ihr Punkt wird grün wie die der
+        // Übungen, sonst blieb er als einziger grau (Nutzer, 31.10.2026)
+        if step == .welcome { completed.insert(.welcome) }
         guard let next = Step(rawValue: step.rawValue + 1) else {
             onFinish(true)
             return
@@ -106,6 +116,9 @@ final class OnboardingModel: ObservableObject {
         }
         Haptics.tap()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) { _ = completed.insert(done) }
+        // Abgezogen: nicht von selbst weiter. Man soll mit der schwebenden Ablage spielen und
+        // sie zurückholen können; weiter geht es mit „Weiter“
+        if done == .detach { return }
         // Der Hinweis auf ⌘Z nach dem Papierkorb braucht etwas länger zum Lesen
         let pause = done == .retrieve ? 3.2 : 1.4
         DispatchQueue.main.asyncAfter(deadline: .now() + pause) { [weak self] in
@@ -148,6 +161,10 @@ final class OnboardingController: NSObject, NSWindowDelegate {
     /// Zeigt die Ablage am Rand, solange die Einführung sie braucht: offen (Willkommen,
     /// damit man sieht, wo sie ist), als Streifen (Übungen) oder gar nicht (nil).
     var showGuide: (ShelfUIModel.Level?) -> Void = { _ in }
+    /// Schwebende Ablage mit der normalen Bewegung zurück an den Rand
+    var returnShelfToEdge: () -> Void = {} {
+        didSet { model.onReturnShelf = returnShelfToEdge }
+    }
 
     /// Bildschirm mit der Ablage: Dort erscheint auch das Fenster der Einführung
     var shelfScreen: () -> NSScreen? = { nil }
@@ -346,18 +363,41 @@ final class OnboardingController: NSObject, NSWindowDelegate {
             }
             .store(in: &subscriptions)
 
+        // Übung „Vom Rand abziehen“: losgelassen fern der Ränder, die Ablage schwebt
+        NotificationCenter.default.publisher(for: EdgeController.didFloat)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.model.step == .detach else { return }
+                self.model.shelfFloating = true
+                self.model.complete(.detach)
+            }
+            .store(in: &subscriptions)
+
+        ui.$isTorn
+            .receive(on: RunLoop.main)
+            .sink { [weak self] torn in
+                if !torn, self?.model.shelfFloating == true { self?.model.shelfFloating = false }
+            }
+            .store(in: &subscriptions)
     }
 
     private func prepare(_ step: OnboardingModel.Step) {
+        let previous = IntroGate.step
         IntroGate.step = step
         Diagnostics.shared.record("intro", "step \(step) sample=\(model.sampleURL.map { FileManager.default.fileExists(atPath: $0.path) } ?? false)")
-        // Willkommen: Die Ablage steht offen am Rand, damit man sieht, wo sie ist.
-        // Bei den Übungen bleibt dort der Streifen stehen.
-        // Ab „Los geht’s“ steht die Ablage offen am Rand und bleibt beim Ablegen und bei den
-        // Aktionen offen. Zum Öffnen mit dem Zeiger ist sie zu, das übt man selbst.
-        switch step {
-        case .drop, .takeOut, .retrieve: showGuide(.expanded)
-        default: showGuide(nil)
+        // Ab „Los geht’s“ steht die Ablage offen am Rand und bleibt beim Ablegen, bei den
+        // Aktionen und zum Abziehen offen. Zum Öffnen mit dem Zeiger ist sie zu, das übt man selbst.
+        let guide: ShelfUIModel.Level? = [.drop, .takeOut, .retrieve, .detach].contains(step) ? .expanded : nil
+        if previous == .detach, step != .detach, model.shelfFloating {
+            // Schwebt sie noch, gleitet sie erst zurück an den Rand, statt hinzuspringen
+            // (showGuide beendet ein Abziehen sofort)
+            returnShelfToEdge()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                guard let self, !self.finished, IntroGate.step == step else { return }
+                self.showGuide(guide)
+            }
+        } else {
+            showGuide(guide)
         }
         if step == .drop || step == .takeOut || step == .retrieve { ensureSample() }
         // Herausziehen und Aktionen brauchen das Foto in der Ablage: Wurde „Ablegen“
@@ -472,6 +512,9 @@ final class OnboardingController: NSObject, NSWindowDelegate {
         window?.delegate = nil
         window?.close()
         window = nil
+        // Mit „Fertig“ beendet: einmal Konfetti über den ganzen Bildschirm, wie am Ende der
+        // Vorführung auf der Website (Nutzer, 31.10.2026)
+        if completed { ConfettiShower.play() }
         onClose()
     }
 
@@ -790,7 +833,8 @@ extension OnboardingModel.Step {
         case .drop: return L("Drop", "Ablegen")
         case .takeOut: return L("Drag Out", "Herausziehen")
         case .retrieve: return L("Actions", "Aktionen")
-        case .shortcut: return L("Shortcut", "Kurzbefehl")
+        case .shortcut: return L("Keyboard Shortcut", "Tastaturkurzbefehl")
+        case .detach: return L("Pull Off the Edge", "Vom Rand abziehen")
         case .hover: return L("Open with the Pointer", "Mit dem Zeiger öffnen")
         case .features: return L("Discover More", "Mehr entdecken")
         }
@@ -814,6 +858,11 @@ struct OnboardingView: View {
             footer
                 .padding(.horizontal, 22)
                 .frame(height: 64)
+                // Feine Linie über den Knöpfen wie in den Fenstern von macOS: trennt die
+                // Navigation von der Seite
+                .overlay(alignment: .top) {
+                    Rectangle().fill(SettingsTheme.cardBorder).frame(height: 1)
+                }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SettingsTheme.contentBackdrop)
@@ -829,6 +878,7 @@ struct OnboardingView: View {
         case .takeOut: TakeOutPage(model: model, settings: settings)
         case .retrieve: RetrievePage(model: model, settings: settings)
         case .shortcut: ShortcutPage(model: model, settings: settings)
+        case .detach: DetachPage(model: model, settings: settings)
         case .hover: HoverPage(model: model, settings: settings)
         case .features: FeaturesPage(model: model, settings: settings)
         }
@@ -860,7 +910,17 @@ struct OnboardingView: View {
                     Button(L("Back", "Zurück")) { model.back() }
                         .buttonStyle(KlackButtonStyle())
                     Spacer()
-                    if model.stepDone {
+                    // Schwebt die Ablage, holt esc sie zurück an den Rand, auch wenn das Fenster
+                    // der Einführung den Fokus hat (wie esc in der Ablage selbst)
+                    if model.step == .detach && model.shelfFloating {
+                        Button("") { model.onReturnShelf() }
+                            .keyboardShortcut(.cancelAction)
+                            .opacity(0)
+                            .frame(width: 0, height: 0)
+                            .accessibilityHidden(true)
+                    }
+                    // Seiten ohne Übung: gleich „Weiter“
+                    if model.stepDone || !OnboardingModel.practice.contains(model.step) {
                         Button(L("Continue", "Weiter")) { model.advance() }
                             .buttonStyle(KlackButtonStyle(prominent: true))
                             .keyboardShortcut(.defaultAction)
@@ -932,7 +992,7 @@ private struct PresentationPage<Hero: View, Practice: View>: View {
                 .frame(maxWidth: 440)
                 .padding(.top, 5)
             practice()
-                .padding(.top, 18)
+                .padding(.top, 20)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 30)
@@ -940,19 +1000,26 @@ private struct PresentationPage<Hero: View, Practice: View>: View {
     }
 }
 
-/// Die Übung einer Seite, frei stehend wie bei Apple: das Objekt, mit dem man übt, darunter
-/// in einer Zeile, was zu tun ist. Ohne Rahmen, Karte oder Pfeile. Geschafft weicht das
-/// Objekt einem grünen Haken (wie in den Systemeinstellungen), darunter die Bestätigung.
+/// Die Übung einer Seite als Karte, so breit wie die Szene darüber: links das Objekt, mit
+/// dem man übt, rechts „Probier’s aus“ und was zu tun ist. Geschafft weicht das Objekt einem
+/// grünen Haken (wie in den Systemeinstellungen), rechts steht die Bestätigung. Vorher stand
+/// die Übung frei ohne Karte darunter; das wirkte lose, unten blieb eine Lücke (Nutzer,
+/// 30.10.2026)
 private struct TaskCard<Leading: View>: View {
     let done: Bool
     let instruction: String
     let confirmation: String
+    /// Überschrift rechts, solange die Übung offen ist
+    var label = L("Try It", "Probier’s aus")
+    /// Platz links für das Objekt. Breiter für Tastenkappen: Bei vier Sondertasten ragten sie
+    /// über die Karte hinaus und lagen auf dem Text (Nutzer, 31.10.2026)
+    var leadingWidth: CGFloat = 150
     @ViewBuilder let leading: () -> Leading
 
-    static var size: CGSize { CGSize(width: 440, height: 150) }
+    static var height: CGFloat { 124 }
 
     var body: some View {
-        VStack(spacing: 16) {
+        HStack(spacing: 16) {
             ZStack {
                 leading()
                     .opacity(done ? 0 : 1)
@@ -965,37 +1032,31 @@ private struct TaskCard<Leading: View>: View {
                         .transition(.scale(scale: 0.6).combined(with: .opacity))
                 }
             }
-            .frame(height: 100)
-            Text(done && !confirmation.isEmpty ? confirmation : instruction)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 380)
-                .id(done)
-                .transition(.opacity)
+            .frame(width: leadingWidth, height: 104)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(done ? L("Done", "Geschafft") : label)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(done ? Color.green : Color(nsColor: .controlAccentColor))
+                Text(done && !confirmation.isEmpty ? confirmation : instruction)
+                    .font(.system(size: 13.5))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .id(done)
+            .transition(.opacity)
+            Spacer(minLength: 0)
         }
-        .frame(width: Self.size.width, height: Self.size.height)
+        .padding(.leading, 6)
+        .padding(.trailing, 18)
+        .frame(width: DemoLayout.shown.width, height: Self.height)
+        .background(
+            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                .fill(SettingsTheme.card)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+                .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
+        )
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: done)
-    }
-}
-
-/// Feld zum Ablegen in der Übungskarte: gestrichelte Mulde wie ein Ablageziel in macOS
-private struct DropWell: View {
-    var targeted: Bool
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        shape
-            .fill(Color.primary.opacity(targeted ? 0.08 : 0.03))
-            .overlay(shape.strokeBorder(targeted ? Color(nsColor: .controlAccentColor) : Color.secondary.opacity(0.45),
-                                        style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
-            .overlay(
-                Image(systemName: "tray.and.arrow.down")
-                    .font(.system(size: 24, weight: .regular))
-                    .foregroundStyle(targeted ? Color(nsColor: .controlAccentColor) : .secondary)
-            )
-            .frame(width: 96, height: 72)
     }
 }
 
@@ -1026,7 +1087,7 @@ private struct WelcomePage: View {
                                    options: ScreenEdge.allCases.map { ($0, $0.title) })
                 }
             }
-            .frame(maxWidth: 440)
+            .frame(width: DemoLayout.shown.width)
         }
     }
 }
@@ -1144,22 +1205,55 @@ private struct RetrievePage: View {
     }
 }
 
-// MARK: Kurzbefehl
+// MARK: Tastaturkurzbefehl
 
 private struct ShortcutPage: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var settings: AppSettings
 
+    /// Tasten so groß wie bisher, bei vielen Sondertasten kleiner, damit sie in die Karte passen
+    private var keys: [(symbol: String, name: String)] { ShortcutKeys.keys(settings) }
+    private var keySize: CGFloat { min(40, 250 / KeyCaps.width(keys, size: 1)) }
+
     var body: some View {
         PresentationPage(title: L("Open from Anywhere", "Von überall öffnen"),
-                         text: L("The shortcut opens the shelf wherever you are. Press it again to close it. You can change it in Settings → Keyboard.",
-                                 "Der Kurzbefehl öffnet die Ablage, egal wo du bist. Noch einmal drücken schließt sie wieder. Ändern kannst du ihn unter Einstellungen → Tastatur.")) {
+                         text: L("The keyboard shortcut opens the shelf wherever you are. Press it again to close it. You can change it in Settings → Keyboard.",
+                                 "Der Tastaturkurzbefehl öffnet die Ablage, egal wo du bist. Noch einmal drücken schließt sie wieder. Ändern kannst du ihn unter Einstellungen → Tastatur.")) {
             ShelfStage(scene: .shortcut)
         } practice: {
             TaskCard(done: model.stepDone,
                      instruction: L("Press \(settings.hotKeyDescription).", "Drück \(settings.hotKeyDescription)."),
-                     confirmation: L("That’s it.", "Genau so.")) {
-                KeyCaps(keys: ShortcutKeys.keys(settings), size: 40, pressed: false)
+                     confirmation: L("That’s it.", "Das war’s."),
+                     leadingWidth: max(150, KeyCaps.width(keys, size: keySize) + 12)) {
+                KeyCaps(keys: keys, size: keySize, pressed: false)
+            }
+        }
+    }
+}
+
+// MARK: Vom Rand abziehen
+
+/// Die echte Ablage steht offen am Rand und lässt sich nur in diesem Schritt abziehen
+/// (IntroGate.allowsTear). Geschafft ist es, sobald sie frei schwebt.
+private struct DetachPage: View {
+    @ObservedObject var model: OnboardingModel
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        PresentationPage(title: L("Pull Off the Edge", "Vom Rand abziehen"),
+                         text: L("Grab the open shelf at the top and pull it away from the edge. It then floats above your windows and stays open.",
+                                 "Greif die offene Ablage oben und zieh sie vom Rand weg. Dann schwebt sie über deinen Fenstern und bleibt offen.")) {
+            ShelfStage(scene: .detach)
+        } practice: {
+            TaskCard(done: model.stepDone,
+                     instruction: L("Grab the shelf at the \(edgeWord(settings)) edge at the top and pull it away.",
+                                    "Greif die Ablage am \(edgeWord(settings)) Rand oben und zieh sie weg."),
+                     confirmation: L("To put it back, drag it to an edge or press esc.",
+                                     "Zurück an den Rand: hinziehen oder esc drücken.")) {
+                Image(systemName: "hand.draw")
+                    .font(.system(size: 44, weight: .regular))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -1213,6 +1307,12 @@ struct KeyCaps: View {
         colorScheme == .dark ? Color.primary.opacity(0.1) : SettingsTheme.keyBorder
     }
 
+    /// Breite der ganzen Reihe (Tasten mit Namen sind breiter, siehe unten)
+    static func width(_ keys: [(symbol: String, name: String)], size: CGFloat) -> CGFloat {
+        let caps = keys.reduce(0) { $0 + ($1.name.isEmpty ? size : size * 1.2) }
+        return caps + size * 0.13 * CGFloat(max(0, keys.count - 1))
+    }
+
     var body: some View {
         HStack(spacing: size * 0.13) {
             ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
@@ -1253,34 +1353,35 @@ private struct FeaturesPage: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var settings: AppSettings
 
+    /// Jede Funktion trägt das Symbol der Seite in den Einstellungen, auf der man sie
+    /// einstellt (Nutzer, 31.10.2026: „Die müssen gleich sein“)
     private struct Feature: Identifiable {
         let id: String
-        let symbol: String
-        let tint: Color
+        let pane: SettingsPane
         let title: String
         let text: String
     }
 
     private var features: [Feature] {
         [
-            Feature(id: "keys", symbol: "command", tint: Color(red: 0.55, green: 0.35, blue: 0.95),
+            Feature(id: "keys", pane: .keyboard,
                     title: L("Keys like in the Finder", "Tasten wie im Finder"),
                     text: L("Space, ⌘⌫ and ⌘Z work as you know them", "Leertaste, ⌘⌫ und ⌘Z wie gewohnt")),
-            Feature(id: "pin", symbol: "pin.fill", tint: Color(red: 0.2, green: 0.47, blue: 1),
+            Feature(id: "pin", pane: .actions,
                     title: L("Pin", "Anheften"),
                     text: L("Drag a folder or app onto the action bar", "Ordner oder App auf die Aktionsleiste ziehen")),
-            Feature(id: "convert", symbol: "arrow.triangle.2.circlepath", tint: Color(red: 0.2, green: 0.78, blue: 0.4),
-                    title: L("Convert", "Umwandeln"),
-                    text: L("Right-click for JPEG, PDF and more", "Per Rechtsklick in JPEG, PDF und mehr")),
-            Feature(id: "stacks", symbol: "square.stack.fill", tint: Color(red: 0.18, green: 0.68, blue: 0.75),
+            Feature(id: "stacks", pane: .items,
                     title: L("Stacks", "Stapel"),
                     text: L("Several items at once stay together", "Mehrere auf einmal bleiben zusammen")),
-            Feature(id: "screenshots", symbol: "camera.viewfinder", tint: Color(red: 1, green: 0.58, blue: 0.1),
+            Feature(id: "plugins", pane: .plugins,
+                    title: L("Plugins", "Plugins"),
+                    text: L("More tools from the gallery", "Mehr Werkzeuge aus der Galerie")),
+            Feature(id: "cloud", pane: .cloud,
+                    title: L("Cloud", "Cloud"),
+                    text: L("Right-click to upload and copy a link", "Per Rechtsklick hochladen und Link kopieren")),
+            Feature(id: "screenshots", pane: .items,
                     title: L("Screenshots", "Bildschirmfotos"),
-                    text: L("Optional: new screenshots land in the shelf", "Auf Wunsch landen neue Bildschirmfotos in der Ablage")),
-            Feature(id: "cleanup", symbol: "clock.fill", tint: Color(red: 0.92, green: 0.3, blue: 0.55),
-                    title: L("Cleanup", "Aufräumen"),
-                    text: L("Optional: items go away after 1 to 24 hours", "Auf Wunsch nach 1 bis 24 Stunden von selbst weg"))
+                    text: L("Optional: new ones land in the shelf", "Auf Wunsch neue gleich in der Ablage"))
         ]
     }
 
@@ -1307,16 +1408,7 @@ private struct FeaturesPage: View {
             LazyVGrid(columns: columns, spacing: 12) {
                 ForEach(features) { feature in
                     HStack(spacing: 12) {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(SettingsTheme.iconGradient(feature.tint))
-                            .overlay(
-                                Image(systemName: feature.symbol)
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .iconGlyphShadow(size: 40)
-                            )
-                            .frame(width: 40, height: 40)
-                            .iconTileShadow(size: 40)
+                        PaneIcon(pane: feature.pane, size: 40)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(feature.title)
                                 .font(.system(size: 13.5, weight: .semibold))
@@ -1339,14 +1431,14 @@ private struct FeaturesPage: View {
                     )
                 }
             }
-            .frame(maxWidth: 520)
+            .frame(maxWidth: DemoLayout.shown.width)
             .padding(.top, 26)
 
             // Erst am Ende, wenn man die App kennt; beim ersten Start schon eingeschaltet
             SettingsCard {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $model.launchAtLogin)
             }
-            .frame(maxWidth: 520)
+            .frame(maxWidth: DemoLayout.shown.width)
             .padding(.top, 16)
             Spacer(minLength: 0)
         }
@@ -1572,4 +1664,7 @@ enum IntroGate {
 
     /// Darf ein Objekt auf eine Kachel gelegt werden (Stapel bilden)?
     static var allowsMerge: Bool { !active }
+
+    /// Darf die Ablage vom Rand gezogen werden? In der Einführung nur in ihrer Übung
+    static var allowsTear: Bool { !active || step == .detach }
 }

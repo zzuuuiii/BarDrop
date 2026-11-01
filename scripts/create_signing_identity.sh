@@ -20,14 +20,14 @@ OUT="$HOME/Library/Application Support/BarDrop-Signatur"
 OPENSSL=/usr/bin/openssl
 
 if security find-certificate -c "$NAME" >/dev/null 2>&1; then
-  echo "„$NAME“ ist in deinem Schlüsselbund schon vorhanden. Nichts zu tun."
+  echo "„${NAME}“ ist in deinem Schlüsselbund schon vorhanden. Nichts zu tun."
   exit 0
 fi
 
 if [ $# -ge 1 ]; then
   read -r -s -p "Passwort der .p12: " PASSWORD; echo
   security import "$1" -k "$HOME/Library/Keychains/login.keychain-db" -P "$PASSWORD" -T /usr/bin/codesign
-  echo "Importiert. „Testversion installieren“ signiert ab jetzt mit „$NAME“."
+  echo "Importiert. „Testversion installieren“ signiert ab jetzt mit „${NAME}“."
   exit 0
 fi
 
@@ -65,7 +65,7 @@ printf '%s' "$PASSWORD" > "$OUT/BARDROP_SIGNING_PASSWORD.txt"
 chmod 600 "$OUT"/*.txt
 
 echo
-echo "Fertig. „$NAME“ liegt in deinem Schlüsselbund."
+echo "Fertig. „${NAME}“ liegt in deinem Schlüsselbund."
 echo "Für GitHub (Repository → Settings → Secrets and variables → Actions → New repository secret):"
 echo "  BARDROP_SIGNING_P12      = Inhalt von $OUT/BARDROP_SIGNING_P12.txt"
 echo "  BARDROP_SIGNING_PASSWORD = Inhalt von $OUT/BARDROP_SIGNING_PASSWORD.txt"

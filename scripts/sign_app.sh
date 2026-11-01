@@ -15,6 +15,9 @@
 #    scripts/create_signing_identity.sh bzw. „Signatur einrichten.command“).
 # 3. Sonst ad hoc wie bisher.
 set -euo pipefail
+# Variablen vor typografischen Anführungszeichen immer in {}: Per Doppelklick im Finder läuft
+# bash ohne UTF-8 und las „$NAME“ als Variable „NAME\xe2…“ (unbound variable). Dann brach das
+# Signieren ab, die App blieb unsigniert, und macOS fragte Freigaben wieder und wieder ab
 
 APP_DIR="$1"
 NAME="BarDrop Signatur"
@@ -51,10 +54,19 @@ elif security find-certificate -c "$NAME" >/dev/null 2>&1; then
 fi
 
 if [ "$IDENTITY" = "-" ]; then
-  echo "==> Signiere (ad hoc, kein Zertifikat „$NAME“)"
-  codesign --force --deep --sign - "$APP_DIR"
+  echo "==> Signiere (ad hoc, kein Zertifikat „${NAME}“)"
 else
-  echo "==> Signiere mit „$NAME“"
-  codesign --force --deep --sign "$IDENTITY" ${TEMP_KEYCHAIN:+--keychain "$TEMP_KEYCHAIN"} "$APP_DIR"
+  echo "==> Signiere mit „${NAME}“"
 fi
-codesign --verify --verbose "$APP_DIR"
+# Erweiterungen zuerst und einzeln, mit ihren Rechten (Quick Look startet sie nur in der
+# Sandbox). --deep an der App hätte sie ohne Rechte neu signiert
+for EXT in "$APP_DIR"/Contents/PlugIns/*.appex; do
+  [ -d "$EXT" ] || continue
+  # BarDropThumbnails.appex → Extensions/Thumbnails/Thumbnails.entitlements
+  EXT_NAME="$(basename "$EXT" .appex)"
+  EXT_NAME="${EXT_NAME#BarDrop}"
+  codesign --force --sign "$IDENTITY" ${TEMP_KEYCHAIN:+--keychain "$TEMP_KEYCHAIN"} \
+    --entitlements "$(dirname "$0")/../Extensions/${EXT_NAME}/${EXT_NAME}.entitlements" "$EXT"
+done
+codesign --force --sign "$IDENTITY" ${TEMP_KEYCHAIN:+--keychain "$TEMP_KEYCHAIN"} "$APP_DIR"
+codesign --verify --deep --verbose "$APP_DIR"

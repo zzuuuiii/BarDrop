@@ -123,7 +123,11 @@ enum Converter {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("BarDropConvert-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let finish: ([URL]) -> Void = { results in DispatchQueue.main.async { completion(results) } }
+        // Ohne Ergebnis räumt niemand den Zwischenordner weg (ShelfActions nur bei Ergebnissen)
+        let finish: ([URL]) -> Void = { results in
+            if results.isEmpty { try? FileManager.default.removeItem(at: dir) }
+            DispatchQueue.main.async { completion(results) }
+        }
 
         switch target {
         case .video(let id):

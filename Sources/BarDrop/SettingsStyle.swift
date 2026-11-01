@@ -15,17 +15,20 @@ enum SettingsTheme {
     // aber deutlich weniger (siehe `cardOpacity`).
     /// Deckkraft von Seitenleiste und Inhalt über dem Schreibtisch (dunkel): etwas
     /// durchscheinender als früher (70 %), aber Text und Karten bleiben auf jedem Hintergrund ruhig
-    /// (Nutzerwunsch 24.10.2026: Hintergrund und Karten etwas durchscheinender, 64 → 58 %)
-    static let backdropOpacity = 0.58
+    /// (Nutzerwunsch 24.10.2026: Hintergrund und Karten etwas durchscheinender, 64 → 58 %;
+    /// 25.10.2026 noch ein paar Prozent mehr, 58 → 53 %, am Abend noch etwas, aber nicht viel, 53 → 48 %)
+    static let backdropOpacity = 0.48
     /// Seitenleiste und Inhalt über dem Schreibtisch (Farben von Klack). Dunkel wie bisher zu 64 % deckend;
     /// hell wie bei Apple: Seitenleiste leicht durchscheinend, Inhalt fast deckend, damit
     /// ein dunkler Schreibtisch die helle Fläche nicht grau eintrübt
     /// Hell erst beim Zeichnen auflösen: `withAlphaComponent` auf einer Systemfarbe legt sie
     /// sonst auf das Aussehen beim Start fest, und im hellen Modus blieb der Hintergrund dunkel.
+    /// Hell schien kaum etwas durch (76 und 87 %, Nutzer 25.10.2026: „viel zu wenig“), jetzt
+    /// ähnlich durchscheinend wie dunkel
     static let sidebarBackdrop = dynamic(dark: rgb(0.161, 0.165, 0.169, backdropOpacity),
-                                         light: systemColor(.windowBackgroundColor, alpha: 0.8))
+                                         light: systemColor(.windowBackgroundColor, alpha: 0.58))
     static let contentBackdrop = dynamic(dark: rgb(0.192, 0.196, 0.2, backdropOpacity),
-                                         light: systemColor(.windowBackgroundColor, alpha: 0.9))
+                                         light: systemColor(.windowBackgroundColor, alpha: 0.66))
     /// Deckkraft der Karten. Sie liegen auf dem Inhalt, der selbst zu 64 % deckt: Bei 50 %
     /// scheint durch eine Karte etwa 18 % des Schreibtischs, daneben 36 %. Sichtbar
     /// durchscheinend, aber deutlich weniger als der Hintergrund. (Mit 88 % waren es nur 4 %,
@@ -49,8 +52,14 @@ enum SettingsTheme {
                               light: systemColor(.controlBackgroundColor, alpha: 0.9))
     /// Deckend, für Flächen über anderen Inhalten (angehobene Zeile beim Umsortieren)
     static let cardSolid = dynamic(dark: rgb(0.227, 0.231, 0.231), light: rgb(0.96, 0.96, 0.96))
-    /// Gewählter Eintrag der Seitenleiste
+    /// Hervorgehobene Zeile der Auswahllisten
     static let selectedRow = dynamic(dark: rgb(0.212, 0.212, 0.216), light: .unemphasizedSelectedContentBackgroundColor)
+    /// Gewählter Eintrag der Seitenleiste: ein Hauch Weiß (hell: Schwarz) statt eines festen
+    /// Graus. Das feste Grau war auf manchen Schreibtischen genauso hell wie die
+    /// durchscheinende Seitenleiste und kaum zu sehen (Nutzer, 25.10.2026); so ist die Auswahl
+    /// auf jedem Hintergrund heller (hell: dunkler) als ihre Umgebung
+    static let sidebarSelection = dynamic(dark: NSColor.white.withAlphaComponent(0.13),
+                                          light: NSColor.black.withAlphaComponent(0.09))
     /// Rand der Karten
     static let cardBorder = dynamic(dark: NSColor.white.withAlphaComponent(0.11), light: .separatorColor)
     /// Trennlinien zwischen Zeilen, Leiste der Regler
@@ -90,7 +99,6 @@ enum SettingsTheme {
                                   light: NSColor.black.withAlphaComponent(0.06))
     static let keyBorder = dynamic(dark: NSColor.white.withAlphaComponent(0.06), light: .separatorColor)
     static let keyBorderInactive = dynamic(dark: NSColor.white.withAlphaComponent(0.04), light: .clear)
-    static let shortcutKey = dynamic(dark: NSColor.black.withAlphaComponent(0.22), light: NSColor.black.withAlphaComponent(0.05))
     /// Schatten der Knöpfe: nur hell, wie bei macOS
     static let controlShadow = dynamic(dark: .clear, light: NSColor.black.withAlphaComponent(0.12))
 
@@ -154,7 +162,7 @@ struct SettingsPage<Content: View, Footer: View>: View {
             .padding(.bottom, Footer.self == EmptyView.self ? 24 : 16)
             .frame(maxWidth: .infinity, minHeight: visibleHeight, alignment: .topLeading)
         }
-        .onChange(of: page) { _, new in proxy.scrollTo(new, anchor: .top) }
+        .modifier(ScrollToTopOnPage(page: page, legacy: { proxy.scrollTo($0, anchor: .top) }))
         }
         // Nicht mit GeometryReader umschließen: Das trennte die Seite von der Leiste darüber
         .onGeometryChange(for: CGFloat.self) { $0.size.height - $0.safeAreaInsets.top - $0.safeAreaInsets.bottom } action: {
@@ -170,6 +178,35 @@ struct SettingsPage<Content: View, Footer: View>: View {
 extension SettingsPage where Footer == EmptyView {
     init(page: AnyHashable? = nil, @ViewBuilder content: () -> Content) {
         self.init(page: page, content: content, footer: { EmptyView() })
+    }
+}
+
+/// Neue Unterseite: ganz nach oben. Ab macOS 15 über die Kante der Bildlaufansicht, die die
+/// Leiste mit der Überschrift mitzählt. `scrollTo(id, anchor: .top)` legte den Anfang der Seite
+/// unter diese Leiste: Beim Vor- und Zurückgehen war oben etwas abgeschnitten, und die Leiste
+/// wurde grau wie beim Scrollen (Nutzer, 27.10.2026)
+private struct ScrollToTopOnPage: ViewModifier {
+    let page: AnyHashable?
+    let legacy: (AnyHashable?) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.modifier(EdgeScroll(page: page))
+        } else {
+            content.onChange(of: page) { _, new in legacy(new) }
+        }
+    }
+
+    @available(macOS 15.0, *)
+    private struct EdgeScroll: ViewModifier {
+        let page: AnyHashable?
+        @State private var position = ScrollPosition(edge: .top)
+
+        func body(content: Content) -> some View {
+            content
+                .scrollPosition($position)
+                .onChange(of: page) { _, _ in position.scrollTo(edge: .top) }
+        }
     }
 }
 
@@ -319,7 +356,9 @@ struct ToggleRow: View {
 
     var body: some View {
         SettingsRow(title, info: info) {
+            // Der Schalter selbst hat keinen Text: VoiceOver liest sonst nur „Schalter, ein“
             KlackSwitch(isOn: $isOn)
+                .accessibilityLabel(title)
         }
         .contentShape(Rectangle())
     }
@@ -589,15 +628,15 @@ struct SegmentedValue<Value: Hashable>: View {
             let center = min(max(x, first.minX + width / 2), last.maxX - width / 2)
             // Beim Ziehen etwas größer als die Möglichkeit (ragt knapp über die Leiste; weiter
             // hinaus zeigte das Glas darunter einen Spiegel der Schrift), beim Einrasten genau so groß
+            // Glas wie der Knopf der Ein/Aus-Schalter des Systems beim Drücken: klar, ohne
+            // Tönung und dunkle Kante (Nutzer, 27.10.2026: soll wie bei den Schaltern sein; vorher
+            // dunkel getönt wie die Linse der Uhr). Größer als 8/6 zeigte das Glas einen
+            // Spiegel der Schrift
             let growX: CGFloat = settling ? 0 : 8
             let growY: CGFloat = settling ? 0 : 6
             Color.clear
                 .frame(width: width + growX, height: first.height + growY)
-                // Leicht dunkel getönt: Auf der grauen Leiste wirkte klares Glas weiß beschlagen,
-                // die Linse der Uhr ist klar und dunkel
-                .glassEffect(.clear.tint(Color.black.opacity(0.25)), in: Capsule())
-                // Feine dunkle Außenkante wie bei der Linse der Uhr
-                .overlay(Capsule().strokeBorder(Color.black.opacity(settling ? 0 : 0.35), lineWidth: 0.5))
+                .glassEffect(.clear.interactive(), in: Capsule())
                 .offset(x: center - (width + growX) / 2, y: first.minY - growY / 2)
                 .allowsHitTesting(false)
                 // Nur überblenden: Mit Verkleinern schrumpfte die Linse beim Loslassen sichtbar
@@ -1188,9 +1227,14 @@ extension SettingsTheme {
     /// Leichter Verlauf für farbige Symbolkacheln wie in den Systemeinstellungen: oben eine
     /// Spur heller, unten die Farbe selbst
     static func iconGradient(_ tint: Color) -> LinearGradient {
+        LinearGradient(colors: iconColors(tint), startPoint: .top, endPoint: .bottom)
+    }
+
+    /// Farben dieses Verlaufs, oben und unten
+    static func iconColors(_ tint: Color) -> [Color] {
         let base = NSColor(tint).usingColorSpace(.sRGB) ?? NSColor(tint)
         let top = base.blended(withFraction: 0.18, of: .white) ?? base
-        return LinearGradient(colors: [Color(nsColor: top), tint], startPoint: .top, endPoint: .bottom)
+        return [Color(nsColor: top), tint]
     }
 }
 

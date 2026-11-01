@@ -45,6 +45,15 @@ final class PluginJob: ObservableObject, Identifiable {
     var shown = false
 
     fileprivate weak var runtime: PluginRuntime?
+    /// Eingebaute Aufgabe statt eines Skripts (Hochladen in die Cloud): ihr Abbrechen
+    private(set) var nativeCancel: (() -> Void)?
+    var isNative: Bool { nativeCancel != nil }
+
+    /// Eingebaute Aufgabe läuft sofort (wartet nicht wie Plugins auf einen freien Platz)
+    func startNative(cancel: @escaping () -> Void) {
+        nativeCancel = cancel
+        isStarted = true
+    }
     /// Letzte Meldung an die Oberfläche (höchstens alle 100 ms, sonst zeichnet die Ablage zu oft)
     private var lastPublished = Date.distantPast
     /// Letztes erzwungenes Neuzeichnen der ganzen Ablage. Das kostet viel und unterbricht
@@ -79,7 +88,9 @@ final class PluginJob: ObservableObject, Identifiable {
 
     func pause() { runtime?.setPaused(true) }
     func resume() { runtime?.setPaused(false) }
-    func cancel() { runtime?.cancel() }
+    func cancel() {
+        if let nativeCancel { nativeCancel() } else { runtime?.cancel() }
+    }
 
     func report(_ value: Double?, label newLabel: String?, force: Bool = false) {
         let clamped = value.map { min(max($0, 0), 1) }
@@ -575,7 +586,7 @@ final class PluginRuntime {
         guard plugin.manifest.allPermissions.contains(permission) else {
             if let ctx = JSContext.current() {
                 ctx.exception = JSValue(newErrorFromMessage: L("The permission “\(permission.rawValue)” is missing in manifest.json.",
-                                                                 "Das Recht „\(permission.rawValue)“ fehlt in der manifest.json."), in: ctx)
+                                                                 "Die Berechtigung „\(permission.rawValue)“ fehlt in der manifest.json."), in: ctx)
             }
             return false
         }

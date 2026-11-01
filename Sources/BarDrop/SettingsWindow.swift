@@ -231,7 +231,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, opening, appearance, items, actions, plugins, keyboard, about
+    case general, opening, appearance, items, actions, plugins, cloud, keyboard, about
     var id: String { rawValue }
 
     var title: String {
@@ -242,6 +242,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .items: return L("Items", "Objekte")
         case .actions: return L("Actions", "Aktionen")
         case .plugins: return L("Plugins", "Plugins")
+        case .cloud: return "Cloud"
         case .keyboard: return L("Keyboard", "Tastatur")
         case .about: return L("About BarDrop", "Über BarDrop")
         }
@@ -255,6 +256,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .items: return "tray.full.fill"
         case .actions: return "square.grid.2x2.fill"
         case .plugins: return "puzzlepiece.extension.fill"
+        case .cloud: return "cloud.fill"
         case .keyboard: return "command"
         case .about: return "info"
         }
@@ -268,6 +270,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .items: return Color(red: 1, green: 0.58, blue: 0.1)
         case .actions: return Color(red: 0.2, green: 0.78, blue: 0.4)
         case .plugins: return Color(red: 0.0, green: 0.68, blue: 0.82)
+        case .cloud: return Color(red: 0.25, green: 0.6, blue: 1)
         case .keyboard: return Color(red: 0.55, green: 0.35, blue: 0.95)
         case .about: return Color(white: 0.55)
         }
@@ -332,6 +335,8 @@ struct SettingsRoot: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(SettingsBackdrop().ignoresSafeArea())
         .ignoresSafeArea()
+        // Plugin-Symbole in den Einstellungen immer farbig (siehe colorfulIcons)
+        .environment(\.colorfulIcons, true)
     }
 
     // MARK: Seitenleiste
@@ -354,6 +359,7 @@ struct SettingsRoot: View {
                 row(.items)
                 row(.actions)
                 row(.plugins)
+                row(.cloud)
                 row(.keyboard)
                 Spacer(minLength: 12)
                 row(.about)
@@ -366,7 +372,7 @@ struct SettingsRoot: View {
 
     private func row(_ item: SettingsPane) -> some View {
         SidebarRow(item: item, selected: pane == item,
-                   badge: item == .about && updateAvailable, beta: item == .plugins) {
+                   badge: item == .about && updateAvailable, beta: item == .plugins || item == .cloud) {
             // Nochmals auf den gewählten Bereich: zurück zu seiner Startseite
             if pane == item {
                 if navigation.pluginPage != .list {
@@ -445,6 +451,7 @@ struct SettingsRoot: View {
         case .items: ItemSettings(settings: settings, store: store)
         case .actions: ActionSettings(settings: settings)
         case .plugins: PluginSettings(settings: settings)
+        case .cloud: CloudSettingsPane()
         case .keyboard: KeyboardSettings(settings: settings)
         case .about: AboutSettings(settings: settings, store: store, showOnboarding: showOnboarding)
         }
@@ -469,8 +476,9 @@ private struct SidebarRow: View {
                 Text(item.title)
                     .font(.system(size: 14))
                     .foregroundStyle(.primary)
-                if beta { BetaBadge() }
                 Spacer(minLength: 0)
+                // Rechtsbündig wie Plaketten in der Seitenleiste (Nutzer, 27.10.2026)
+                if beta { BetaBadge() }
                 if badge {
                     Text("1")
                         .font(.system(size: 11, weight: .semibold))
@@ -485,7 +493,7 @@ private struct SidebarRow: View {
             .frame(height: 42)
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? SettingsTheme.selectedRow : Color.primary.opacity(hovering ? 0.04 : 0))
+                    .fill(selected ? SettingsTheme.sidebarSelection : Color.primary.opacity(hovering ? 0.04 : 0))
             )
             .contentShape(Rectangle())
         }

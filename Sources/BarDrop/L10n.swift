@@ -15,7 +15,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     /// Jeweils in der eigenen Sprache, damit man die eigene immer findet
     var title: String {
         switch self {
-        case .system: return L("System", "Wie System")
+        case .system: return "System"
         case .english: return "English"
         case .german: return "Deutsch"
         }

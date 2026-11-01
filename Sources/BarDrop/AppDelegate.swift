@@ -82,8 +82,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Stille Updates nur, wenn BarDrop 15 Minuten unbenutzt war und kein Fenster offen ist
         Updater.shared.isIdle = { [weak self] in
             guard let self else { return false }
+            // Auch nicht, solange ein Plugin oder ein Upload läuft: Der Neustart bräche es ab
             return self.controller.isIdle(for: 15 * 60)
                 && self.settingsWindow?.isVisible != true && self.onboarding == nil
+                && self.controller.actions.plugins.jobs.isEmpty
         }
         focusReturn = SettingsFocusReturn { [weak self] in self?.settingsWindow }
         focusDiagnostics = FocusDiagnostics { [weak self] in self?.settingsWindow }

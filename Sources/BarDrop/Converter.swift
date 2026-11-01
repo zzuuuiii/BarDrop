@@ -265,11 +265,15 @@ enum Converter {
         let group = DispatchGroup()
         let lock = NSLock()
         var results: [URL] = []
+        // Die Dateien entstehen erst beim Umwandeln: Zwei Videos gleichen Namens aus verschiedenen
+        // Ordnern bekamen sonst dasselbe Ziel, und eines ging verloren
+        var taken = Set<String>()
         for url in urls {
             let asset = AVURLAsset(url: url)
             guard let session = AVAssetExportSession(asset: asset, presetName: preset),
                   session.supportedFileTypes.contains(type) else { continue }
-            let out = output(for: url, ext: ext, in: dir)
+            let out = output(for: url, ext: ext, in: dir, taken: taken)
+            taken.insert(out.path)
             session.outputURL = out
             session.outputFileType = type
             group.enter()
@@ -289,11 +293,12 @@ enum Converter {
     // MARK: Hilfen
 
     /// Zieldatei: gleicher Name mit neuer Endung, bei Bedarf durchnummeriert
-    private static func output(for url: URL, ext: String, in dir: URL, suffix: String = "") -> URL {
+    private static func output(for url: URL, ext: String, in dir: URL, suffix: String = "",
+                               taken: Set<String> = []) -> URL {
         let base = url.deletingPathExtension().lastPathComponent + suffix
         var candidate = dir.appendingPathComponent(base).appendingPathExtension(ext)
         var n = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
+        while FileManager.default.fileExists(atPath: candidate.path) || taken.contains(candidate.path) {
             candidate = dir.appendingPathComponent("\(base) \(n)").appendingPathExtension(ext)
             n += 1
         }

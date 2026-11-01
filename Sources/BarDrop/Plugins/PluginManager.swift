@@ -396,11 +396,35 @@ final class PluginManager: ObservableObject {
         var states: [String: PluginState]
         var lastSync: Date?
         var catalog: PluginCatalog?
+
+        init(order: [String], states: [String: PluginState], lastSync: Date?, catalog: PluginCatalog?) {
+            self.order = order
+            self.states = states
+            self.lastSync = lastSync
+            self.catalog = catalog
+        }
+
+        // Der Katalog ist nur ein Zwischenspeicher: Passt er nicht (andere Version von BarDrop),
+        // ohne ihn weiter. Sonst gingen Einstellungen, Reihenfolge und Rechte aller Plugins verloren
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            order = try c.decode([String].self, forKey: .order)
+            states = try c.decode([String: PluginState].self, forKey: .states)
+            lastSync = try? c.decodeIfPresent(Date.self, forKey: .lastSync)
+            catalog = try? c.decodeIfPresent(PluginCatalog.self, forKey: .catalog)
+        }
     }
 
     private func loadState() {
-        guard let data = try? Data(contentsOf: stateURL),
-              let saved = try? JSONDecoder().decode(Saved.self, from: data) else { return }
+        guard let data = try? Data(contentsOf: stateURL) else { return }
+        guard let saved = try? JSONDecoder().decode(Saved.self, from: data) else {
+            // Unlesbar: beiseitelegen, bevor das nächste Speichern sie überschreibt
+            let backup = stateURL.deletingLastPathComponent()
+                .appendingPathComponent("plugins-unlesbar-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.copyItem(at: stateURL, to: backup)
+            Diagnostics.shared.failure("plugins", "plugins.json unlesbar, gesichert")
+            return
+        }
         order = saved.order
         states = saved.states
         lastSync = saved.lastSync
@@ -636,7 +660,7 @@ final class PluginManager: ObservableObject {
     func setAutomaticOrder(_ ids: [String]) {
         var list = plugins
         let slots = list.indices.filter { isAutomatic(list[$0]) }
-        let byID = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
+        let byID = Dictionary(list.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let ordered = ids.compactMap { byID[$0] }
         guard ordered.count == slots.count,
               ordered.map(\.isStandard) == slots.map({ list[$0].isStandard }) else { return }

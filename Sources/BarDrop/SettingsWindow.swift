@@ -780,6 +780,11 @@ struct HotKeyEditor: View {
             }
         }
         .onDisappear { stopRecording() }
+        // Das Fenster wird beim Schließen nur ausgeblendet (onDisappear kommt dann nicht immer):
+        // Verliert es den Fokus, die Aufnahme beenden, statt beim nächsten Öffnen noch zu warten
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
+            if recording, note.object is SettingsNSWindow { stopRecording() }
+        }
     }
 
     private func toggle(_ flag: Int) {

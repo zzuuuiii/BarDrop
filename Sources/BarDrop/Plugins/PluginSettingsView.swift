@@ -437,13 +437,13 @@ private struct InstalledRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.2), value: status)
-        .onAppear(perform: measure)
-        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in measure() }
-        .onChange(of: manager.toolsChanged) { _, _ in measure() }
+        .onAppear { measure() }
+        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in measure(fresh: true) }
+        .onChange(of: manager.toolsChanged) { _, _ in measure(fresh: true) }
     }
 
-    private func measure() {
-        let parts = PluginSize.parts(of: plugin, tools: manager.tools)
+    private func measure(fresh: Bool = false) {
+        let parts = PluginSize.parts(of: plugin, tools: manager.tools, fresh: fresh)
         size = parts.own + (parts.programs ?? 0)
     }
 }
@@ -715,8 +715,8 @@ private struct PluginPageView: View {
         }
         .onChange(of: manager.lastErrors[plugin.id]) { _, _ in showError = false }
         .onAppear { sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
-        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
-        .onChange(of: manager.toolsChanged) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools) }
+        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools, fresh: true) }
+        .onChange(of: manager.toolsChanged) { _, _ in sizes = PluginSize.parts(of: plugin, tools: manager.tools, fresh: true) }
 
         if hasTriggers {
             SettingsSection(L("Behavior", "Verhalten")) {
@@ -1454,12 +1454,23 @@ enum PluginSize {
         let programs: Int64?
     }
 
-    static func parts(of plugin: InstalledPlugin, tools: PluginTools) -> Parts {
+    /// Gemerkte Größen (Hauptthread): Jedes Öffnen der Liste zählte sonst alle Dateien der Plugins
+    /// und ihrer Programme neu, bei einem Programm mit zehntausenden Dateien spürbar. `fresh`,
+    /// sobald Programme geladen oder entfernt wurden
+    private static var known: [String: Parts] = [:]
+
+    static func parts(of plugin: InstalledPlugin, tools: PluginTools, fresh: Bool = false) -> Parts {
+        let key = plugin.directory.path + "|" + plugin.manifest.version
+        // Geänderte Programme können mehreren Plugins gehören: dann alle neu zählen
+        if fresh { known.removeAll() }
+        if !fresh, let cached = known[key] { return cached }
         // Alles, was auf der Platte liegt, auch ein veraltetes Programm (wie beim Entfernen):
         // Vorher stand dann „noch nicht geladen“, obwohl es Platz belegte
         let folders = Set((plugin.manifest.tools ?? []).flatMap(tools.storedFolders))
-        return Parts(own: folder(plugin.directory),
-                     programs: folders.isEmpty ? nil : folders.reduce(Int64(0)) { $0 + folder($1) })
+        let parts = Parts(own: folder(plugin.directory),
+                          programs: folders.isEmpty ? nil : folders.reduce(Int64(0)) { $0 + folder($1) })
+        known[key] = parts
+        return parts
     }
 
     private static func programsLabel(_ count: Int) -> String {

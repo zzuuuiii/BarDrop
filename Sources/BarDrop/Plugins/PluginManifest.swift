@@ -194,7 +194,8 @@ enum PluginValue: Codable, Hashable {
         switch self {
         case .bool(let b): return b ? "true" : "false"
         case .string(let s): return s
-        case .number(let d): return d == d.rounded() ? String(Int(d)) : String(d)
+        // Int(d) stürzt bei sehr großen Zahlen (ab etwa 9,2e18) und bei unendlich ab
+        case .number(let d): return d == d.rounded() && abs(d) < 1e15 ? String(Int64(d)) : String(d)
         }
     }
 }

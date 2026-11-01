@@ -19,15 +19,19 @@ enum FileSanitizer {
     @discardableResult
     static func cleanCopy(from source: URL, to target: URL) -> Bool {
         let quarantineValue = readAttribute(quarantine, of: source)
+        // errno gleich nach copyfile festhalten: Spätere Aufrufe können es überschreiben
+        var code: Int32 = 0
         let result = source.withUnsafeFileSystemRepresentation { src in
-            target.withUnsafeFileSystemRepresentation { dst in
-                copyfile(src, dst, nil, copyfile_flags_t(COPYFILE_DATA | COPYFILE_EXCL))
+            target.withUnsafeFileSystemRepresentation { dst -> Int32 in
+                let r = copyfile(src, dst, nil, copyfile_flags_t(COPYFILE_DATA | COPYFILE_EXCL))
+                code = errno
+                return r
             }
         }
         guard result == 0 else {
             // Gab es das Ziel schon (EXCL), ist es nicht unsere halbe Kopie, sondern eine fremde
             // Datei: stehen lassen (DragExport ruft das nach „Datei existiert“ auf)
-            if errno != EEXIST { try? FileManager.default.removeItem(at: target) }
+            if code != EEXIST { try? FileManager.default.removeItem(at: target) }
             return false
         }
         try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: target.path)
@@ -48,11 +52,15 @@ enum FileSanitizer {
         // In einem Schritt ersetzen (rename ist atomar): Vorher wurde erst das Original gelöscht
         // und dann die Kopie verschoben; schlug das fehl, löschte die Fehlerbehandlung auch die
         // Kopie, und die Datei war ganz weg
+        var code: Int32 = 0
         let replaced = fresh.withUnsafeFileSystemRepresentation { src in
-            url.withUnsafeFileSystemRepresentation { dst in rename(src, dst) }
+            url.withUnsafeFileSystemRepresentation { dst -> Int32 in
+                let r = rename(src, dst)
+                code = errno
+                return r
+            }
         }
         if replaced != 0 {
-            let code = errno
             try? FileManager.default.removeItem(at: fresh)
             Log.importing.error("Neu schreiben fehlgeschlagen: \(String(cString: strerror(code)), privacy: .public)")
         }

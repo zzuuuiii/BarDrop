@@ -23,9 +23,12 @@ APP_DIR="$1"
 NAME="BarDrop Signatur"
 IDENTITY="-"
 TEMP_KEYCHAIN=""
+P12=""
 
 ORIGINAL_KEYCHAINS="$(security list-keychains -d user | tr -d '"')"
 cleanup() {
+  # Auch wenn der Import scheitert: die entschlüsselte Zertifikatsdatei nicht liegen lassen
+  if [ -n "$P12" ]; then rm -f "$P12"; fi
   if [ -n "$TEMP_KEYCHAIN" ]; then
     # Suchliste wie vorher (auf einem Mac sonst bliebe der gelöschte Schlüsselbund darin)
     security list-keychains -d user -s $ORIGINAL_KEYCHAINS

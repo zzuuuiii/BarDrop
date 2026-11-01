@@ -891,7 +891,7 @@ private struct ActionListEditor: View {
     var body: some View {
         let a = shown
         let c = counts(a)
-        let actions = Dictionary(uniqueKeysWithValues: settings.quickActions.map { ($0.id, $0) })
+        let actions = Dictionary(settings.quickActions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
         ZStack(alignment: .topLeading) {
             // Karten, Überschriften und Trennlinien: stehen fest, nur die Höhe passt sich an
@@ -1003,7 +1003,7 @@ private struct ActionListEditor: View {
             var t = Transaction()
             t.disablesAnimations = true
             withTransaction(t) {
-                let byID = Dictionary(uniqueKeysWithValues: settings.quickActions.map { ($0.id, $0) })
+                let byID = Dictionary(settings.quickActions.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
                 let order = proposal.order.compactMap { byID[$0] }
                 if order.count == settings.quickActions.count {
                     settings.quickActions = order

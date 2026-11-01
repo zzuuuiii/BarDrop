@@ -2,7 +2,7 @@
 
 [English](PLUGINS.md) · Deutsch
 
-Diese Datei beschreibt das Plugin-System von BarDrop vollständig und genau so, wie der Code es umsetzt (Stand 1.31.0 Beta 5). Was hier nicht steht, gibt es nicht. Wer ein Plugin schreibt, hält sich an diese Datei und prüft das Ergebnis mit `scripts/check_plugin.py` (Abschnitt 11).
+Diese Datei beschreibt das Plugin-System von BarDrop vollständig und genau so, wie der Code es umsetzt (Stand 1.31.0 Beta 10 und die unveröffentlichten Änderungen danach). Was hier nicht steht, gibt es nicht. Wer ein Plugin schreibt, hält sich an diese Datei und prüft das Ergebnis mit `scripts/check_plugin.py` (Abschnitt 11).
 
 Quellcode: `Sources/BarDrop/Plugins/`. Ändert sich dort etwas, wird diese Datei, ihre englische Fassung und `scripts/check_plugin.py` im selben Commit angepasst.
 

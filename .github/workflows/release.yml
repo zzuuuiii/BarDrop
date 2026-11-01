@@ -12,7 +12,9 @@ permissions:
 
 concurrency:
   group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.ref) || 'release' }}
-  cancel-in-progress: true
+  # Nur Pull Requests abbrechen: Ein Release-Lauf, der mitten im Hochladen abbricht, hinterließe
+  # ein halbes Release
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -45,9 +47,10 @@ jobs:
 
       - name: App und DMG bauen
         # Feste Signatur, sobald die Geheimnisse angelegt sind (scripts/sign_app.sh); ohne sie ad hoc
+        # Pull Requests bekommen das Zertifikat nicht: Ihr Code liefe sonst mit dem Schlüssel (ad hoc reicht)
         env:
-          BARDROP_SIGNING_P12: ${{ secrets.BARDROP_SIGNING_P12 }}
-          BARDROP_SIGNING_PASSWORD: ${{ secrets.BARDROP_SIGNING_PASSWORD }}
+          BARDROP_SIGNING_P12: ${{ github.event_name != 'pull_request' && secrets.BARDROP_SIGNING_P12 || '' }}
+          BARDROP_SIGNING_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.BARDROP_SIGNING_PASSWORD || '' }}
         run: |
           chmod +x scripts/build_app.sh
           set -o pipefail
@@ -84,8 +87,9 @@ jobs:
           path: build/BarDrop.dmg
 
       - name: GitHub Release aktualisieren
-        # Pull Requests werden nur gebaut und getestet, nicht veröffentlicht
-        if: ${{ github.event_name != 'pull_request' && !contains(github.event.head_commit.message, '[skip release]') }}
+        # Pull Requests werden nur gebaut und getestet, nicht veröffentlicht. Nur von main: Ein von
+        # Hand gestarteter Lauf auf einem anderen Zweig hätte sonst das Release überschrieben
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip release]') }}
         env:
           GH_TOKEN: ${{ github.token }}
           STABLE: ${{ contains(github.event.head_commit.message, '[stable]') }}
@@ -102,6 +106,9 @@ jobs:
             PRE="true"
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # Schon als reguläre Version erschienen: bleibt regulär (ein späterer Push ohne [stable]
+            # machte sie sonst wieder zur Beta)
+            if [ "$(gh release view "$TAG" --json isPrerelease -q .isPrerelease)" = "false" ]; then PRE="false"; fi
             gh release upload "$TAG" build/BarDrop.dmg --clobber
             gh release edit "$TAG" --notes-file .github/RELEASE_NOTES.md --prerelease="$PRE"
             if [ "$PRE" = "false" ]; then gh release edit "$TAG" --latest; fi

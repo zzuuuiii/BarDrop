@@ -515,16 +515,28 @@ final class ContentImporter {
     /// bleibt erhalten, gekürzt wird nur der Name davor. Als Endung zählt nur ein kurzes
     /// Stück aus Buchstaben und Ziffern nach dem letzten Punkt („Mr. Smith …“ hat keine).
     static func shortened(_ name: String, to limit: Int) -> String {
-        guard name.count > limit else { return name }
+        guard name.count > limit || name.utf8.count > maxNameBytes else { return name }
         let ext = (name as NSString).pathExtension
         let hasExtension = !ext.isEmpty && ext.count <= 10 && ext.count + 1 < limit
             && ext.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) }
-        guard hasExtension else { return String(name.prefix(limit)) }
+        guard hasExtension else { return fitBytes(String(name.prefix(limit))) }
         var stem = String(name.dropLast(ext.count + 1).prefix(limit - ext.count - 1))
+        // Das Dateisystem zählt Bytes (höchstens 255), nicht Zeichen: Emoji und manche Schriften
+        // brauchen bis zu 25 Bytes je Zeichen, das Speichern scheiterte dann still
+        while !stem.isEmpty, stem.utf8.count + ext.utf8.count + 1 > maxNameBytes { stem.removeLast() }
         // Kein Leerzeichen oder Punkt direkt vor der Endung
         while let last = stem.last, last.isWhitespace || last == "." { stem.removeLast() }
-        if stem.isEmpty { return String(name.prefix(limit)) }
+        if stem.isEmpty { return fitBytes(String(name.prefix(limit))) }
         return stem + "." + ext
+    }
+
+    /// Unter der Grenze des Dateisystems, mit Platz für „ 2“ beim Durchnummerieren
+    private static let maxNameBytes = 240
+
+    private static func fitBytes(_ name: String) -> String {
+        var result = name
+        while result.utf8.count > maxNameBytes { result.removeLast() }
+        return result
     }
 
     static var timestamp: String {

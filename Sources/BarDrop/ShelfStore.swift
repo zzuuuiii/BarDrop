@@ -78,7 +78,9 @@ struct ShelfFile: Codable, Hashable, Identifiable {
         if cached, let online = VolumeState.cached(root) { return online ? nil : parts[2] }
         // Angeschlossen: Der Ordner ist selbst der Einhängepunkt eines Laufwerks
         let mount = try? URL(fileURLWithPath: root, isDirectory: true).resourceValues(forKeys: [.volumeURLKey]).volume
-        let online = mount?.standardizedFileURL.path == root
+        // „/Volumes/Macintosh HD“ ist nur ein Verweis auf „/“: auch das ist angeschlossen
+        let resolvedRoot = URL(fileURLWithPath: root, isDirectory: true).resolvingSymlinksInPath().path
+        let online = mount.map { [root, resolvedRoot].contains($0.standardizedFileURL.path) } ?? false
         VolumeState.store(root, online: online)
         return online ? nil : parts[2]
     }
@@ -191,6 +193,9 @@ final class ShelfStore: ObservableObject {
     /// Aus der Ablage genommene eigene Dateien, die erst später gelöscht werden.
     /// Schlägt das Herausziehen fehl, kommen sie von hier zurück.
     private var pendingDeletion: [URL: ShelfFile] = [:]
+    /// Welche Entfernung eine Datei zuletzt vorgemerkt hat: Die Frist einer früheren (dann
+    /// widerrufenen) Entfernung darf eine erneut entfernte Datei nicht vorzeitig löschen
+    private var pendingToken: [URL: UUID] = [:]
 
     /// Widerrufen und Wiederholen für alles, was aus der Ablage genommen wird.
     let undoManager = UndoManager()
@@ -227,6 +232,7 @@ final class ShelfStore: ObservableObject {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         baseDir = baseDirectory ?? support.appendingPathComponent("BarDrop", isDirectory: true)
         itemsDir = baseDir.appendingPathComponent("Items", isDirectory: true)
+        Self.currentItemsDir = itemsDir
         dbURL = baseDir.appendingPathComponent("shelf.json")
         try? FileManager.default.createDirectory(at: itemsDir, withIntermediateDirectories: true)
         importer = ContentImporter(storage: itemsDir, convertImages: AppSettings.shared.convertWebImages)
@@ -323,11 +329,26 @@ final class ShelfStore: ObservableObject {
     }
 
     /// Findet eine Datei: am gespeicherten Ort oder über das Lesezeichen (verschoben, umbenannt).
+    /// Speicherordner der zuletzt angelegten Ablage, für `locate` (siehe dort)
+    private static var currentItemsDir: URL?
+
     private static func locate(_ file: ShelfFile) -> ShelfFile? {
         if FileManager.default.fileExists(atPath: file.url.path) {
             var f = file
             if !f.owned && f.bookmark == nil { f.bookmark = ShelfFile.makeBookmark(f.url) }
             return f
+        }
+        // Eigene Kopie nicht am gespeicherten Ort, aber im Speicherordner dieser Ablage: Der Pfad
+        // ist absolut gespeichert, nach einem Umzug auf einen anderen Mac oder Benutzernamen fehlte
+        // sonst jede eigene Kopie, und das Aufräumen löschte danach ihre Dateien
+        if file.owned, let items = currentItemsDir {
+            let moved = items.appendingPathComponent(file.url.deletingLastPathComponent().lastPathComponent, isDirectory: true)
+                .appendingPathComponent(file.url.lastPathComponent)
+            if moved.standardizedFileURL != file.url.standardizedFileURL, FileManager.default.fileExists(atPath: moved.path) {
+                var f = file
+                f.url = moved
+                return f
+            }
         }
         guard !file.owned else { return nil }
         // Fehlt nur die Erlaubnis (Schreibtisch, Dokumente, Downloads, z. B. nach einem Update),
@@ -672,11 +693,20 @@ final class ShelfStore: ObservableObject {
             }
             return nil
         }
-        for file in owned { pendingDeletion[file.url.standardizedFileURL] = file }
+        let token = UUID()
+        for file in owned {
+            pendingDeletion[file.url.standardizedFileURL] = file
+            pendingToken[file.url.standardizedFileURL] = token
+        }
         if let delay, !owned.isEmpty {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self else { return }
-                let due = owned.filter { self.pendingDeletion.removeValue(forKey: $0.url.standardizedFileURL) != nil }
+                let due = owned.filter { file in
+                    let key = file.url.standardizedFileURL
+                    guard self.pendingToken[key] == token else { return false }
+                    self.pendingToken[key] = nil
+                    return self.pendingDeletion.removeValue(forKey: key) != nil
+                }
                 self.deleteOwnedFiles(due)
             }
         }

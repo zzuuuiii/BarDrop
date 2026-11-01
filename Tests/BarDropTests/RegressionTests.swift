@@ -60,4 +60,32 @@ final class RegressionTests: XCTestCase {
         history.copyBack(dir.appendingPathComponent("fehlt.txt"))
         XCTAssertEqual(pasteboard.string(forType: .string), "vorher")
     }
+
+    /// Sehr große Zahl als Voreinstellung eines Plugins: als Text statt Absturz (Int-Überlauf)
+    func testHugePluginNumberDoesNotCrash() {
+        XCTAssertEqual(PluginValue.number(42).string, "42")
+        XCTAssertEqual(PluginValue.number(1.5).string, "1.5")
+        XCTAssertFalse(PluginValue.number(1e30).string.isEmpty)
+        XCTAssertFalse(PluginValue.number(.infinity).string.isEmpty)
+    }
+
+    /// Namen aus Emoji passen unter die Grenze des Dateisystems (255 Bytes), die Endung bleibt
+    func testLongEmojiNameFitsFileSystem() {
+        let family = "👨‍👩‍👧‍👦"
+        let name = ContentImporter.shortened(String(repeating: family, count: 30) + ".txt", to: ContentImporter.maxNameLength)
+        XCTAssertLessThanOrEqual(name.utf8.count, 240)
+        XCTAssertTrue(name.hasSuffix(".txt"))
+        // Gewöhnliche Namen bleiben unverändert
+        XCTAssertEqual(ContentImporter.shortened("Bericht.pdf", to: ContentImporter.maxNameLength), "Bericht.pdf")
+        let file = dir.appendingPathComponent(name)
+        XCTAssertNoThrow(try Data("x".utf8).write(to: file))
+    }
+
+    /// „/Volumes/Macintosh HD“ ist ein Verweis auf das Startvolume, nicht ein getrenntes Laufwerk
+    func testBootVolumeAliasIsOnline() throws {
+        let alias = URL(fileURLWithPath: "/Volumes/Macintosh HD", isDirectory: true)
+        try XCTSkipUnless((try? FileManager.default.destinationOfSymbolicLink(atPath: alias.path)) == "/")
+        XCTAssertNil(ShelfFile.offlineVolumeName(of: alias.appendingPathComponent("Users/x.txt")))
+        XCTAssertEqual(ShelfFile.offlineVolumeName(of: URL(fileURLWithPath: "/Volumes/GibtEsNicht-\(UUID().uuidString)/a.txt")).map { $0.hasPrefix("GibtEsNicht") }, true)
+    }
 }

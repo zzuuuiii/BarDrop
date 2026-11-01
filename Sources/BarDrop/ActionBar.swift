@@ -17,6 +17,16 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     var operation: (NSDraggingInfo) -> NSDragOperation = { _ in .copy }
     /// Art der Aktion (Einführung: nur die passende Aktion nimmt etwas an)
     var kind: QuickAction.Kind?
+    /// Name der Aktion: Diese Ansicht liegt über dem Knopf und nimmt die Klicks, darum ist sie
+    /// das Element, das VoiceOver vorliest und drückt (ohne Namen unter dem Symbol war es stumm)
+    var accessibilityTitle: String?
+    override func isAccessibilityElement() -> Bool { accessibilityTitle != nil }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { accessibilityTitle }
+    override func accessibilityPerformPress() -> Bool {
+        onClick(self)
+        return true
+    }
     /// Ziehen einer Aktion (nur mit gedrückter ⌘-Taste, wie in der Menüleiste): Bild und
     /// Entfernen beim Herausziehen (nur mit „Per Ziehen anheften“, sonst nil)
     var dragOut: (image: () -> NSImage, remove: (() -> Void)?)?
@@ -372,6 +382,8 @@ struct ActionDropTarget: NSViewRepresentable {
     var onPress: (Bool) -> Void = { _ in }
     var operation: (NSDraggingInfo) -> NSDragOperation = { _ in .copy }
     var kind: QuickAction.Kind? = nil
+    /// Name der Aktion für VoiceOver
+    var accessibilityTitle: String? = nil
     var dragOut: (image: () -> NSImage, remove: (() -> Void)?)? = nil
     var onDraggingOut: (Bool) -> Void = { _ in }
     var actionID: QuickAction.ID? = nil
@@ -396,6 +408,7 @@ struct ActionDropTarget: NSViewRepresentable {
         view.onPress = onPress
         view.operation = operation
         view.kind = kind
+        view.accessibilityTitle = accessibilityTitle
         view.dragOut = dragOut
         view.onDraggingOut = onDraggingOut
         view.actionID = actionID
@@ -679,6 +692,7 @@ struct QuickActionButton: View {
                 onPress: { down in setPressed(down) },
                 operation: { info in dropOperation(info) },
                 kind: action.kind,
+                accessibilityTitle: action.title,
                 dragOut: dragOut,
                 onDraggingOut: { value in
                     // Beim Lösen sofort weg (nur ein Symbol), beim Zurückkommen sanft

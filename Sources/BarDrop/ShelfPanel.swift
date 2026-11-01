@@ -120,11 +120,14 @@ final class ShelfPanel: NSPanel {
         case "c":
             actions.copyCurrent(pathsOnly: event.modifierFlags.contains(.option))   // ⌥⌘C: nur Pfade
         case "x":
-            actions.cutCurrentSelection()
+            // Gehaltene Taste nur einmal: sonst schnitt sie Objekt um Objekt aus
+            if !event.isARepeat { actions.cutCurrentSelection() }
         case "d":
             // Wie im Finder: Auswahl duplizieren (gehaltene Taste nur einmal)
             if !event.isARepeat { actions.duplicateCurrentSelection() }
         case "v":
+            // Gehaltene Taste nur einmal: sonst landete derselbe Inhalt viele Male in der Ablage
+            guard !event.isARepeat else { return true }
             if actions.isFolderOpen { actions.pasteIntoFolder() } else { actions.store.pasteFromClipboard() }
         case "y":
             actions.toggleQuickLookCurrent()

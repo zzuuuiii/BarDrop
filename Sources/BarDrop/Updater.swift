@@ -207,6 +207,13 @@ final class Updater: ObservableObject {
                 self.idleTimer = nil
                 return
             }
+            // Betas inzwischen ausgeschaltet: die gefundene Beta nicht mehr still installieren
+            if let version = self.release?.version, version.contains("-beta"), !AppSettings.shared.betaUpdates {
+                timer.invalidate()
+                self.idleTimer = nil
+                self.state = .idle
+                return
+            }
             guard AppSettings.shared.autoUpdateCheck, self.isIdle(),
                   Self.isOldEnoughForSilentInstall(published: self.release?.published) else { return }
             timer.invalidate()
@@ -238,6 +245,8 @@ final class Updater: ObservableObject {
     // MARK: Installieren
 
     func install(silent: Bool = false) {
+        // Läuft schon: kein zweiter Download und Austausch gleichzeitig
+        if state == .installing { return }
         guard let release else { return check(interactive: true) }
         let target = Bundle.main.bundleURL
         guard target.pathExtension == "app" else { return }
@@ -260,6 +269,8 @@ final class Updater: ObservableObject {
                 let work = FileManager.default.temporaryDirectory
                     .appendingPathComponent("BarDropUpdate-\(UUID().uuidString)", isDirectory: true)
                 try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+                // Die DMG (50 MB und mehr) nicht im temporären Ordner liegen lassen, auch bei Fehlern
+                defer { try? FileManager.default.removeItem(at: work) }
                 let dmg = work.appendingPathComponent("BarDrop.dmg")
                 try FileManager.default.moveItem(at: location, to: dmg)
                 try self.prepare(dmg: dmg, in: work, target: target, release: release)
@@ -383,7 +394,9 @@ final class Updater: ObservableObject {
     /// Reste eines Updates neben der App entfernen
     static func cleanUpAfterUpdate() {
         let folder = Bundle.main.bundleURL.deletingLastPathComponent()
-        DispatchQueue.global(qos: .utility).async {
+        // Erst nach einer Minute: Stürzt die neue Fassung gleich nach dem Start ab, liegt die alte
+        // noch daneben und lässt sich von Hand zurückholen
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 60) {
             for name in [backupName, ".BarDrop-Update.app"] {
                 let url = folder.appendingPathComponent(name)
                 if FileManager.default.fileExists(atPath: url.path) { try? FileManager.default.removeItem(at: url) }

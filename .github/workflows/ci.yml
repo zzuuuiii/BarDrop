@@ -17,7 +17,8 @@ concurrency:
 
 jobs:
   test:
-    runs-on: macos-latest
+    # Wie release.yml: gleiche Xcode-Fassung wie beim Veröffentlichen
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -32,6 +33,10 @@ jobs:
           xcodebuild -version
           swift --version
           echo "::notice title=Toolchain::macOS $(sw_vers -productVersion), $(xcodebuild -version | head -1), $(swift --version 2>&1 | head -1)"
+
+      - name: Texte, Version und Release-Notizen prüfen
+        # Wie in release.yml: Fällt hier schon auf, nicht erst beim Veröffentlichen
+        run: python3 scripts/check_project.py
 
       - name: Bauen
         run: |

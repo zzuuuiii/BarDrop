@@ -160,8 +160,16 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 try? fm.removeItem(at: dir)
                 return nil
             }
+            let inside = dir.resolvingSymlinksInPath().path + "/"
             let items = try fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
                 .filter { $0.lastPathComponent != "__MACOSX" }
+                // Ein Verweis im Archiv, der aus ihm hinauszeigt (etwa auf einen Schlüssel im
+                // Benutzerordner), käme sonst als dessen Inhalt in die Ablage und beim
+                // Herausziehen mit
+                .filter { item in
+                    guard (try? item.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink == true else { return true }
+                    return item.resolvingSymlinksInPath().path.hasPrefix(inside)
+                }
                 .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
             return (dir, items)
         } catch {

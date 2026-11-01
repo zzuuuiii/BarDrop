@@ -57,7 +57,7 @@ final class PluginTools {
                   let meta = try? JSONDecoder().decode(Meta.self, from: data),
                   meta.url == tool.resolvedURL, meta.outdated != true else { continue }
             if let pinned = tool.sha256, pinned.lowercased() != meta.sha256 { continue }
-            if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(days) * 86_400 { continue }
+            if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(max(days, 1)) * 86_400 { continue }
             let files = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
             guard let binary = files.first(where: { $0.lastPathComponent != "meta.json" && fm.isExecutableFile(atPath: $0.path) }),
                   PluginPackage.sha256(of: binary)?.lowercased() == meta.sha256 || tool.archive == "zip" else { continue }
@@ -126,7 +126,8 @@ final class PluginTools {
         guard FileManager.default.isExecutableFile(atPath: url.path),
               let meta = storedMeta(of: tool), meta.url == tool.resolvedURL else { return nil }
         if let pinned = tool.sha256, pinned.lowercased() != meta.sha256 { return nil }
-        if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(days) * 86_400 { return nil }
+        // Höchstens einmal am Tag neu laden: 0 oder weniger hieß sonst bei jedem Lauf
+        if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(max(days, 1)) * 86_400 { return nil }
         if meta.outdated == true { return nil }
         return url
     }

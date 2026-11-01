@@ -2,7 +2,7 @@
 
 ## Deutsch
 
-Plugins für die Galerie von BarDrop liegen im Unterordner [`Gallery/`](Gallery). Jede `.bdrop`-Datei dort erscheint in der Galerie (Dateien an anderer Stelle in `Plugins/` werden auch übernommen, im Lauf aber angemerkt). Nach jeder Änderung hier prüft `.github/workflows/plugin-gallery.yml` die Dateien mit denselben Regeln wie `scripts/check_plugin.py` und trägt sie auf dem Zweig `plugin-katalog` ein. Fehlerhafte Dateien werden übersprungen und im Lauf unter Actions gemeldet. Alles hier ist öffentlich: nur geprüfte Plugins hochladen.
+Plugins für die Galerie von BarDrop liegen im Unterordner [`Gallery/`](Gallery). Jede `.bdrop`-Datei dort erscheint in der Galerie (Dateien an anderer Stelle in `Plugins/` werden auch übernommen, im Lauf aber angemerkt). Nach jeder Änderung hier prüft `.github/workflows/plugin-gallery.yml` die Dateien mit denselben Regeln wie `scripts/check_plugin.py` und trägt sie auf dem Zweig `plugin-katalog` ein. Fehlerhafte Dateien werden übersprungen und im Lauf unter Actions gemeldet. Alles hier ist öffentlich: nur geprüfte Plugins hochladen. Downloader für Videos oder Musik von Plattformen werden abgelehnt.
 
 1. Auf GitHub den Ordner `Gallery` öffnen, **Add file → Upload files**, die `.bdrop`-Datei hineinziehen und **Commit changes**.
 2. Nach etwa einer Minute steht das Plugin in der Galerie. BarDrop zeigt es spätestens nach einem Tag, beim Öffnen von Einstellungen → Plugins nach einer Stunde.
@@ -13,7 +13,7 @@ Plugins für die Galerie von BarDrop liegen im Unterordner [`Gallery/`](Gallery)
 
 ## English
 
-Plugins for the BarDrop gallery live in the [`Gallery/`](Gallery) subfolder. Every `.bdrop` file there appears in the gallery (files elsewhere in `Plugins/` are taken over too, but noted in the run). After each change here, `.github/workflows/plugin-gallery.yml` checks the files with the same rules as `scripts/check_plugin.py` and adds them to the `plugin-katalog` branch. Files with errors are skipped and reported in the run under Actions. Everything here is public: upload reviewed plugins only.
+Plugins for the BarDrop gallery live in the [`Gallery/`](Gallery) subfolder. Every `.bdrop` file there appears in the gallery (files elsewhere in `Plugins/` are taken over too, but noted in the run). After each change here, `.github/workflows/plugin-gallery.yml` checks the files with the same rules as `scripts/check_plugin.py` and adds them to the `plugin-katalog` branch. Files with errors are skipped and reported in the run under Actions. Everything here is public: upload reviewed plugins only. Downloaders for videos or music from platforms are rejected.
 
 1. Open the `Gallery` folder on GitHub, choose **Add file → Upload files**, drop in the `.bdrop` file and **Commit changes**.
 2. After about a minute the plugin is in the gallery. BarDrop shows it within a day, or after an hour when Settings → Plugins is opened.

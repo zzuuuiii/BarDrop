@@ -46,6 +46,20 @@ API = {"writeFile", "createLink", "readFile", "progress", "notify", "isCancelled
        "download", "run", "setClipboard", "settings", "language", "appVersion", "outputDirectory",
        "pluginDirectory", "plugin", "readData", "writeData", "findProgram"}
 
+# Keine Downloader in der Galerie: Programme, die Videos oder Musik von Plattformen laden, und
+# Beschreibungen, die genau das versprechen (oft gegen deren Nutzungsbedingungen oder das
+# Urheberrecht). Gilt für neue Plugins und Versionen; was schon so in der Galerie steht, bekommt
+# einen Hinweis (wie bei der Länge der Beschreibung)
+# Die Namen stehen zerlegt da: check_project.py lässt Namen solcher Dienste und Programme sonst
+# nirgends im Repository zu (BarDrop hat und bewirbt keine solchen Plugins)
+DOWNLOADER_PROGRAMS = re.compile(
+    r"(?<![\w-])(" r"yt" r"-dlp|yt" r"_dlp|you" r"tube-dl|you" r"tube_dl|gallery-dl|spotdl|you-get|streamrip|deemix|savify|n_m3u8dl\w*|lux"
+    r")(?![\w-])", re.I)
+PLATFORMS = re.compile(r"you" r"tube|you" r"tu\.be|tiktok|instagram|spotify|apple music|soundcloud|deezer|netflix|twitch|vimeo", re.I)
+DOWNLOAD_WORDS = re.compile(r"\bdownload|herunterl|\blädt\b|\blaedt\b|\brip(s|ped|pt)?\b", re.I)
+DOWNLOADER_RULE = ("Downloader für Inhalte von Plattformen (Videos, Musik) sind in der Galerie nicht erlaubt: "
+                   "Sie verstoßen oft gegen deren Nutzungsbedingungen oder das Urheberrecht")
+
 errors, hints = [], []
 
 
@@ -167,6 +181,15 @@ def check_manifest(m, files, published=False):
     localized(m.get("name"), "\"name\"", required=True)
     for key in ("description", "actionTitle", "consent"):
         localized(m.get(key), f"\"{key}\"")
+    report = hint if published else error
+    tool_text = " ".join(str(t.get(k, "")) for t in (m.get("tools") or []) if isinstance(t, dict) for k in ("id", "name", "url"))
+    if DOWNLOADER_PROGRAMS.search(tool_text):
+        report(DOWNLOADER_RULE + " (Programm in \"tools\")")
+    descriptions = m.get("description") if isinstance(m.get("description"), dict) else {"": m.get("description") or ""}
+    for text in descriptions.values():
+        if isinstance(text, str) and PLATFORMS.search(text) and DOWNLOAD_WORDS.search(text):
+            report(DOWNLOADER_RULE + " (laut Beschreibung)")
+            break
     for lang, length in long_descriptions(m.get("description")):
         (hint if published else error)(
             f"\"description\" ({lang}) hat {length} Zeichen, erlaubt sind höchstens {MAX_DESCRIPTION}: "
@@ -344,8 +367,11 @@ def check_manifest(m, files, published=False):
             error(f"Einstellung \"{key}\": \"default\" muss true oder false sein")
 
 
-def check_script(full_text, m):
+def check_script(full_text, m, published=False):
     text = without_comments(full_text)
+    found = sorted({x.lower() for x in DOWNLOADER_PROGRAMS.findall(text)} - {"lux"})
+    if found:
+        (hint if published else error)(DOWNLOADER_RULE + f" (Skript nutzt {', '.join(found)})")
     if not re.search(r"\bfunction\s+run\b|\b(var|let|const)\s+run\s*=|(^|[^.\w])run\s*=", text):
         error("Das Skript definiert keine Funktion run(item)")
     for name in sorted(set(re.findall(r"\bbardrop\.(\w+)", text))):

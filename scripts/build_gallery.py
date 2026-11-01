@@ -84,7 +84,7 @@ def check(path, old_entries):
                     if len(data) > check_plugin.MAX_SCRIPT:
                         check_plugin.error("Das Skript ist größer als 1 MB")
                     try:
-                        check_plugin.check_script(data.decode("utf-8"), manifest)
+                        check_plugin.check_script(data.decode("utf-8"), manifest, published=published)
                     except UnicodeDecodeError:
                         check_plugin.error("Das Skript ist nicht in UTF-8 gespeichert")
     finally:

@@ -1121,9 +1121,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     // MARK: Umbenennen
 
-    /// Stapel und Ordner lassen sich benennen (Nutzer, 02.11.2026), Dateien nicht
+    /// Stapel, Ordner und Dateien lassen sich umbenennen (Nutzer, 02.11.2026); im angehefteten
+    /// Ordner nicht (dort gehören die Dateien dem Ordner, nicht der Ablage)
     func canRename(_ entry: ShelfEntry) -> Bool {
-        entry.isStack || isBrowsableFolder(entry)
+        !isFolderOpen && !entry.files.isEmpty
     }
 
     /// Den Namen in der Kachel bearbeiten, wie im Finder
@@ -1134,14 +1135,30 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.renaming = entry.id
     }
 
-    /// Eingabe übernehmen (Zeilenschalter, Klick daneben); `text` nil: abgebrochen (esc)
+    /// Datei im geöffneten Stapel umbenennen
+    func beginRename(member file: ShelfFile) {
+        guard !isFolderOpen else { return }
+        ui.memberSelection = [file.id]
+        ui.memberAnchor = file.id
+        ui.renaming = file.id
+    }
+
+    /// Eingabe übernehmen (Zeilenschalter, Klick daneben); `text` nil: abgebrochen (esc).
+    /// `id`: Eintrag der Ablage oder Datei im geöffneten Stapel
     func endRename(_ id: UUID, text: String?) {
         guard ui.renaming == id else { return }
         ui.renaming = nil
-        guard let text, let entry = store.entries.first(where: { $0.id == id }) else { return }
-        if entry.isStack { return store.renameStack(id, to: text) }
+        guard let text else { return }
+        let fileID: UUID
+        if let entry = store.entries.first(where: { $0.id == id }) {
+            if entry.isStack { return store.renameStack(id, to: text) }
+            guard let file = entry.files.first else { return }
+            fileID = file.id
+        } else {
+            fileID = id
+        }
         do {
-            try store.renameFolder(id, to: text)
+            try store.renameFile(fileID, to: text, keepOriginal: settings.copyAllFiles)
         } catch ShelfStore.RenameError.taken {
             NSSound.beep()
             announce(L("Name already taken", "Name schon vergeben"))
@@ -1150,7 +1167,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             announce(L("Name not allowed", "Name nicht möglich"))
         } catch {
             NSSound.beep()
-            Diagnostics.shared.failure("rename", "Ordner umbenennen fehlgeschlagen", error)
+            Diagnostics.shared.failure("rename", "Umbenennen fehlgeschlagen", error)
             announce(L("Couldn’t rename", "Nicht umbenannt"))
         }
     }
@@ -1281,6 +1298,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             menu.addItem(moveToTrashItem(urls))
             addPluginItems(to: menu, files: files)
             return menu
+        }
+        if files.count == 1 {
+            menu.addItem(ClosureMenuItem(L("Rename", "Umbenennen")) { [weak self] in self?.beginRename(member: file) })
         }
         menu.addItem(ClosureMenuItem(files.count > 1 ? L("Take \(files.count) Items Out of Stack", "\(files.count) Objekte aus Stapel lösen") : L("Take Out of Stack", "Aus Stapel lösen")) { [weak self] in
             self?.detachMembers(files)

@@ -1052,22 +1052,41 @@ final class ShelfStore: ObservableObject {
         insertWithoutAnimation { $0[index].name = name }
     }
 
-    /// Ordner umbenennen, auf der Platte wie im Finder; die Kachel zeigt danach den neuen Ort
-    func renameFolder(_ id: UUID, to text: String) throws {
-        guard let index = entries.firstIndex(where: { $0.id == id }), entries[index].files.count == 1 else { return }
-        let file = entries[index].files[0]
+    /// Datei oder Ordner umbenennen, auf der Platte wie im Finder; die Kachel zeigt danach den
+    /// neuen Ort. `keepOriginal` („Dateien aus dem Finder: Kopie“): Ein Original des Nutzers
+    /// bleibt unverändert, die Ablage bekommt stattdessen eine Kopie mit dem neuen Namen
+    /// (Nutzer, 02.11.2026). Eigene Kopien werden einfach umbenannt.
+    func renameFile(_ fileID: UUID, to text: String, keepOriginal: Bool) throws {
+        guard let pos = position(of: fileID) else { return }
+        let fm = FileManager.default
+        let file = entries[pos.entry].files[pos.file]
         let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard name != file.url.lastPathComponent else { return }
         guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else { throw RenameError.invalid }
-        let target = file.url.deletingLastPathComponent().appendingPathComponent(name, isDirectory: true)
-        // Nur die Groß- und Kleinschreibung geändert: derselbe Ordner, kein Konflikt
-        let sameItem = target.path.lowercased() == file.url.path.lowercased()
-        if !sameItem, FileManager.default.fileExists(atPath: target.path) { throw RenameError.taken }
-        try FileManager.default.moveItem(at: file.url, to: target)
-        var renamed = ShelfFile(url: target, owned: file.owned)
+        var renamed: ShelfFile
+        if keepOriginal && !file.owned {
+            let dir = itemsDir.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            let target = dir.appendingPathComponent(name, isDirectory: file.url.hasDirectoryPath)
+            do {
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+                try fm.copyItem(at: file.url, to: target)
+            } catch {
+                try? fm.removeItem(at: dir)
+                throw error
+            }
+            renamed = ShelfFile(copy: target, of: file.url)
+        } else {
+            let target = file.url.deletingLastPathComponent()
+                .appendingPathComponent(name, isDirectory: file.url.hasDirectoryPath)
+            // Nur die Groß- und Kleinschreibung geändert: dieselbe Datei, kein Konflikt
+            let sameItem = target.path.lowercased() == file.url.path.lowercased()
+            if !sameItem, fm.fileExists(atPath: target.path) { throw RenameError.taken }
+            try fm.moveItem(at: file.url, to: target)
+            renamed = ShelfFile(url: target, owned: file.owned)
+            renamed.originBookmark = file.originBookmark
+        }
         renamed.id = file.id
-        renamed.originBookmark = file.originBookmark
-        insertWithoutAnimation { $0[index].files[0] = renamed }
+        insertWithoutAnimation { $0[pos.entry].files[pos.file] = renamed }
     }
 
     // MARK: Neuer Ordner

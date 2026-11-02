@@ -1213,7 +1213,9 @@ struct TileView: View {
     private var renameField: RenameField? {
         guard isRenaming else { return nil }
         let id = entry.id
-        return RenameField(text: entry.isStack ? entry.title : entry.files.first?.url.lastPathComponent ?? "",
+        let url = entry.files.first?.url
+        return RenameField(text: entry.isStack ? entry.title : url?.lastPathComponent ?? "",
+                           selectsBaseName: !entry.isStack && url?.hasDirectoryPath == false,
                            onEnd: { [actions] text in actions.endRename(id, text: text) })
     }
 
@@ -1291,15 +1293,24 @@ struct StackMemberTile: View {
         actions.isFolderOpen && FolderBrowser.isBrowsable(file.url) ? file.url : nil
     }
 
+    private var isRenaming: Bool { ui.renaming == file.id }
+
+    private var renameField: RenameField? {
+        guard isRenaming else { return nil }
+        let id = file.id
+        return RenameField(text: file.url.lastPathComponent, selectsBaseName: !file.url.hasDirectoryPath,
+                           onEnd: { [actions] text in actions.endRename(id, text: text) })
+    }
+
     var body: some View {
         TileLabel(title: ShelfEntry.displayName(for: file.url), isSelected: isSelected || dropTargeted,
                   isKey: ui.isKey || ui.level == .expanded,
-                  iconSize: iconSize) {
+                  iconSize: iconSize, rename: renameField) {
             ThumbnailView(url: file.url, size: iconSize)
                 .cloudUpload(file.url, size: iconSize)
         }
         .tileHitAreas { hitRects = $0 }
-        .overlay(Group { if !shelfDemo {
+        .overlay(Group { if !shelfDemo && !isRenaming {
             DragSource(
                 ui: ui,
                 files: { actions.memberDragFiles(for: file) },
@@ -1430,6 +1441,8 @@ extension View {
 /// Zeilenschalter oder ein Klick daneben übernimmt, esc bricht ab
 struct RenameField: NSViewRepresentable {
     let text: String
+    /// Dateien: nur der Name ohne Endung ist markiert, wie im Finder
+    var selectsBaseName = false
     /// Mit dem neuen Namen, nil bei esc. Genau einmal
     let onEnd: (String?) -> Void
 
@@ -1455,7 +1468,13 @@ struct RenameField: NSViewRepresentable {
             guard let window = field.window else { return }
             window.makeKey()
             window.makeFirstResponder(field)
-            field.currentEditor()?.selectAll(nil)
+            let name = field.stringValue as NSString
+            let ext = (name as String as NSString).pathExtension
+            if selectsBaseName, !ext.isEmpty, name.length > ext.count + 1 {
+                field.currentEditor()?.selectedRange = NSRange(location: 0, length: name.length - ext.count - 1)
+            } else {
+                field.currentEditor()?.selectAll(nil)
+            }
         }
         return field
     }

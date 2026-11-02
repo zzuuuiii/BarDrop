@@ -260,7 +260,7 @@ final class StackTests: XCTestCase {
         let entry = try XCTUnwrap(store.entries.first)
         XCTAssertTrue(actions.canRename(entry))
         let old = entry.files[0].url
-        try store.renameFolder(entry.id, to: "Projekt")
+        try store.renameFile(entry.files[0].id, to: "Projekt", keepOriginal: false)
         let renamed = try XCTUnwrap(store.entries.first?.files.first)
         XCTAssertEqual(renamed.url.lastPathComponent, "Projekt")
         XCTAssertEqual(renamed.id, entry.files[0].id)
@@ -268,7 +268,42 @@ final class StackTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
         try FileManager.default.createDirectory(at: renamed.url.deletingLastPathComponent().appendingPathComponent("Belegt"),
                                                 withIntermediateDirectories: true)
-        XCTAssertThrowsError(try store.renameFolder(entry.id, to: "Belegt"))
-        XCTAssertThrowsError(try store.renameFolder(entry.id, to: "a/b"))
+        XCTAssertThrowsError(try store.renameFile(entry.files[0].id, to: "Belegt", keepOriginal: false))
+        XCTAssertThrowsError(try store.renameFile(entry.files[0].id, to: "a/b", keepOriginal: false))
+    }
+
+    /// Datei umbenennen: ohne Kopie-Einstellung die Datei selbst, mit ihr nur eine Kopie
+    func testRenameFileOrCopy() throws {
+        let folder = base.appendingPathComponent("finder")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let original = folder.appendingPathComponent("Foto.jpg")
+        try Data("bild".utf8).write(to: original)
+        AppSettings.shared.stackMultiple = false
+        store.add([ShelfFile(url: original, owned: false)])
+        let file = store.entries[0].files[0]
+        XCTAssertTrue(actions.canRename(store.entries[0]))
+
+        // Mit Kopien arbeiten: Das Original bleibt, die Ablage zeigt eine Kopie mit neuem Namen
+        try store.renameFile(file.id, to: "Urlaub.jpg", keepOriginal: true)
+        let copy = store.entries[0].files[0]
+        XCTAssertEqual(copy.id, file.id)
+        XCTAssertTrue(copy.owned)
+        XCTAssertEqual(copy.url.lastPathComponent, "Urlaub.jpg")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path), "Original unverändert")
+        XCTAssertEqual(try Data(contentsOf: copy.url), Data("bild".utf8))
+
+        // Die eigene Kopie wird einfach umbenannt, auch mit der Einstellung
+        try store.renameFile(file.id, to: "Strand.jpg", keepOriginal: true)
+        let again = store.entries[0].files[0]
+        XCTAssertEqual(again.url.deletingLastPathComponent(), copy.url.deletingLastPathComponent())
+        XCTAssertFalse(FileManager.default.fileExists(atPath: copy.url.path))
+
+        // Ohne Einstellung: die Datei des Nutzers selbst, wie im Finder
+        let other = folder.appendingPathComponent("Notiz.txt")
+        try Data("x".utf8).write(to: other)
+        store.add([ShelfFile(url: other, owned: false)])
+        try store.renameFile(store.entries[0].files[0].id, to: "Liste.txt", keepOriginal: false)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Liste.txt").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: other.path))
     }
 }

@@ -1,4 +1,5 @@
 import XCTest
+import AppKit
 @testable import BarDrop
 
 /// Raster der Ablage (ShelfGrid): Spalten, Breiten je Spaltenzahl, Verteilung des Rests
@@ -44,5 +45,29 @@ final class GridTests: XCTestCase {
         XCTAssertEqual(grid.count, 2)
         XCTAssertEqual(grid.inset, 0, accuracy: 0.001)
         XCTAssertEqual(grid.step, grid.width + ShelfGrid.spacing, accuracy: 0.001)
+    }
+}
+
+/// Höchstgeschwindigkeit beim Scrollen in der Ablage
+final class ScrollSpeedTests: XCTestCase {
+    private func scroll(_ dy: Int32, precise: Bool) -> NSEvent {
+        let cg = CGEvent(scrollWheelEvent2Source: nil, units: precise ? .pixel : .line,
+                         wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)!
+        return NSEvent(cgEvent: cg)!
+    }
+
+    /// Ein schneller Schwung wird auf die Höchstgeschwindigkeit gedrosselt, die Richtung bleibt
+    func testFastSwipeIsLimited() throws {
+        for dy: Int32 in [400, -400] {
+            let limited = try XCTUnwrap(ScrollSpeed.limited(scroll(dy, precise: true)))
+            XCTAssertLessThanOrEqual(abs(limited.scrollingDeltaY), ScrollSpeed.limit(elapsed: 1) + 0.5)
+            XCTAssertGreaterThan(limited.scrollingDeltaY * CGFloat(dy), 0, "Richtung")
+        }
+    }
+
+    /// Langsames Scrollen und das Mausrad bleiben unverändert
+    func testSlowScrollAndWheelUnchanged() {
+        XCTAssertNil(ScrollSpeed.limited(scroll(5, precise: true)))
+        XCTAssertNil(ScrollSpeed.limited(scroll(3, precise: false)))
     }
 }

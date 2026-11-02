@@ -178,4 +178,62 @@ final class StackTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.url.path), [])
         XCTAssertEqual(store.entries.count, 2)
     }
+
+    /// Ergebnisse eines Laufs auf einen ganzen Stapel (Umwandeln, Plugin): als eigener Stapel
+    /// links daneben, alle Ergebnisse des Laufs zusammen; der Stapel selbst bleibt unverändert
+    func testResultsOfWholeStackFormOwnStack() throws {
+        let stack = makeStack(3)
+        let group = try XCTUnwrap(actions.resultGroup())
+        func result(_ name: String) -> [ShelfFile] {
+            let url = base.appendingPathComponent("out-\(UUID().uuidString)-\(name)")
+            FileManager.default.createFile(atPath: url.path, contents: Data(name.utf8))
+            return store.adoptResults([url])
+        }
+        store.insertResults(result("a"), nextTo: stack.files[0].id, replacing: false, group: group)
+        store.insertResults(result("b"), nextTo: stack.files[1].id, replacing: false, group: group)
+        store.insertResults(result("c"), nextTo: stack.files[2].id, replacing: false, group: group)
+        XCTAssertEqual(store.entries.count, 2)
+        XCTAssertEqual(store.entries[0].files.count, 3, "Ergebnisse als eigener Stapel")
+        XCTAssertEqual(store.entries[1].id, stack.id)
+        XCTAssertEqual(store.entries[1].files.map(\.id), stack.files.map(\.id), "Stapel unverändert")
+        // Ein neuer Lauf bekommt einen neuen Stapel
+        store.insertResults(result("d"), nextTo: stack.files[0].id, replacing: false, group: UUID())
+        XCTAssertEqual(store.entries.count, 3)
+        XCTAssertEqual(store.entries[1].files.count, 1)
+    }
+
+    /// Im geöffneten Stapel bleiben Ergebnisse im Stapel, neben dem Original
+    func testResultsInsideOpenStackStayInStack() {
+        let stack = makeStack(2)
+        ui.openStack = stack.id
+        XCTAssertNil(actions.resultGroup())
+        let url = base.appendingPathComponent("out-\(UUID().uuidString).txt")
+        FileManager.default.createFile(atPath: url.path, contents: Data("x".utf8))
+        store.insertResults(store.adoptResults([url]), nextTo: stack.files[1].id, replacing: false,
+                            group: actions.resultGroup())
+        XCTAssertEqual(store.entries.count, 1)
+        XCTAssertEqual(store.entries[0].files.count, 3)
+        XCTAssertEqual(store.entries[0].files[2].id, stack.files[1].id)
+    }
+
+    /// Zusammengeschoben: Der Stapel ist danach nicht ausgewählt, wie ein hineingezogener
+    func testDraggedOntoTileLeavesStackUnselected() {
+        let folder = base.appendingPathComponent("einzeln")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let files = (1...2).map { i -> ShelfFile in
+            let url = folder.appendingPathComponent("e\(i).txt")
+            try? Data("\(i)".utf8).write(to: url)
+            return ShelfFile(url: url, owned: false)
+        }
+        AppSettings.shared.stackMultiple = false
+        store.add([files[0]])
+        store.add([files[1]])
+        let target = store.entries[0], dragged = store.entries[1]
+        ui.selection = [dragged.id]
+        ui.draggedEntryIDs = [dragged.id]
+        actions.stackDragged(onto: target)
+        XCTAssertEqual(store.entries.count, 1)
+        XCTAssertTrue(store.entries[0].isStack)
+        XCTAssertTrue(ui.selection.isEmpty)
+    }
 }

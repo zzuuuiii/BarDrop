@@ -984,14 +984,28 @@ final class ShelfStore: ObservableObject {
     /// Original (in einem Stapel vor die Datei im Stapel; Nutzer, 01.11.2026). Mit `replacing`
     /// wird das Original aus der Ablage genommen (widerrufbar). Liegt das Original nicht
     /// mehr in der Ablage, kommen sie nach vorn.
-    func insertResults(_ files: [ShelfFile], nextTo fileID: UUID, replacing: Bool) {
+    ///
+    /// `group`: Der Lauf galt einem ganzen Stapel (in der Ablage, nicht im geöffneten Stapel).
+    /// Dann kommen die Ergebnisse als eigener Stapel links neben ihn, alle Ergebnisse desselben
+    /// Laufs in denselben. Vorher landeten sie im Stapel selbst, zwischen den Originalen
+    /// (Nutzer, 02.11.2026)
+    func insertResults(_ files: [ShelfFile], nextTo fileID: UUID, replacing: Bool, group: UUID? = nil) {
         guard !files.isEmpty else { return }
         guard let pos = position(of: fileID) else {
             insertWithoutAnimation { $0.insert(contentsOf: files.map { ShelfEntry(files: [$0]) }, at: 0) }
             return
         }
         var updated = entries
-        if updated[pos.entry].isStack {
+        if updated[pos.entry].isStack, let group, !replacing {
+            let key = ResultStackKey(group: group, source: updated[pos.entry].id)
+            if let id = resultStacks[key], let index = updated.firstIndex(where: { $0.id == id }) {
+                updated[index].files.append(contentsOf: files)
+            } else {
+                let stack = ShelfEntry(files: files)
+                resultStacks[key] = stack.id
+                updated.insert(stack, at: pos.entry)
+            }
+        } else if updated[pos.entry].isStack {
             updated[pos.entry].files.insert(contentsOf: files, at: pos.file)
         } else {
             // Gespeichert und gezeigt wird neueste zuerst: „links davor“ ist der Platz des Originals
@@ -1003,6 +1017,13 @@ final class ShelfStore: ObservableObject {
             takeOut([fileID], undoable: true, animated: false)
         }
     }
+
+    /// Stapel mit den Ergebnissen eines Laufs je Ausgangsstapel (siehe `insertResults`)
+    private struct ResultStackKey: Hashable {
+        let group: UUID
+        let source: UUID
+    }
+    private var resultStacks: [ResultStackKey: UUID] = [:]
 
     // MARK: Neuer Ordner
 

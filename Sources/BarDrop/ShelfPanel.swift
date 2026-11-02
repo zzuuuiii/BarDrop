@@ -53,6 +53,9 @@ final class ShelfPanel: NSPanel {
                                            ?? event.locationInWindow)
             Diagnostics.shared.record("menu", "right level=\(actions?.ui.level ?? .hidden) hit=\(hit.map { String(describing: type(of: $0)) } ?? "–") key=\(isKeyWindow) disabled=\(ShelfMenu.disabled) locked=\(actions?.ui.isLocked ?? false)")
         }
+        if event.type == .scrollWheel, let limited = ScrollSpeed.limited(event) {
+            return super.sendEvent(limited)
+        }
         super.sendEvent(event)
     }
     /// Nur während die Übersicht offen ist, wird die Ablage Hauptfenster: Dort sucht die
@@ -382,5 +385,39 @@ final class ShelfHostingView<Content: View>: NSHostingView<Content> {
 
     override func draggingEnded(_ sender: NSDraggingInfo) {
         dropHandler?.finished()
+    }
+}
+
+/// Höchstgeschwindigkeit beim Scrollen in der Ablage (Nutzer, 02.11.2026): Ein schneller Schwung
+/// mit dem Trackpad lief in einem Ruck bis ganz nach unten, und man bekam kein Gefühl dafür, wie
+/// viel dazwischen liegt. Schneller als `maximum` geht es nicht; langsamer bleibt alles wie von
+/// macOS. Nur feines Scrollen (Trackpad, Magic Mouse) mit Schwung: Ein Mausrad rastet ohnehin
+/// in festen Schritten.
+enum ScrollSpeed {
+    /// Punkte pro Sekunde, etwa vier Bildschirmhöhen der Ablage
+    static let maximum: CGFloat = 2000
+
+    /// Zeitpunkt des letzten Scroll-Ereignisses (für die Zeit seitdem)
+    private static var lastTimestamp: TimeInterval = 0
+
+    /// Wie weit ein Ereignis höchstens scrollen darf, `elapsed` Sekunden nach dem vorigen.
+    /// Zwischen 1/120 s (ProMotion) und 1/30 s: Nach einer Pause zählt nicht die ganze Pause
+    static func limit(elapsed: TimeInterval) -> CGFloat {
+        maximum * CGFloat(min(max(elapsed, 1.0 / 120), 1.0 / 30))
+    }
+
+    /// Das Ereignis mit gedrosseltem Weg, oder nil, wenn es unverändert bleiben kann
+    static func limited(_ event: NSEvent) -> NSEvent? {
+        let elapsed = event.timestamp - lastTimestamp
+        lastTimestamp = event.timestamp
+        guard event.hasPreciseScrollingDeltas else { return nil }
+        let step = limit(elapsed: elapsed)
+        let dy = event.scrollingDeltaY
+        guard abs(dy) > step, let copy = event.cgEvent?.copy() else { return nil }
+        let clamped = Double(dy > 0 ? step : -step)
+        copy.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: clamped)
+        copy.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: clamped)
+        copy.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64((clamped / 10).rounded()))
+        return NSEvent(cgEvent: copy)
     }
 }

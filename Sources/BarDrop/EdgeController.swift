@@ -85,6 +85,8 @@ final class EdgeController: NSObject {
     var latchPending = false
     /// Zeitpunkt des Bildes, für das gerade verschoben wird (nur während tearFrame)
     var latchTarget: CFTimeInterval?
+    /// Zuletzt nur das Fenster verschoben (für die Diagnose der Wechsel, siehe tearFrame)
+    var lastWindowOnly = false
     /// Der Rand wurde durch Andocken gewechselt: ohne Verschwinden und neu Erscheinen
     var dockingEdgeChange = false
     private var settingsObserver: AnyCancellable?
@@ -808,15 +810,11 @@ final class EdgeController: NSObject {
         let size = CGFloat(settings.tileIconSize)
         // Die neuesten zuerst, so viele, wie eine große Ablage auf einmal zeigt
         for entry in store.entries.prefix(40) {
-            if entry.files.count > 1 {
-                // Stapel: aufgefächerte Vorschau der ersten drei, etwas kleiner (StackPreview)
-                let files = entry.files.prefix(3)
-                files.forEach { _ = Thumbnails.icon($0.url) }
-                Thumbnails.prefetch(files.map(\.url), size: (size * 0.82).rounded())
-            } else if let file = entry.files.first {
-                _ = Thumbnails.icon(file.url)
-                Thumbnails.prefetch([file.url], size: size)
-            }
+            // Stapel: aufgefächerte Vorschau der ersten drei, mit denselben Bildern wie Kacheln
+            // (StackPreview)
+            let files = entry.files.prefix(3)
+            files.forEach { _ = Thumbnails.icon($0.url) }
+            Thumbnails.prefetch(files.map(\.url), size: size)
         }
     }
 
@@ -1867,20 +1865,36 @@ extension EdgeController {
         // so oft, wie ein 60-Hz-Bildschirm Bilder zeigt, und der Abstand zwischen Zeiger und
         // Ablage war dadurch von Bild zu Bild anders. Beim Hin- und Herziehen zitterte sie
         // (Nutzer, 01.11.2026; Diagnose: Arbeit je Bild nur 0,5 bis 2 ms, kein Bild zu spät)
-        if let drag = tearDrag, isWindowOnly(drag) {
+        let windowOnly = tearDrag.map(isWindowOnly) ?? false
+        if windowOnly != lastWindowOnly {
+            lastWindowOnly = windowOnly
+            FramePacer.shared.note("wechsel")
+        }
+        if windowOnly {
             guard !latchPending else { return }
             latchPending = true
-            let delay = max(0, link.targetTimestamp - CACurrentMediaTime() - Self.latchMargin)
+            let target = link.targetTimestamp
+            let delay = max(0, target - CACurrentMediaTime() - Self.latchMargin)
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self else { return }
                 self.latchPending = false
-                self.latchTarget = link.targetTimestamp
+                // Diagnose: Kam das Verschieben erst nach dem Bildwechsel, steht die Ablage ein
+                // Bild lang still und springt dann (der Takt selbst war pünktlich)
+                if CACurrentMediaTime() > target { FramePacer.shared.note("verpasst") }
+                self.latchTarget = target
                 self.tearTick()
                 self.latchTarget = nil
             }
             return
         }
+        // Mit Verbindung zum Rand wird gleich zu Beginn des Bildes gerechnet (die Form braucht
+        // Zeit). Die Vorhersage gilt dafür trotzdem, bis zum selben Bild: Ohne sie lag die
+        // Ablage dort ein Stück weiter hinter dem Zeiger als ohne Verbindung und sprang bei
+        // jedem Wechsel in die Nähe eines Randes und wieder hinaus zurück und vor. Beim Hin- und
+        // Herziehen am Rand ruckelte sie dadurch immer wieder (Nutzer, 02.11.2026)
+        latchTarget = link.targetTimestamp
         tearTick()
+        latchTarget = nil
     }
 
     /// So viel vor dem Bildwechsel wird das Fenster spätestens verschoben (Spielraum für macOS)

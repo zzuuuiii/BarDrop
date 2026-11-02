@@ -25,6 +25,14 @@ final class FramePacer: NSObject {
     private var deadline: CFTimeInterval = 0
     private var work: [CFTimeInterval] = []
     private var overruns = 0
+    /// Zähler, die eine Bewegung selbst meldet (etwa „verpasst“ beim Ziehen), mit ausgegeben
+    private var notes: [String: Int] = [:]
+
+    /// Ereignis während der Messung zählen
+    func note(_ name: String) {
+        guard link != nil else { return }
+        notes[name, default: 0] += 1
+    }
 
     func start(on window: NSWindow, label: String, duration: TimeInterval) {
         guard Diagnostics.shared.isEnabled, let view = window.contentView else { return }
@@ -37,6 +45,7 @@ final class FramePacer: NSObject {
         started = CACurrentMediaTime()
         work = []
         overruns = 0
+        notes = [:]
         deadline = 0
         let link = view.displayLink(target: self, selector: #selector(frame(_:)))
         link.add(to: .main, forMode: .common)
@@ -86,6 +95,7 @@ final class FramePacer: NSObject {
         let sortedWork = work.sorted()
         let workMedian = sortedWork.isEmpty ? 0 : sortedWork[sortedWork.count / 2] * 1000
         let workMax = (sortedWork.last ?? 0) * 1000
-        Diagnostics.shared.record("perf", "\(label) frames=\(intervals.count + 1) median=\(String(format: "%.1f", median * 1000))ms worst=\(worst)ms late=\(late) spikes=[\(where_)] work=\(String(format: "%.1f/%.1f", workMedian, workMax))ms overrun=\(overruns)")
+        let extra = notes.keys.sorted().map { " \($0)=\(notes[$0] ?? 0)" }.joined()
+        Diagnostics.shared.record("perf", "\(label) frames=\(intervals.count + 1) median=\(String(format: "%.1f", median * 1000))ms worst=\(worst)ms late=\(late) spikes=[\(where_)] work=\(String(format: "%.1f/%.1f", workMedian, workMax))ms overrun=\(overruns)\(extra)")
     }
 }

@@ -810,7 +810,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             // Liegt das Original in der Ablage, kommt das Ergebnis links daneben (Nutzer, 01.11.2026)
             let originals = Set(urls.map(\.standardizedFileURL))
             if let anchor = self.store.entries.lazy.flatMap(\.files).first(where: { originals.contains($0.url.standardizedFileURL) }) {
-                return self.placeConverted(results, nextTo: anchor.id)
+                return self.placeConverted(results, nextTo: anchor.id, group: self.resultGroup())
             }
             // Wie hineingezogene Dateien übernehmen; der Zwischenordner wird danach gelöscht
             let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.convert"))
@@ -830,7 +830,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// Umgewandelte Dateien in den eigenen Speicher und links neben das Original. Wie bei
     /// Plugins entsteht die Vorschau vorher, damit die Kachel nicht erst mit Symbol erscheint.
-    private func placeConverted(_ results: [URL], nextTo anchor: UUID) {
+    private func placeConverted(_ results: [URL], nextTo anchor: UUID, group: UUID?) {
         let files = store.adoptResults(results)
         if let dir = results.first?.deletingLastPathComponent() { try? FileManager.default.removeItem(at: dir) }
         guard !files.isEmpty else {
@@ -850,9 +850,16 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 group.cancelAll()
             }
             guard let self else { return }
-            self.store.insertResults(files, nextTo: anchor, replacing: false)
+            self.store.insertResults(files, nextTo: anchor, replacing: false, group: group)
             self.announce(L("Converted", "Umgewandelt"))
         }
+    }
+
+    /// Kennung für die Ergebnisse eines Laufs (Umwandeln, Plugin): Galt er einem ganzen Stapel,
+    /// kommen sie als eigener Stapel daneben (siehe `ShelfStore.insertResults`). Im geöffneten
+    /// Stapel bleiben sie in ihm, neben dem Original
+    func resultGroup() -> UUID? {
+        isInStack ? nil : UUID()
     }
 
     /// Nach einer Schnellaktion: Objekte aus der Ablage nehmen, außer „Nach Aktionen behalten“ ist an.
@@ -1093,8 +1100,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard !dragged.isEmpty else { return }
         Diagnostics.shared.record("stack", "drop onto tile items=\(dragged.count)")
         store.merge(dragged, into: entry.id)
-        ui.selection = [entry.id]
-        ui.selectionAnchor = entry.id
+        // Nicht ausgewählt, wie ein hineingezogener Stapel: Ausgewählt sah er anders aus
+        // (Nutzer, 02.11.2026)
+        ui.selection = []
+        ui.selectionAnchor = nil
     }
 
     func mergeSelection(_ entries: [ShelfEntry]) {

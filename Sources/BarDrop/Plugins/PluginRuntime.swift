@@ -26,6 +26,9 @@ final class PluginJob: ObservableObject, Identifiable {
     /// Das Ergebnis ersetzt das Original („Original ersetzen“, beim Start festgelegt):
     /// Dann steht der Platzhalter an der Stelle des Originals, das solange nicht zu sehen ist
     let replacesOriginal: Bool
+    /// Galt der Lauf einem ganzen Stapel: Ergebnisse als eigener Stapel daneben
+    /// (siehe `ShelfStore.insertResults`)
+    var resultGroup: UUID?
     /// 0…1, nil solange das Plugin keinen Fortschritt meldet
     @Published fileprivate(set) var progress: Double?
     @Published fileprivate(set) var label: String?

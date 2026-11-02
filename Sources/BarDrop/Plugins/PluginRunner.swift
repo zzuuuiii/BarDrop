@@ -115,15 +115,20 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         }
         // Fehlt noch etwas, jetzt alles in einem Fenster erfragen, nicht mitten im Lauf
         guard prepare(plugin) else { return }
+        let group = actions?.resultGroup()
         if plugin.manifest.batch == true {
             // Einmal mit allen passenden Objekten; Ergebnis neben dem ersten
-            enqueue(PluginJob(plugin: plugin, items: fresh.map { (PluginItem(url: $0.url), $0.id) }, automatic: false))
+            let job = PluginJob(plugin: plugin, items: fresh.map { (PluginItem(url: $0.url), $0.id) }, automatic: false)
+            job.resultGroup = group
+            enqueue(job)
             return
         }
         let replaces = replacesOriginal(plugin)
         for file in fresh {
-            enqueue(PluginJob(plugin: plugin, item: PluginItem(url: file.url), anchorFileID: file.id, automatic: false,
-                              replacesOriginal: replaces))
+            let job = PluginJob(plugin: plugin, item: PluginItem(url: file.url), anchorFileID: file.id, automatic: false,
+                                replacesOriginal: replaces)
+            job.resultGroup = group
+            enqueue(job)
         }
         // Keine eigene Meldung: Oben steht gleich „Plugin läuft“
     }
@@ -137,6 +142,8 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         var started: [String: Int] = [:]
         var blocked = false
         var declined: Set<String> = []
+        // Als Stapel abgelegt: Ergebnisse als eigener Stapel daneben, nicht zwischen den Originalen
+        let group = actions?.resultGroup()
         // Plugins mit `batch`: alles, was zusammen abgelegt wurde, in einem Lauf
         var batches: [(plugin: InstalledPlugin, items: [(item: PluginItem, fileID: UUID)])] = []
         for file in files {
@@ -162,11 +169,15 @@ final class PluginRunner: ObservableObject, PluginPrompter {
                 }
                 continue
             }
-            enqueue(PluginJob(plugin: plugin, item: item, anchorFileID: file.id, automatic: true,
-                              replacesOriginal: replacesOriginal(plugin)))
+            let job = PluginJob(plugin: plugin, item: item, anchorFileID: file.id, automatic: true,
+                                replacesOriginal: replacesOriginal(plugin))
+            job.resultGroup = group
+            enqueue(job)
         }
         for batch in batches {
-            enqueue(PluginJob(plugin: batch.plugin, items: batch.items, automatic: true))
+            let job = PluginJob(plugin: batch.plugin, items: batch.items, automatic: true)
+            job.resultGroup = group
+            enqueue(job)
         }
         // Gestartet: keine eigene Meldung, oben steht gleich „Plugin läuft“
         if started.isEmpty && blocked {
@@ -353,7 +364,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
     private func place(_ job: PluginJob, _ files: [ShelfFile]) {
         guard let store else { return }
         for file in files { Thumbnails.shownOnce.insert(file.url.path) }
-        store.insertResults(files, nextTo: job.anchorFileID, replacing: job.replacesOriginal)
+        store.insertResults(files, nextTo: job.anchorFileID, replacing: job.replacesOriginal, group: job.resultGroup)
         removeJob(job, animated: false)
         NotificationCenter.default.post(name: Thumbnails.didChange, object: nil)
         if let actions {

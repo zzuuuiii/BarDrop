@@ -1202,7 +1202,7 @@ struct TileView: View {
     var body: some View {
         TileLabel(title: entry.title, isSelected: isSelected || dropTargeted, isKey: ui.isKey || ui.level == .expanded, iconSize: iconSize) {
             if entry.isStack {
-                StackPreview(files: Array(entry.files.prefix(3)), size: (iconSize * 0.82).rounded())
+                StackPreview(files: Array(entry.files.prefix(3)), iconSize: iconSize)
             } else if let file = entry.files.first {
                 ThumbnailView(url: file.url, size: iconSize)
                     .cloudUpload(file.url, size: iconSize)
@@ -1306,9 +1306,17 @@ struct StackMemberTile: View {
 }
 
 /// Aufgefächerte Vorschau eines Stapels (bis zu drei Dateien).
+///
+/// Die Bilder sind dieselben wie in einer einzelnen Kachel, nur verkleinert. Vorher wurden sie
+/// eigens in kleinerer Größe angefordert: Ein Stapel, der durch Zusammenschieben entstand,
+/// zeigte dann erst leere Dateisymbole, bis Quick Look sie neu gezeichnet hatte, und sah
+/// anders aus als ein hineingezogener (Nutzer, 02.11.2026)
 private struct StackPreview: View {
     let files: [ShelfFile]
-    let size: CGFloat
+    let iconSize: CGFloat
+
+    private var size: CGFloat { (iconSize * Self.scale).rounded() }
+    static let scale: CGFloat = 0.82
 
     private func angle(_ index: Int) -> Angle {
         .degrees(Double(index) * 7.0 - 7.0)
@@ -1321,7 +1329,9 @@ private struct StackPreview: View {
     var body: some View {
         ZStack {
             ForEach(Array(files.indices.reversed()), id: \.self) { index in
-                ThumbnailView(url: files[index].url, size: size)
+                ThumbnailView(url: files[index].url, size: iconSize)
+                    .scaleEffect(size / iconSize)
+                    .frame(width: size, height: size)
                     .rotationEffect(angle(index))
                     .offset(x: offsetX(index), y: CGFloat(-2 * index))
             }

@@ -43,6 +43,8 @@ final class ShelfUIModel: ObservableObject {
 
     /// Ein Kontextmenü oder eine Rückfrage der Ablage ist geöffnet (siehe keepOpen).
     var menuOpen = false
+    /// Eintrag, dessen Name gerade bearbeitet wird (Stapel, Ordner); hält die Ablage offen
+    @Published var renaming: UUID?
 
     /// Hält die Ablage offen, solange `body` läuft (Menü, Rückfrage). Stellt danach den
     /// vorigen Stand her: Eine Rückfrage aus einem offenen Menü gab die Ablage sonst frei,
@@ -174,7 +176,7 @@ final class ShelfUIModel: ObservableObject {
     /// Diese Aktion hängt nach dem Herausziehen am Zeiger (ihr Platz in der Leiste bleibt leer)
     @Published var detachedAction: UUID?
 
-    var isLocked: Bool { menuOpen || sharingOpen || bandActive || actionMoving }
+    var isLocked: Bool { renaming != nil || menuOpen || sharingOpen || bandActive || actionMoving }
 }
 
 /// Form und Glas der vom Rand gezogenen Ablage (siehe ShelfUIModel.tearState)

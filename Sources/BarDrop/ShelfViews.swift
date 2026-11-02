@@ -1144,6 +1144,8 @@ struct TileLabel<Preview: View>: View {
     var isDropTarget = false
     /// Eingestellte Symbolgröße (Aussehen → Größe)
     var iconSize: CGFloat = TileLabel<EmptyView>.iconSize
+    /// Name wird gerade bearbeitet: Eingabefeld statt Name
+    var rename: RenameField? = nil
     @ViewBuilder let preview: () -> Preview
 
     static var iconSize: CGFloat { CGFloat(AppSettings.shared.tileIconSize) }
@@ -1166,6 +1168,11 @@ struct TileLabel<Preview: View>: View {
                 .reportsTileHitArea()
                 .scaleEffect(isDropTarget ? 1.06 : 1)
                 .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isDropTarget)
+            if let rename {
+                rename
+                    .frame(width: TileMetrics.labelWidth(iconSize), height: 18)
+                    .frame(minHeight: 28, alignment: .top)
+            } else {
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isSelected && isKey ? Color.white : Color.primary.opacity(isSelected ? 1 : 0.88))
@@ -1177,6 +1184,7 @@ struct TileLabel<Preview: View>: View {
                 .background(RoundedRectangle(cornerRadius: TileMetrics.labelRadius, style: .continuous).fill(nameBackground))
                 .reportsTileHitArea()
                 .frame(maxWidth: TileMetrics.labelWidth(iconSize), minHeight: 28, alignment: .top)
+            }
         }
         // Etwas dichter als früher (6/30/6 pt), näher am Finder: rund 122 statt 132 pt je Reihe
         .padding(.vertical, 3)
@@ -1199,8 +1207,19 @@ struct TileView: View {
     /// Ein anderes Objekt wird gerade darauf gehalten: Loslassen macht daraus einen Stapel
     @State private var dropTargeted = false
 
+    private var isRenaming: Bool { ui.renaming == entry.id }
+
+    /// Eingabefeld für den Namen (Stapel, Ordner)
+    private var renameField: RenameField? {
+        guard isRenaming else { return nil }
+        let id = entry.id
+        return RenameField(text: entry.isStack ? entry.title : entry.files.first?.url.lastPathComponent ?? "",
+                           onEnd: { [actions] text in actions.endRename(id, text: text) })
+    }
+
     var body: some View {
-        TileLabel(title: entry.title, isSelected: isSelected || dropTargeted, isKey: ui.isKey || ui.level == .expanded, iconSize: iconSize) {
+        TileLabel(title: entry.title, isSelected: isSelected || dropTargeted, isKey: ui.isKey || ui.level == .expanded,
+                  iconSize: iconSize, rename: renameField) {
             if entry.isStack {
                 StackPreview(files: Array(entry.files.prefix(3)), iconSize: iconSize)
             } else if let file = entry.files.first {
@@ -1209,7 +1228,8 @@ struct TileView: View {
             }
         }
         .tileHitAreas { hitRects = $0 }
-        .overlay(Group { if !shelfDemo {
+        // Beim Umbenennen keine Klick- und Ziehfläche über dem Eingabefeld
+        .overlay(Group { if !shelfDemo && !isRenaming {
             DragSource(
                 ui: ui,
                 files: { actions.dragFiles(for: entry) },
@@ -1318,12 +1338,19 @@ private struct StackPreview: View {
     private var size: CGFloat { (iconSize * Self.scale).rounded() }
     static let scale: CGFloat = 0.82
 
+    /// Abstand zur Mitte des Fächers: Bei drei Bildern wie bisher -1, 0, 1. Bei zwei lag das
+    /// vordere schräg und das hintere gerade, der Stapel kippte nach links und sah anders aus als
+    /// die meisten hineingezogenen (Nutzer, 02.11.2026); jetzt liegen beide gleich schräg
+    private func spread(_ index: Int) -> Double {
+        Double(index) - Double(files.count - 1) / 2
+    }
+
     private func angle(_ index: Int) -> Angle {
-        .degrees(Double(index) * 7.0 - 7.0)
+        .degrees(spread(index) * 7.0)
     }
 
     private func offsetX(_ index: Int) -> CGFloat {
-        CGFloat(index) * 4.0 - 4.0
+        CGFloat(spread(index)) * 4.0
     }
 
     var body: some View {
@@ -1397,4 +1424,74 @@ private struct CloudUploadOverlay: ViewModifier {
 
 extension View {
     func cloudUpload(_ url: URL, size: CGFloat) -> some View { modifier(CloudUploadOverlay(url: url, size: size)) }
+}
+
+/// Eingabefeld für einen Namen in der Kachel, wie im Finder: Der Name ist ganz markiert,
+/// Zeilenschalter oder ein Klick daneben übernimmt, esc bricht ab
+struct RenameField: NSViewRepresentable {
+    let text: String
+    /// Mit dem neuen Namen, nil bei esc. Genau einmal
+    let onEnd: (String?) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onEnd: onEnd) }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField(string: text)
+        field.font = .systemFont(ofSize: 11, weight: .medium)
+        field.alignment = .center
+        field.usesSingleLineMode = true
+        field.cell?.lineBreakMode = .byTruncatingMiddle
+        field.cell?.isScrollable = true
+        // Wie das Feld beim Umbenennen im Finder: schlicht, mit Fokusring statt Rahmen
+        field.isBezeled = false
+        field.isBordered = false
+        field.drawsBackground = true
+        field.backgroundColor = .textBackgroundColor
+        field.wantsLayer = true
+        field.layer?.cornerRadius = 3
+        field.focusRingType = .exterior
+        field.delegate = context.coordinator
+        DispatchQueue.main.async {
+            guard let window = field.window else { return }
+            window.makeKey()
+            window.makeFirstResponder(field)
+            field.currentEditor()?.selectAll(nil)
+        }
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {}
+
+    static func dismantleNSView(_ field: NSTextField, coordinator: Coordinator) {
+        // Verschwindet das Feld, ohne dass die Eingabe endete (Ablage zu): übernehmen
+        coordinator.finish(field.stringValue)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        private var onEnd: ((String?) -> Void)?
+        init(onEnd: @escaping (String?) -> Void) { self.onEnd = onEnd }
+
+        func finish(_ text: String?) {
+            guard let end = onEnd else { return }
+            onEnd = nil
+            end(text)
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            switch selector {
+            case #selector(NSResponder.insertNewline(_:)):
+                finish(control.stringValue)
+            case #selector(NSResponder.cancelOperation(_:)):
+                finish(nil)
+            default:
+                return false
+            }
+            control.window?.makeFirstResponder(nil)
+            return true
+        }
+
+        func controlTextDidEndEditing(_ note: Notification) {
+            finish((note.object as? NSTextField)?.stringValue)
+        }
+    }
 }

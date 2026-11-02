@@ -236,4 +236,39 @@ final class StackTests: XCTestCase {
         XCTAssertTrue(store.entries[0].isStack)
         XCTAssertTrue(ui.selection.isEmpty)
     }
+
+    /// Stapel benennen: Name bleibt, auch wenn etwas dazukommt; leer heißt wieder „n Objekte“
+    func testRenameStack() {
+        let stack = makeStack(2)
+        XCTAssertTrue(actions.canRename(stack))
+        store.renameStack(stack.id, to: "  Urlaub ")
+        XCTAssertEqual(store.entries[0].title, "Urlaub")
+        let single = base.appendingPathComponent("dazu.txt")
+        try? Data("x".utf8).write(to: single)
+        AppSettings.shared.stackMultiple = false
+        store.add([ShelfFile(url: single, owned: false)])
+        let added = store.entries[0].id
+        store.merge([added], into: stack.id)
+        XCTAssertEqual(store.entries.first { $0.id == stack.id }?.title, "Urlaub")
+        store.renameStack(stack.id, to: "")
+        XCTAssertNil(store.entries.first { $0.id == stack.id }?.name)
+    }
+
+    /// Ordner umbenennen: auf der Platte, die Kachel zeigt den neuen Ort; vergebene Namen nicht
+    func testRenameFolder() throws {
+        actions.makeFolder(with: [])
+        let entry = try XCTUnwrap(store.entries.first)
+        XCTAssertTrue(actions.canRename(entry))
+        let old = entry.files[0].url
+        try store.renameFolder(entry.id, to: "Projekt")
+        let renamed = try XCTUnwrap(store.entries.first?.files.first)
+        XCTAssertEqual(renamed.url.lastPathComponent, "Projekt")
+        XCTAssertEqual(renamed.id, entry.files[0].id)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: renamed.url.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: old.path))
+        try FileManager.default.createDirectory(at: renamed.url.deletingLastPathComponent().appendingPathComponent("Belegt"),
+                                                withIntermediateDirectories: true)
+        XCTAssertThrowsError(try store.renameFolder(entry.id, to: "Belegt"))
+        XCTAssertThrowsError(try store.renameFolder(entry.id, to: "a/b"))
+    }
 }

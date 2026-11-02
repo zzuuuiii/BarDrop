@@ -1089,6 +1089,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                                         with: entries.flatMap(\.files), replacing: ids) else { return NSSound.beep() }
         ui.selection = [id]
         ui.selectionAnchor = id
+        // Wie im Finder: Der neue Ordner wartet gleich auf seinen Namen (nach dem Schließen des Menüs)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let entry = self.store.entries.first(where: { $0.id == id }) else { return }
+            self.beginRename(entry)
+        }
     }
 
     /// Objekte der Ablage auf `entry` gezogen und dort losgelassen: zusammen ein Stapel an
@@ -1100,6 +1105,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard !dragged.isEmpty else { return }
         Diagnostics.shared.record("stack", "drop onto tile items=\(dragged.count)")
         store.merge(dragged, into: entry.id)
+        Sounds.folder()
         // Nicht ausgewählt, wie ein hineingezogener Stapel: Ausgewählt sah er anders aus
         // (Nutzer, 02.11.2026)
         ui.selection = []
@@ -1109,6 +1115,44 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     func mergeSelection(_ entries: [ShelfEntry]) {
         store.merge(Set(entries.map(\.id)))
         ui.selection = []
+        // Wie beim Ablegen in einen Ordner der Aktionsleiste (Nutzer, 02.11.2026)
+        Sounds.folder()
+    }
+
+    // MARK: Umbenennen
+
+    /// Stapel und Ordner lassen sich benennen (Nutzer, 02.11.2026), Dateien nicht
+    func canRename(_ entry: ShelfEntry) -> Bool {
+        entry.isStack || isBrowsableFolder(entry)
+    }
+
+    /// Den Namen in der Kachel bearbeiten, wie im Finder
+    func beginRename(_ entry: ShelfEntry) {
+        guard canRename(entry) else { return }
+        ui.selection = [entry.id]
+        ui.selectionAnchor = entry.id
+        ui.renaming = entry.id
+    }
+
+    /// Eingabe übernehmen (Zeilenschalter, Klick daneben); `text` nil: abgebrochen (esc)
+    func endRename(_ id: UUID, text: String?) {
+        guard ui.renaming == id else { return }
+        ui.renaming = nil
+        guard let text, let entry = store.entries.first(where: { $0.id == id }) else { return }
+        if entry.isStack { return store.renameStack(id, to: text) }
+        do {
+            try store.renameFolder(id, to: text)
+        } catch ShelfStore.RenameError.taken {
+            NSSound.beep()
+            announce(L("Name already taken", "Name schon vergeben"))
+        } catch ShelfStore.RenameError.invalid {
+            NSSound.beep()
+            announce(L("Name not allowed", "Name nicht möglich"))
+        } catch {
+            NSSound.beep()
+            Diagnostics.shared.failure("rename", "Ordner umbenennen fehlgeschlagen", error)
+            announce(L("Couldn’t rename", "Nicht umbenannt"))
+        }
     }
 
     /// Doppelklick: Stapel öffnen, einen einzelnen Ordner in der Ablage zeigen (wie einen
@@ -1192,6 +1236,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
 
         menu.addItem(.separator())
+        if !multiple, canRename(entry) {
+            menu.addItem(ClosureMenuItem(L("Rename", "Umbenennen")) { [weak self] in self?.beginRename(entry) })
+        }
         menu.addItem(ClosureMenuItem(L("New Folder with Selection", "Neuer Ordner mit Auswahl")) { [weak self] in
             self?.makeFolder(with: targets)
         })

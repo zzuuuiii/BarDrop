@@ -116,14 +116,19 @@ struct ShelfEntry: Codable, Hashable, Identifiable {
     var id = UUID()
     var files: [ShelfFile]
     var added = Date()
+    /// Eigener Name eines Stapels (Nutzer, 02.11.2026); nil: „3 Objekte“
+    var name: String?
 
     var urls: [URL] { files.map(\.url) }
     var isStack: Bool { files.count > 1 }
 
     var title: String {
         if files.count == 1 { return ShelfEntry.displayName(for: files[0].url) }
-        return L("\(files.count) items", "\(files.count) Objekte")
+        return name ?? countTitle
     }
+
+    /// Titel eines Stapels ohne eigenen Namen
+    var countTitle: String { L("\(files.count) items", "\(files.count) Objekte") }
 
     static func displayName(for url: URL) -> String {
         if url.pathExtension.lowercased() == "webloc" { return url.deletingPathExtension().lastPathComponent }
@@ -478,7 +483,11 @@ final class ShelfStore: ObservableObject {
         guard members.count > 1, let first = entries.firstIndex(where: { $0.id == anchorID }) else { return }
         let ids = all
         var stack = ShelfEntry(files: members.flatMap(\.files))
-        if let target { stack.id = target }
+        if let target {
+            stack.id = target
+            // Ein benannter Stapel behält seinen Namen, wenn etwas dazukommt
+            stack.name = entries.first { $0.id == target }?.name
+        }
         stack.added = members.map(\.added).max() ?? Date()
         let before = entries[..<first].filter { ids.contains($0.id) }.count
         var updated = entries
@@ -1024,6 +1033,42 @@ final class ShelfStore: ObservableObject {
         let source: UUID
     }
     private var resultStacks: [ResultStackKey: UUID] = [:]
+
+    // MARK: Umbenennen
+
+    enum RenameError: Error {
+        /// Leer, mit „/“ oder Punkt am Anfang (unsichtbar)
+        case invalid
+        /// Im selben Ordner gibt es den Namen schon
+        case taken
+    }
+
+    /// Stapel benennen; leer oder wie der Standardtitel: wieder „3 Objekte“
+    func renameStack(_ id: UUID, to text: String) {
+        guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = trimmed.isEmpty || trimmed == entries[index].countTitle ? nil : trimmed
+        guard entries[index].name != name else { return }
+        insertWithoutAnimation { $0[index].name = name }
+    }
+
+    /// Ordner umbenennen, auf der Platte wie im Finder; die Kachel zeigt danach den neuen Ort
+    func renameFolder(_ id: UUID, to text: String) throws {
+        guard let index = entries.firstIndex(where: { $0.id == id }), entries[index].files.count == 1 else { return }
+        let file = entries[index].files[0]
+        let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name != file.url.lastPathComponent else { return }
+        guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else { throw RenameError.invalid }
+        let target = file.url.deletingLastPathComponent().appendingPathComponent(name, isDirectory: true)
+        // Nur die Groß- und Kleinschreibung geändert: derselbe Ordner, kein Konflikt
+        let sameItem = target.path.lowercased() == file.url.path.lowercased()
+        if !sameItem, FileManager.default.fileExists(atPath: target.path) { throw RenameError.taken }
+        try FileManager.default.moveItem(at: file.url, to: target)
+        var renamed = ShelfFile(url: target, owned: file.owned)
+        renamed.id = file.id
+        renamed.originBookmark = file.originBookmark
+        insertWithoutAnimation { $0[index].files[0] = renamed }
+    }
 
     // MARK: Neuer Ordner
 

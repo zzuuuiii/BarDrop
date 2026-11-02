@@ -47,6 +47,16 @@ final class ShelfPanel: NSPanel {
         if event.type == .leftMouseDown, let ui = actions?.ui, ui.level == .hint {
             ui.expandRequested = true
         }
+        // Umbenennen: Ein Klick neben das Eingabefeld übernimmt den Namen, wie im Finder
+        if [.leftMouseDown, .rightMouseDown].contains(event.type), actions?.ui.renaming != nil,
+           let editor = firstResponder as? NSText {
+            let hit = contentView?.hitTest(contentView?.superview?.convert(event.locationInWindow, from: nil)
+                                           ?? event.locationInWindow)
+            if hit !== editor, hit?.isDescendant(of: editor) != true,
+               (hit as? NSTextField)?.currentEditor() !== editor {
+                makeFirstResponder(nil)
+            }
+        }
         if event.type == .rightMouseDown, Diagnostics.shared.isEnabled {
             // Rechtsklick ging gleich nach dem Öffnen teils ins Leere: festhalten, wohin er geht
             let hit = contentView?.hitTest(contentView?.superview?.convert(event.locationInWindow, from: nil)
@@ -70,6 +80,8 @@ final class ShelfPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
+        // Woanders hingeklickt: Name übernehmen
+        if actions?.ui.renaming != nil { makeFirstResponder(nil) }
         actions?.ui.isKey = false
     }
 
@@ -114,6 +126,8 @@ final class ShelfPanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Im Eingabefeld (Umbenennen) gelten ⌘A, ⌘C, ⌘V, ⌘Z für den Text
+        if firstResponder is NSText { return super.performKeyEquivalent(with: event) }
         guard let actions, event.modifierFlags.contains(.command) else {
             return super.performKeyEquivalent(with: event)
         }
@@ -394,8 +408,8 @@ final class ShelfHostingView<Content: View>: NSHostingView<Content> {
 /// macOS. Nur feines Scrollen (Trackpad, Magic Mouse) mit Schwung: Ein Mausrad rastet ohnehin
 /// in festen Schritten.
 enum ScrollSpeed {
-    /// Punkte pro Sekunde, etwa vier Bildschirmhöhen der Ablage
-    static let maximum: CGFloat = 2000
+    /// Punkte pro Sekunde, in beide Richtungen gleich (Nutzer: 2000 war nach unten etwas zu langsam)
+    static let maximum: CGFloat = 2600
 
     /// Zeitpunkt des letzten Scroll-Ereignisses (für die Zeit seitdem)
     private static var lastTimestamp: TimeInterval = 0
@@ -413,11 +427,50 @@ enum ScrollSpeed {
         guard event.hasPreciseScrollingDeltas else { return nil }
         let step = limit(elapsed: elapsed)
         let dy = event.scrollingDeltaY
-        guard abs(dy) > step, let copy = event.cgEvent?.copy() else { return nil }
-        let clamped = Double(dy > 0 ? step : -step)
-        copy.setDoubleValueField(.scrollWheelEventPointDeltaAxis1, value: clamped)
-        copy.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: clamped)
-        copy.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64((clamped / 10).rounded()))
+        let limited = abs(dy) > step
+        track(event, dy: limited ? (dy > 0 ? step : -step) : dy, limited: limited)
+        guard limited, let copy = event.cgEvent?.copy() else { return nil }
+        // Alle Angaben des Wegs im selben Verhältnis kürzen: in Punkten (ganzzahlig und fein) und
+        // in Zeilen. Vorher bekamen die Zeilen den Wert in Punkten, die Angaben passten nicht
+        // mehr zueinander
+        let ratio = Double(step / abs(dy))
+        let points = copy.getDoubleValueField(.scrollWheelEventPointDeltaAxis1) * ratio
+        copy.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(points.rounded()))
+        copy.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1,
+                                 value: copy.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1) * ratio)
+        let lines = Double(copy.getIntegerValueField(.scrollWheelEventDeltaAxis1)) * ratio
+        copy.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(lines.rounded()))
         return NSEvent(cgEvent: copy)
+    }
+
+    // MARK: Diagnose: Richtung und Tempo je Scrollbewegung (Nutzer: nach oben langsamer)
+
+    private static var gesture: (start: TimeInterval, last: TimeInterval, distance: CGFloat,
+                                 events: Int, limited: Int, peak: CGFloat)?
+
+    private static func track(_ event: NSEvent, dy: CGFloat, limited: Bool) {
+        guard Diagnostics.shared.isEnabled, dy != 0 else { return }
+        // Neue Bewegung: Finger aufgesetzt oder nach einer Pause
+        if event.phase == .began || (gesture.map { event.timestamp - $0.last > 0.3 } ?? true) {
+            finish()
+            gesture = (event.timestamp, event.timestamp, 0, 0, 0, 0)
+        }
+        guard var g = gesture else { return }
+        let elapsed = max(event.timestamp - g.last, 1.0 / 240)
+        if g.events > 0 { g.peak = max(g.peak, abs(dy) / CGFloat(elapsed)) }
+        g.last = event.timestamp
+        g.distance += dy
+        g.events += 1
+        if limited { g.limited += 1 }
+        gesture = g
+        if event.momentumPhase == .ended { finish() }
+    }
+
+    private static func finish() {
+        guard let g = gesture, g.events > 2 else { gesture = nil; return }
+        gesture = nil
+        let duration = max(g.last - g.start, 0.001)
+        // Positiver Weg schiebt den Inhalt nach unten: man scrollt nach oben
+        Diagnostics.shared.record("scroll", "swipe dir=\(g.distance > 0 ? "hoch" : "runter") weg=\(Int(abs(g.distance))) dauer=\(Int(duration * 1000))ms schnitt=\(Int(abs(g.distance) / CGFloat(duration))) spitze=\(Int(g.peak)) ereignisse=\(g.events) gedrosselt=\(g.limited)")
     }
 }

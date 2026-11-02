@@ -15,8 +15,9 @@ final class AirDropWatcher {
     private var startedAt = Date()
     /// Schon übernommen oder als fremd erkannt
     private var seen = Set<String>()
-    /// Größe beim letzten Nachsehen: übernommen wird erst, wenn sie gleich bleibt
-    private var sizes: [String: Int64] = [:]
+    /// Größe und Zeitpunkt beim ersten Nachsehen mit dieser Größe: übernommen wird erst, wenn
+    /// sie eine Weile gleich bleibt
+    private var sizes: [String: (size: Int64, since: Date)] = [:]
 
     init(store: ShelfStore, onAdded: @escaping () -> Void) {
         self.store = store
@@ -87,11 +88,13 @@ final class AirDropWatcher {
                 seen.insert(url.path)
                 continue
             }
-            let size = values.isDirectory == true ? -1 : Int64(values.fileSize ?? 0)
-            if sizes[url.path] == size {
-                ready.append(url)
+            let size = values.isDirectory == true ? Self.folderSize(url) : Int64(values.fileSize ?? 0)
+            // Jedes Ereignis plant eigene Durchgänge, zwei davon liegen oft nur Millisekunden
+            // auseinander: Gleiche Größe zählt erst, wenn seitdem mindestens eine Sekunde verging
+            if let last = sizes[url.path], last.size == size {
+                if Date().timeIntervalSince(last.since) >= 1 { ready.append(url) }
             } else {
-                sizes[url.path] = size
+                sizes[url.path] = (size, Date())
             }
         }
         guard !ready.isEmpty else { return }
@@ -105,6 +108,17 @@ final class AirDropWatcher {
         guard !adopted.isEmpty else { return }
         store.add(adopted)
         onAdded()
+    }
+
+    /// Gesamtgröße eines empfangenen Ordners: Seine eigene Größe ändert sich nicht, während
+    /// AirDrop ihn noch füllt
+    static func folderSize(_ url: URL) -> Int64 {
+        let files = FileManager.default.enumerator(at: url, includingPropertiesForKeys: [.fileSizeKey])
+        var total: Int64 = 0
+        while let file = files?.nextObject() as? URL {
+            total += Int64((try? file.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0)
+        }
+        return total
     }
 
     /// Absender aus der Quarantäne von macOS („0083;65f1…;sharingd;“ → „sharingd“)

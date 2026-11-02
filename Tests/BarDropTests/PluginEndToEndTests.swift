@@ -150,9 +150,12 @@ final class PluginEndToEndTests: XCTestCase {
         let titles = actions.menu(for: entry, anchor: NSView()).items.map { $0.isSeparatorItem ? "—" : $0.title }
         let trash = try XCTUnwrap(titles.firstIndex(of: L("Move to Trash", "In den Papierkorb legen")))
         XCTAssertEqual(titles[trash + 1], "—")
-        XCTAssertEqual(Array(titles[(trash + 2)...]), ["Upper Case", "Broken Line"].map { title in
+        // Von hinten gezählt: Ist auf dem Mac ein Cloud-Dienst eingerichtet (etwa iCloud Drive),
+        // steht dessen „Teilen“ zwischen Papierkorb und Plugins
+        XCTAssertEqual(Array(titles.suffix(2)), ["Upper Case", "Broken Line"].map { title in
             title == "Upper Case" ? L("Upper Case", "Großbuchstaben") : title
         })
+        XCTAssertEqual(titles[titles.count - 3], "—")
 
         // Vier passende Plugins: gesammelt im Untermenü
         for n in 1...2 {

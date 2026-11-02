@@ -89,8 +89,13 @@ struct CloudToken: Codable {
 
 enum CloudKeychain {
     private static let serviceName = "BarDrop Cloud"
+    /// In den Tests nie an den echten Schlüsselbund: Auf einem Mac mit verbundenem Dienst
+    /// fragte macOS sonst nach dem Passwort für „BarDrop Cloud“ (Nutzer, 02.11.2026), und
+    /// ein Test hätte echte Zugänge ändern oder löschen können
+    private static let isTesting = NSClassFromString("XCTestCase") != nil
 
     static func load(_ service: CloudService) -> CloudToken? {
+        guard !isTesting else { return nil }
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: serviceName,
                                     kSecAttrAccount as String: service.rawValue,
@@ -103,6 +108,7 @@ enum CloudKeychain {
     }
 
     static func save(_ token: CloudToken, for service: CloudService) {
+        guard !isTesting else { return }
         guard let data = try? JSONEncoder().encode(token) else { return }
         let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                    kSecAttrService as String: serviceName,
@@ -121,6 +127,7 @@ enum CloudKeychain {
     }
 
     static func delete(_ service: CloudService) {
+        guard !isTesting else { return }
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
                                     kSecAttrService as String: serviceName,
                                     kSecAttrAccount as String: service.rawValue]
@@ -179,7 +186,7 @@ enum CloudOAuth {
         if !request.scopes.isEmpty { items.append(URLQueryItem(name: "scope", value: request.scopes.joined(separator: " "))) }
         items += request.extra.map { URLQueryItem(name: $0.key, value: $0.value) }
         components.queryItems = items
-        let receiver = LoopbackReceiver(port: port)
+        let receiver = LoopbackReceiver(port: port, state: state)
         try receiver.start()
         defer { receiver.stop() }
         guard let url = components.url else { throw CloudError(message: L("Sign-in address is invalid.", "Anmeldeadresse ist ungültig.")) }
@@ -218,6 +225,13 @@ enum CloudOAuth {
         request.httpBody = form.map { "\($0.key)=\($0.value.formEncoded)" }.joined(separator: "&").data(using: .utf8)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // Refresh-Token abgelehnt (widerrufen oder abgelaufen, bei Google im Testbetrieb nach
+        // 7 Tagen): Hilft nur neu verbinden, das soll die Meldung sagen statt „Fehler 400“
+        if previous != nil, status == 401 || (status == 400 && String(decoding: data, as: UTF8.self).contains("invalid_grant")) {
+            throw CloudError(message: L("Sign-in expired.", "Anmeldung abgelaufen."),
+                             hint: L("Connect again in Settings → Cloud.", "In Einstellungen → Cloud neu verbinden."),
+                             short: L("Sign-in expired", "Anmeldung abgelaufen"))
+        }
         guard status == 200, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let access = json["access_token"] as? String else {
             throw CloudError(message: L("Sign-in failed (\(status)).", "Anmeldung fehlgeschlagen (\(status))."),
@@ -241,13 +255,19 @@ enum CloudOAuth {
 /// Alle Zustände nur auf `queue` geändert, darum ohne Sperren sicher
 private final class LoopbackReceiver: @unchecked Sendable {
     private let port: UInt16
+    /// Nur eine Antwort mit genau diesem state beendet das Warten. Sonst könnte jede Webseite
+    /// mit einem Aufruf von 127.0.0.1:53682/?error=x die laufende Anmeldung abbrechen
+    private let state: String
     private var listeners: [NWListener] = []
     private var continuation: CheckedContinuation<[String: String], Error>?
     /// Kam der Browser schneller zurück, als gewartet wurde: hier aufheben
     private var early: Result<[String: String], Error>?
     private let queue = DispatchQueue(label: "bardrop.cloud.oauth")
 
-    init(port: UInt16) { self.port = port }
+    init(port: UInt16, state: String) {
+        self.port = port
+        self.state = state
+    }
 
     func start() throws {
         // IPv4 und IPv6: „localhost“ landet je nach Browser auf dem einen oder anderen
@@ -302,7 +322,7 @@ private final class LoopbackReceiver: @unchecked Sendable {
             let target = head.split(separator: " ").dropFirst().first.map(String.init) ?? ""
             let items = URLComponents(string: "http://localhost" + target)?.queryItems ?? []
             let query = Dictionary(items.compactMap { item in item.value.map { (item.name, $0) } }, uniquingKeysWith: { a, _ in a })
-            let done = query["code"] != nil || query["error"] != nil
+            let done = (query["code"] != nil || query["error"] != nil) && query["state"] == self.state
             let text = done ? L("Done. You can close this tab and go back to BarDrop.",
                                 "Fertig. Du kannst diesen Tab schließen und zu BarDrop zurückgehen.")
                             : "BarDrop"
@@ -384,6 +404,8 @@ class OAuthCloudProvider {
             let task = Task { () throws -> CloudToken in
                 defer { self.lock.withLock { self.refreshing = nil } }
                 let fresh = try await CloudOAuth.refresh(current, request)
+                // Während der Erneuerung getrennt: nicht wieder verbinden
+                guard self.token != nil else { throw CancellationError() }
                 self.store(fresh)
                 return fresh
             }
@@ -451,8 +473,8 @@ class OAuthCloudProvider {
     func download(_ make: (String) -> URLRequest, to destination: URL) async throws {
         var (temporary, response) = try await URLSession.shared.download(for: make(try await accessToken()))
         if (response as? HTTPURLResponse)?.statusCode == 401, let current = token, let oauth = oauthRequest {
-            let fresh = try await CloudOAuth.refresh(current, oauth)
-            store(fresh)
+            // Über die gemeinsame Erneuerung, nie zwei mit demselben Refresh-Token (siehe `refreshing`)
+            let fresh = try await refresh(current, oauth)
             (temporary, response) = try await URLSession.shared.download(for: make(fresh.accessToken))
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

@@ -1021,7 +1021,8 @@ final class EdgeController: NSObject {
 
     @objc private func removeExpired() {
         store.removeExpired(olderThan: settings.autoRemoveAfter)
-        Outbox.shared.cleanUp()
+        // Nur Dateien, nicht auf dem Hauptthread: Der Takt läuft auch beim Ziehen und Öffnen
+        DispatchQueue.global(qos: .utility).async { Outbox.shared.cleanUp() }
     }
 
     // MARK: Takt
@@ -2069,7 +2070,7 @@ extension EdgeController {
     /// Begleitfenster mit dem Glas an Lage und Stärke der losgelösten Ablage anpassen
     /// `shapeOnly`: nur Lage und Form, die Stärke nicht anfassen (läuft sie gerade weich
     /// über, sprang sie sonst bei jeder Bewegung ans Ziel)
-    private func syncGlassWindow(duration: TimeInterval = 0, shapeOnly: Bool = false) {
+    private func syncGlassWindow(shapeOnly: Bool = false) {
         guard tearDrag != nil, ui.tearGlass > 0 || glassWindow != nil else { return }
         let window = glassWindow ?? ShelfGlassWindow()
         glassWindow = window
@@ -2133,7 +2134,7 @@ extension EdgeController {
             transaction.disablesAnimations = true
             withTransaction(transaction) { ui.tearGlass = value }
         }
-        syncGlassWindow(duration: animated ? 0.3 : 0)
+        syncGlassWindow()
     }
 
     private func detachTear(_ drag: TearDrag) {

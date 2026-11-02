@@ -456,14 +456,14 @@ struct PluginManifest: Codable, Hashable {
     /// Prüft das Manifest. `appVersion`: laufende Version von BarDrop.
     func validate(appVersion: String) throws {
         guard schema == 1 else { throw ValidationError.unsupportedSchema(schema) }
-        let idPattern = #"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$"#
+        let idPattern = #"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+\z"#
         guard id.range(of: idPattern, options: .regularExpression) != nil, id.count <= 120 else {
             throw ValidationError.invalidID
         }
         guard !name.text(for: .english).trimmingCharacters(in: .whitespaces).isEmpty else {
             throw ValidationError.missingName
         }
-        guard version.range(of: #"^\d+(\.\d+){0,2}$"#, options: .regularExpression) != nil else {
+        guard version.range(of: #"^\d+(\.\d+){0,2}\z"#, options: .regularExpression) != nil else {
             throw ValidationError.invalidVersion
         }
         guard !script.contains("/"), !script.hasPrefix("."), script.hasSuffix(".js") else {
@@ -490,7 +490,7 @@ struct PluginManifest: Codable, Hashable {
                 guard archive == "zip", let exe = tool.executable, !exe.isEmpty, !exe.hasPrefix("/"),
                       !exe.split(separator: "/").contains("..") else { throw ValidationError.invalidTool(tool.id) }
             }
-            guard tool.id.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#, options: .regularExpression) != nil else {
+            guard tool.id.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*\z"#, options: .regularExpression) != nil else {
                 throw ValidationError.invalidTool(tool.id)
             }
             guard tool.sha256 != nil || tool.checksums != nil else { throw ValidationError.missingChecksum(tool.id) }

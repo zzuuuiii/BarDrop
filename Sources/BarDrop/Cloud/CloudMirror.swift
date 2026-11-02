@@ -64,7 +64,11 @@ final class CloudMirror: @unchecked Sendable {
         Task { @MainActor in
             defer { syncing.remove(service) }
             var index = loadIndex(service)
+            var downloadError: Error?
             do {
+                // Was vor dem Abfragen hochgeladen wurde, bleibt auch, wenn es währenddessen fertig
+                // wird: Die Liste des Dienstes kann es dann noch nicht enthalten
+                let uploading = Set(CloudUploads.shared.progress.keys)
                 let remote = try await provider.listFolder()
                 let fm = FileManager.default
                 // Weg, was es beim Dienst nicht mehr gibt (nur in der eigenen Kopie). Was gerade
@@ -74,7 +78,7 @@ final class CloudMirror: @unchecked Sendable {
                 var removed = false
                 for name in local where !names.contains(name) && !name.hasPrefix(".") {
                     let url = folder.appendingPathComponent(name)
-                    guard CloudUploads.shared.progress[url.path] == nil else { continue }
+                    guard CloudUploads.shared.progress[url.path] == nil, !uploading.contains(url.path) else { continue }
                     try? fm.removeItem(at: url)
                     index[name] = nil
                     removed = true
@@ -98,9 +102,16 @@ final class CloudMirror: @unchecked Sendable {
                     }
                     // Erst daneben laden, damit in der Ablage nie eine halbe Datei steht
                     let partial = folder.deletingLastPathComponent().appendingPathComponent(".laden-\(UUID().uuidString)")
-                    try await provider.download(file, to: partial)
-                    try? fm.removeItem(at: target)
-                    try fm.moveItem(at: partial, to: target)
+                    // Eine Datei, die nicht lädt, hält die übrigen nicht auf; gemeldet wird am Ende
+                    do {
+                        try await provider.download(file, to: partial)
+                        try? fm.removeItem(at: target)
+                        try fm.moveItem(at: partial, to: target)
+                    } catch {
+                        try? fm.removeItem(at: partial)
+                        downloadError = downloadError ?? error
+                        continue
+                    }
                     index[file.name] = file
                     saveIndex(index, service)
                     changed()
@@ -109,6 +120,7 @@ final class CloudMirror: @unchecked Sendable {
                 for file in remote where index[file.name] != nil { index[file.name] = file }
                 saveIndex(index, service)
                 Diagnostics.shared.record("cloud", "\(service.rawValue) mirror files=\(remote.count)")
+                if let downloadError { throw downloadError }
             } catch {
                 saveIndex(index, service)
                 Diagnostics.shared.failure("cloud", "Abgleich \(service.rawValue)", error)

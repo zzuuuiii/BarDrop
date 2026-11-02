@@ -146,6 +146,10 @@ final class PluginTools {
         // wird ohne erneute Frage aktualisiert. Eine neue Adresse fragt immer.
         let sameSource = FileManager.default.fileExists(atPath: binary(tool).path)
             && storedMeta(of: tool)?.url == tool.resolvedURL
+        // Während des Wartens auf ein anderes Plugin abgebrochen: nicht mehr fragen (sonst kam
+        // die Frage zum Laden noch für einen Lauf, den es nicht mehr gibt). Der Lauf ist dann
+        // schon beendet, der Fehler wird nicht mehr gezeigt
+        if cancelled() { throw ToolError.declined }
         guard sameSource || ask() else { throw ToolError.declined }
         let who = owner.isEmpty ? tool.id : owner
         // Hat ein anderes Plugin dasselbe Programm schon geladen: mitbenutzen statt laden

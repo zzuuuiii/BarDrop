@@ -1036,7 +1036,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let previous = ui.openStack
         ui.memberSelection = []
         withAnimation(settings.animationStyle.close) { ui.openStack = nil }
-        if let previous { ui.selection = [previous] }
+        if let previous {
+            ui.selection = [previous]
+            // Sonst reichte ein folgender ⇧-Klick vom alten Anker statt vom Stapel
+            ui.selectionAnchor = previous
+        }
     }
 
     func mergeSelection(_ entries: [ShelfEntry]) {

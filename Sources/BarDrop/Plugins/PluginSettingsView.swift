@@ -584,11 +584,15 @@ struct GalleryRow: View {
     /// Laden, einschalten und so einstellen, wie es gedacht ist. Aus der Galerie ist der
     /// Zugriff schon erteilt. `done(true)`: Danach öffnet der Aufrufer die Seite des Plugins
     static func install(_ entry: PluginCatalogEntry, manager: PluginManager, done: @escaping (Bool) -> Void) {
+        // Schon installiert (Aktualisieren über den Link der Website): Einstellungen des Nutzers
+        // behalten. Sonst schaltete das Update ein ausgeschaltetes Plugin wieder ein und setzte
+        // Automatik, „Original ersetzen“ und die Aktionsleiste auf die Voreinstellung zurück
+        let wasInstalled = manager.plugin(entry.id) != nil
         manager.installFromCatalog(entry) { ok in
             guard ok, let plugin = manager.plugin(entry.id) else { return done(false) }
-            if !AppSettings.shared.pluginsEnabled { AppSettings.shared.pluginsEnabled = true }
+            if !wasInstalled, !AppSettings.shared.pluginsEnabled { AppSettings.shared.pluginsEnabled = true }
             if manager.isFullyAuthorized(plugin) || PluginDialogs.authorize(plugin, manager: manager, ui: nil) {
-                manager.activateWithDefaults(plugin)
+                if !wasInstalled { manager.activateWithDefaults(plugin) }
             }
             // Erst im nächsten Durchlauf zur Seite: Im selben Durchlauf wie Installieren,
             // Einschalten und Aktionsleiste wechselte nur die Überschrift, der Inhalt blieb auf

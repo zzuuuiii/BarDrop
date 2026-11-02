@@ -79,8 +79,14 @@ final class OnboardingModel: ObservableObject {
     var stepDone: Bool { completed.contains(step) }
 
     func go(to step: Step) {
+        visit &+= 1
         withAnimation(.easeOut(duration: 0.18)) { self.step = step }
     }
+
+    /// Zählt jeden Seitenwechsel: Ein verzögertes Weiter gilt nur für den Besuch, in dem der
+    /// Schritt geschafft wurde. Sonst sprang die Seite nach „Weiter“ und gleich „Zurück“
+    /// noch einmal von selbst weiter
+    private var visit = 0
 
     /// Einen Schritt zurück
     func back() {
@@ -107,8 +113,9 @@ final class OnboardingModel: ObservableObject {
             // Ablegen: ohne Bestätigung gleich weiter. Erst beim Weitergehen als geschafft
             // markieren: Sonst blitzten kurz „Weiter“ und die leere Karte auf. Den Impuls gab
             // es schon, als das Foto die Ablage erreichte.
+            let visit = visit
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                guard let self, self.step == done, !self.completed.contains(done) else { return }
+                guard let self, self.visit == visit, self.step == done, !self.completed.contains(done) else { return }
                 self.completed.insert(done)
                 self.advance()
             }
@@ -121,8 +128,9 @@ final class OnboardingModel: ObservableObject {
         if done == .detach { return }
         // Der Hinweis auf ⌘Z nach dem Papierkorb braucht etwas länger zum Lesen
         let pause = done == .retrieve ? 3.2 : 1.4
+        let visit = visit
         DispatchQueue.main.asyncAfter(deadline: .now() + pause) { [weak self] in
-            guard let self, self.step == done else { return }
+            guard let self, self.visit == visit, self.step == done else { return }
             self.advance()
         }
     }
@@ -405,7 +413,9 @@ final class OnboardingController: NSObject, NSWindowDelegate {
         if step == .takeOut || step == .retrieve { ensureSampleInShelf() }
         if step == .takeOut { model.onDesk = false }
         if step == .retrieve { TrashState.shared.refresh() }
-        hoverArmed = false
+        // Ist die Ablage schon zu, kommt kein neues „hidden“ mehr: dann gleich scharf, sonst
+        // zählte das erste Öffnen nach dem Sprung über die Punkte nicht
+        hoverArmed = ui.level == .hidden
         switch step {
         case .drop:
             baseline = Set(store.entries.map(\.id))

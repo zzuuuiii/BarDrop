@@ -106,7 +106,9 @@ final class PluginRunner: ObservableObject, PluginPrompter {
             return
         }
         // Läuft dasselbe Plugin schon für eine Datei, nicht ein zweites Mal starten
-        let fresh = matching.filter { file in !jobs.contains { $0.fileIDs.contains(file.id) && $0.plugin.id == plugin.id } }
+        // Ein gescheiterter Lauf, der nur noch kurz rüttelt, zählt nicht: Sonst hieß ein
+        // neuer Versuch gleich danach „Läuft schon“
+        let fresh = matching.filter { file in !jobs.contains { !$0.failed && $0.fileIDs.contains(file.id) && $0.plugin.id == plugin.id } }
         guard !fresh.isEmpty else {
             actions?.announce(L("Already running", "Läuft schon"), duration: 1.6)
             return

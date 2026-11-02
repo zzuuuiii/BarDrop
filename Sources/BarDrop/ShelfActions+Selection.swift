@@ -294,7 +294,10 @@ extension ShelfActions {
 
     /// ⌘C bzw. ⌥⌘C: Auswahl kopieren, ohne Auswahl alles in der Ansicht.
     func copyCurrent(pathsOnly: Bool) {
-        let urls = hasCurrentSelection ? currentSelectionURLs : currentAllURLs
+        var urls = hasCurrentSelection ? currentSelectionURLs : currentAllURLs
+        // Die Auswahl nannte nur Objekte, die es nicht mehr gibt (etwa nach dem Auflösen eines
+        // Stapels): wie ohne Auswahl alles kopieren statt nur zu piepen
+        if urls.isEmpty, ui.jobSelection.isEmpty { urls = currentAllURLs }
         guard !urls.isEmpty else { return NSSound.beep() }
         if pathsOnly { Self.copyPaths(originals(urls)) } else { Self.copyFiles(urls) }
         announceCopy(urls.count, pathsOnly: pathsOnly)

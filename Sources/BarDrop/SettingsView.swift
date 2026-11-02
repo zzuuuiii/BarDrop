@@ -434,7 +434,9 @@ private enum AfterUse: String, CaseIterable, Identifiable {
 
 struct ItemSettings: View {
     @ObservedObject var settings: AppSettings
-    @ObservedObject var store: ShelfStore
+    /// Nicht beobachtet: Die Seite liest nichts daraus, zeichnete sich sonst aber bei jeder
+    /// Änderung der Ablage (Ablegen, Vorschaubilder, Kopien) neu
+    let store: ShelfStore
     @ObservedObject private var folderAccess = FolderAccess.shared
 
     private var autoRemove: Binding<AutoRemoveOption> {

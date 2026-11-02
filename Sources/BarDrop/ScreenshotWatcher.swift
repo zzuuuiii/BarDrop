@@ -22,6 +22,8 @@ final class ScreenshotWatcher {
     private var startedAt = Date()
     /// Prüft regelmäßig, ob der Ort für Bildschirmfotos umgestellt wurde
     private var folderCheck: Timer?
+    /// Zuletzt nicht lesbarer Ordner (schon gemeldet)
+    private var unreadableFolder: URL?
 
     init(store: ShelfStore, onAdded: @escaping () -> Void) {
         self.store = store
@@ -127,11 +129,15 @@ final class ScreenshotWatcher {
         // zeigen die Einstellungen es an
         _ = FolderAccess.shared.contents(of: folder, keys: [], area: "screenshots")
         guard fd >= 0 else {
+            // Die Prüfung alle 5 Sekunden versucht es erneut: nur einmal je Ordner melden
+            guard folder != unreadableFolder else { return }
+            unreadableFolder = folder
             Log.importing.error("Bildschirmfotos: Ordner nicht lesbar (\(folder.path, privacy: .private))")
             Diagnostics.shared.failure("screenshots", "Ordner nicht lesbar \(Diagnostics.anon(folder)) errno=\(errno) \(String(cString: strerror(errno)))")
             return
         }
         watchedFolder = folder
+        unreadableFolder = nil
         let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .main)
         source.setEventHandler { [weak self] in self?.folderChanged() }
         source.setCancelHandler { close(fd) }

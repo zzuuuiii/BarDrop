@@ -25,7 +25,8 @@ final class SpanMirror {
     /// Nach jeder Bewegung der gelösten Ablage: Liegt ein Teil auf einem anderen Bildschirm
     /// als dem, den macOS ihr zuordnet, zeigt das Spiegelfenster ihn dort
     func update(for panel: NSWindow) {
-        guard NSScreen.screensHaveSeparateSpaces, NSScreen.screens.count > 1, panel.isVisible,
+        // Läuft bei jedem Bild des Ziehens: die billige Prüfung zuerst
+        guard NSScreen.screens.count > 1, NSScreen.screensHaveSeparateSpaces, panel.isVisible,
               let home = panel.screen else { return hide() }
         let frame = panel.frame
         var best: NSRect?
@@ -53,6 +54,8 @@ final class SpanMirror {
 
     /// Weg damit; beim nächsten Wechsel entsteht ein frisches Bild
     func hide() {
+        // Ohne Spiegelung kommt das bei jedem Bild des Ziehens: dann nichts zu tun
+        guard window?.isVisible == true || snapshot != nil || image.contents != nil else { return }
         window?.orderOut(nil)
         snapshot = nil
         image.contents = nil

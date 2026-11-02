@@ -232,7 +232,9 @@ final class ShelfStore: ObservableObject {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         baseDir = baseDirectory ?? support.appendingPathComponent("BarDrop", isDirectory: true)
         itemsDir = baseDir.appendingPathComponent("Items", isDirectory: true)
-        Self.currentItemsDir = itemsDir
+        // Nur die echte Ablage: Die Stores der Einführung lenkten sonst die Suche nach
+        // verschobenen eigenen Kopien (`locate`) in ihren temporären Ordner
+        if baseDirectory == nil { Self.currentItemsDir = itemsDir }
         dbURL = baseDir.appendingPathComponent("shelf.json")
         try? FileManager.default.createDirectory(at: itemsDir, withIntermediateDirectories: true)
         importer = ContentImporter(storage: itemsDir, convertImages: AppSettings.shared.convertWebImages)
@@ -621,8 +623,8 @@ final class ShelfStore: ObservableObject {
                 let inShelf = Set(shelfFiles.map(\.url.standardizedFileURL))
                 let outside = mapping.keys.filter { !inShelf.contains($0) }.sorted { $0.path < $1.path }
                 let extra = outside.map { url -> ShelfRemoval.Item in
-                    var file = ShelfFile(url: url, owned: false)
-                    file.bookmark = nil
+                    // Ohne Lesezeichen: Für eine Datei im Papierkorb wäre es gleich wieder verworfen
+                    let file = ShelfFile(listed: url, id: UUID())
                     return ShelfRemoval.Item(index: 0, before: ShelfEntry(files: [file]))
                 }
                 if !intoShelf {

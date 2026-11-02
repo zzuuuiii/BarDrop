@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import CryptoKit
 import UniformTypeIdentifiers
 
 /// Verlauf der Zwischenablage (Nutzer, 31.10.2026): Was kopiert wird, landet als Datei in
@@ -105,7 +106,9 @@ final class ClipboardHistory {
         }
         let snapshot = PasteboardSnapshot(pasteboard)
         if let (data, ext) = snapshot.image ?? snapshot.objectImage {
-            let signature = "image:\(data.count):\(data.prefix(64).base64EncodedString())"
+            // Prüfsumme über alles: Zwei verschiedene, gleich große TIFF-Bilder haben dieselbe
+            // Länge und denselben Anfang und galten vorher als dasselbe Bild
+            let signature = "image:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
             guard signature != lastSignature else { return }
             let name = snapshot.suggestedImageName ?? L("Image", "Bild")
             if write(data, name: "\(Self.baseName(name)).\(ext)") { finishRecord(signature) }

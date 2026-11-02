@@ -223,6 +223,9 @@ final class PluginRuntime {
         lock.lock(); self.completion = completion; lock.unlock()
         try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
         queue.async { [self] in
+            // Schon vor dem Start abgebrochen: das Skript gar nicht erst ausführen (sonst konnte
+            // es noch in die Zwischenablage schreiben, bis der Wächter es stoppte)
+            guard !isFinished else { return }
             Self.changeBusy(1)
             defer { Self.changeBusy(-1) }
             let vm = JSVirtualMachine()

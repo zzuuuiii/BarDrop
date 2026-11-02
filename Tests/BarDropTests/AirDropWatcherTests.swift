@@ -19,4 +19,16 @@ final class AirDropWatcherTests: XCTestCase {
         XCTAssertEqual(setxattr(file.path, "com.apple.quarantine", value, value.utf8.count, 0, 0), 0)
         XCTAssertEqual(AirDropWatcher.quarantineAgent(file), "sharingd")
     }
+
+    /// Ein empfangener Ordner gilt erst als fertig, wenn sein Inhalt nicht mehr wächst: Dafür
+    /// zählt die Größe aller Dateien darin, nicht die des Ordners selbst
+    func testFolderSizeGrowsWithContent() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("airdrop-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder.appendingPathComponent("sub"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try Data(count: 100).write(to: folder.appendingPathComponent("a.bin"))
+        XCTAssertEqual(AirDropWatcher.folderSize(folder), 100)
+        try Data(count: 50).write(to: folder.appendingPathComponent("sub/b.bin"))
+        XCTAssertEqual(AirDropWatcher.folderSize(folder), 150)
+    }
 }

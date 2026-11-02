@@ -258,6 +258,13 @@ final class Updater: ObservableObject {
                           "BarDrop läuft gerade direkt aus dem Download. Zieh BarDrop zuerst in den Ordner „Programme“ und starte es von dort."))
             return
         }
+        // Ohne Schreibrecht im Ordner scheitert der Austausch ohnehin: dann gar nicht erst
+        // die DMG laden (sonst lud das stille Update sie bei jeder Suche erneut)
+        let folder = target.deletingLastPathComponent()
+        guard FileManager.default.isWritableFile(atPath: folder.path) else {
+            return fail(L("No permission to write to the folder “\(folder.lastPathComponent)”.",
+                          "Keine Schreibrechte im Ordner „\(folder.lastPathComponent)“."), release)
+        }
         state = .installing
         URLSession.shared.downloadTask(with: release.dmg) { [weak self] location, _, error in
             guard let self else { return }

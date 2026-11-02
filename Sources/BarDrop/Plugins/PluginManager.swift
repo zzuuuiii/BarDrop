@@ -112,15 +112,19 @@ extension PluginCatalogEntry {
     /// So lange gilt ein Plugin in der Galerie als neu (Nutzerwunsch: zwei Monate)
     static let newPeriod: TimeInterval = 61 * 24 * 3600
 
-    /// Neu in der Galerie: höchstens zwei Monate seit `added`. Ältere Kataloge ohne `added`
-    /// nehmen das Datum der Version
-    var isNew: Bool {
-        guard let text = added ?? updated else { return false }
+    /// Einmal angelegt: `isNew` fragt jede Zeile der Galerie bei jedem Neuzeichnen
+    private static let dayFormat: DateFormatter = {
         let format = DateFormatter()
         format.locale = Locale(identifier: "en_US_POSIX")
         format.timeZone = TimeZone(identifier: "UTC")
         format.dateFormat = "yyyy-MM-dd"
-        guard let date = format.date(from: text) else { return false }
+        return format
+    }()
+
+    /// Neu in der Galerie: höchstens zwei Monate seit `added`. Ältere Kataloge ohne `added`
+    /// nehmen das Datum der Version
+    var isNew: Bool {
+        guard let text = added ?? updated, let date = Self.dayFormat.date(from: text) else { return false }
         return Date().timeIntervalSince(date) < Self.newPeriod
     }
 }
@@ -324,8 +328,11 @@ final class PluginManager: ObservableObject {
         }
         // Neue Versionen aus der Galerie kommen von selbst (kein Knopf mehr): alle paar Stunden
         // eine kleine Abfrage (index.json, wenige KB)
+        // Mit etwas Spielraum: `lastSync` steht erst nach der Antwort fest, liegt also kurz
+        // nach dem letzten Takt. Mit genau `syncInterval` galt der nächste Takt oft noch als
+        // zu früh, und abgeglichen wurde nur jedes zweite Mal (alle 6 statt 3 Stunden)
         syncTimer = Timer.scheduledTimer(withTimeInterval: Self.syncInterval, repeats: true) { [weak self] _ in
-            self?.syncCatalog(maxAge: Self.syncInterval)
+            self?.syncCatalog(maxAge: Self.syncInterval - 900)
         }
         syncTimer?.tolerance = 600
     }
@@ -996,9 +1003,14 @@ final class PluginManager: ObservableObject {
     func resetAll() {
         for id in states.keys {
             update(id) { s in
-                let standard = s.isStandard
+                // Herkunft und Ordner, die schon vor dem Plugin da waren, sind keine
+                // Einstellungen: Ohne `foreignInstalls` löschte „Mit Programmen entfernen“
+                // danach auch diese Ordner, ohne `fromCatalog` kämen keine Updates mehr
+                let kept = s
                 s = PluginState()
-                s.isStandard = standard
+                s.isStandard = kept.isStandard
+                s.fromCatalog = kept.fromCatalog
+                s.foreignInstalls = kept.foreignInstalls
             }
         }
     }

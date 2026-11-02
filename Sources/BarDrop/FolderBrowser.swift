@@ -207,6 +207,10 @@ final class FolderBrowser: ObservableObject {
                 case .success(let files):
                     listed = files
                     if self.accessDenied { self.accessDenied = false }
+                    // Kam ein Neuladen dem ersten Lesen zuvor (oder war der Zugriff vorher
+                    // verweigert), hat noch niemand den Ordner beobachtet: Er änderte sich
+                    // dann nie mehr von selbst
+                    if self.watcher == nil { self.watch(folder) }
                 case .failure(let error) where Self.isDenied(error):
                     return self.denied(error)
                 case .failure(let error):

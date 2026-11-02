@@ -76,6 +76,11 @@ final class PluginTests: XCTestCase {
         XCTAssertThrowsError(try newer.validate(appVersion: "1.31.0-beta.1"))
         let badID = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(id: "../evil").utf8))
         XCTAssertThrowsError(try badID.validate(appVersion: "1.31.0"))
+        // „$“ passte auch vor einem Zeilenumbruch am Ende: Kennung und Version mit „\n“ galten
+        let newlineID = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(id: "io.github.test.sample\\n").utf8))
+        XCTAssertThrowsError(try newlineID.validate(appVersion: "1.31.0"))
+        let newlineVersion = try JSONDecoder().decode(PluginManifest.self, from: Data(manifestJSON(version: "1.0\\n").utf8))
+        XCTAssertThrowsError(try newlineVersion.validate(appVersion: "1.31.0"))
     }
 
     /// Höchstens 100 Zeichen je Sprache; zu lang blockiert nur den Import neuer Versionen, nicht `validate`
@@ -161,6 +166,23 @@ final class PluginTests: XCTestCase {
         let file = base.appendingPathComponent("p-\(UUID().uuidString).bdrop")
         try PluginPackage.pack(makePluginFolder(permissions: permissions, script: script), to: file)
         return try manager.install(try manager.inspect(file), standard: false)
+    }
+
+    /// „Alle Einstellungen zurücksetzen“ schaltet aus, behält aber Herkunft und Ordner, die
+    /// schon vor dem Plugin da waren (sonst löschte „Mit Programmen entfernen“ sie danach)
+    func testResetAllKeepsOriginAndForeignFolders() throws {
+        let manager = PluginManager(baseDirectory: base.appendingPathComponent("support"), appVersion: "1.31.0")
+        let plugin = try installed(manager, script: "function run(item) {}")
+        manager.update(plugin.id) { s in
+            s.enabled = true
+            s.fromCatalog = true
+            s.foreignInstalls = ["~/.cache/mytool"]
+        }
+        manager.resetAll()
+        let state = manager.state(plugin.id)
+        XCTAssertFalse(state.enabled)
+        XCTAssertTrue(state.fromCatalog)
+        XCTAssertEqual(state.foreignInstalls, ["~/.cache/mytool"])
     }
 
     func testInstallRemoveAndPermissionsResetAfterEdit() throws {

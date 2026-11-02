@@ -14,6 +14,8 @@ enum Thumbnails {
     }()
     /// Laufende Anfragen und wer auf sie wartet (nur auf dem Hauptthread)
     private static var pending: [String: [(NSImage?) -> Void]] = [:]
+    /// Kennung der laufenden Anfrage je Schlüssel (für das Sicherheitsnetz in `load`)
+    private static var pendingToken: [String: UUID] = [:]
     /// Schlüssel, für die schon das scharfe Vorschaubild im Speicher liegt (Hauptthread)
     private static var sharp = Set<String>()
 
@@ -139,8 +141,13 @@ enum Thumbnails {
             return
         }
         pending[k] = [completion]
-        // Sicherheitsnetz: Meldet Quick Look sich nicht mehr, warten Anfragen nicht ewig
+        let token = UUID()
+        pendingToken[k] = token
+        // Sicherheitsnetz: Meldet Quick Look sich nicht mehr, warten Anfragen nicht ewig. Nur
+        // für diese Anfrage; eine spätere für dieselbe Datei hat ihr eigenes
         DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            guard pendingToken[k] == token else { return }
+            pendingToken[k] = nil
             pending.removeValue(forKey: k)?.forEach { $0(cache.object(forKey: k as NSString)) }
         }
         let request = QLThumbnailGenerator.Request(fileAt: url,
@@ -166,10 +173,15 @@ enum Thumbnails {
                         let noPreviewKind = (error as NSError).domain == QLThumbnailError.errorDomain
                             && (error as NSError).code == QLThumbnailError.Code.generationFailed.rawValue
                             && !ThumbnailView.expectsPreview(url)
+                        // Cloud-Datei noch nicht geladen: Symbol, nach 10 Minuten neuer Versuch
+                        let cloudOnly = (error as NSError).domain == QLThumbnailError.errorDomain
+                            && (error as NSError).code == QLThumbnailError.noCloudThumbnail.rawValue
                         if harmless {
                             Diagnostics.shared.record("thumb", base + " (normal: keine schnelle Vorschau zwischengespeichert)")
                         } else if noPreviewKind {
                             Diagnostics.shared.record("thumb", base + " (normal: für diese Art Datei gibt es kein Vorschaubild, Symbol)")
+                        } else if cloudOnly {
+                            Diagnostics.shared.record("thumb", base + " (normal: Cloud-Datei noch nicht geladen, Symbol)")
                         } else {
                             Diagnostics.shared.failure("thumb", "Vorschau " + base, error)
                         }
@@ -183,6 +195,8 @@ enum Thumbnails {
                 // geladen sein
                 if type == .thumbnail, image == nil, let error = error as NSError?,
                    error.domain == QLThumbnailError.errorDomain {
+                    // Wie `prefetched` begrenzt; neu gefragt wird dann höchstens einmal
+                    if unavailable.count > 5000 { unavailable.removeAll() }
                     if error.code == QLThumbnailError.Code.generationFailed.rawValue {
                         unavailable[k] = .distantFuture
                     } else if error.code == QLThumbnailError.noCloudThumbnail.rawValue {
@@ -197,11 +211,15 @@ enum Thumbnails {
                         cache.setObject(image, forKey: k as NSString)
                         ThumbnailEvents.shared.changed()
                     }
-                    if type == .thumbnail { sharp.insert(k) }
+                    if type == .thumbnail {
+                        if sharp.count > 5000 { sharp.removeAll() }
+                        sharp.insert(k)
+                    }
                 }
                 // Wartende bekommen das erste echte Bild, spätestens die letzte Stufe
                 guard (image != nil && type != .icon) || type == .thumbnail,
                       let waiting = pending.removeValue(forKey: k) else { return }
+                pendingToken[k] = nil
                 waiting.forEach { $0(type == .icon ? nil : image) }
             }
         }

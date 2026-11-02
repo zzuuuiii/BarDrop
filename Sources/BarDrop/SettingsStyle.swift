@@ -1153,12 +1153,6 @@ struct SettingsHeader<Trailing: View>: View {
     }
 }
 
-extension SettingsHeader where Trailing == EmptyView {
-    init(_ title: String, info: String? = nil) {
-        self.init(title, info: info) { EmptyView() }
-    }
-}
-
 /// Kleines rundes Info-Symbol; ein Klick zeigt die Erklärung.
 struct InfoButton: View {
     let text: String

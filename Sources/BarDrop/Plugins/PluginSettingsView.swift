@@ -1374,15 +1374,6 @@ struct PluginConnectivity {
 
     var usesNetwork: Bool { permissions.contains(.network) }
 
-    var text: String {
-        if usesNetwork { return L("Connects to the internet", "Verbindet sich mit dem Internet") }
-        if !tools.isEmpty {
-            return L("Downloads \(tools.joined(separator: ", ")) once, then runs locally",
-                     "Lädt einmal \(tools.joined(separator: ", ")), läuft dann lokal")
-        }
-        return L("Runs locally", "Läuft lokal")
-    }
-
     /// Kurz für die Zeilen der Galerie
     var short: String {
         if usesNetwork { return L("Internet", "Internet") }
@@ -1427,18 +1418,6 @@ enum PluginSize {
         return total
     }
 
-    /// Installiert, getrennt: „Plugin 38 KB · Programme 92 MB“ (nur „Plugin …“ ohne
-    /// Programme; „Programme noch nicht geladen“, solange sie fehlen)
-    static func summary(of plugin: InstalledPlugin, tools: PluginTools) -> String {
-        let own = L("Plugin ", "Plugin ") + text(folder(plugin.directory))
-        let declared = plugin.manifest.tools ?? []
-        guard !declared.isEmpty else { return own }
-        let installed = declared.compactMap { tools.installed($0) }
-        guard !installed.isEmpty else { return own + " · " + L("programs not downloaded yet", "Programme noch nicht geladen") }
-        let programs = installed.reduce(Int64(0)) { $0 + folder($1.deletingLastPathComponent()) }
-        return own + " · " + programsLabel(declared.count) + " " + text(programs)
-    }
-
     /// Galerie, vor dem Laden: „14 KB“ oder, mit Programmen, „8 KB + 61 MB“ (das Zeichen
     /// und „Programm“ davor nennt die Zeile schon; ohne bekannte Größe nur „8 KB“)
     static func catalogText(_ entry: PluginCatalogEntry) -> String? {
@@ -1471,10 +1450,6 @@ enum PluginSize {
                           programs: folders.isEmpty ? nil : folders.reduce(Int64(0)) { $0 + folder($1) })
         known[key] = parts
         return parts
-    }
-
-    private static func programsLabel(_ count: Int) -> String {
-        count == 1 ? L("Program", "Programm") : L("Programs", "Programme")
     }
 }
 

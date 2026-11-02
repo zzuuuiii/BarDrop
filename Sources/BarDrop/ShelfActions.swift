@@ -196,14 +196,6 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         announce(L("Unzipped", "Entpackt"))
     }
 
-    func reveal(_ entries: [ShelfEntry]) {
-        reveal(entries.flatMap(\.urls))
-    }
-
-    func copy(_ entries: [ShelfEntry]) {
-        Self.copyFiles(entries.flatMap(\.urls))
-    }
-
     /// Legt die Dateien selbst in die Zwischenablage (zum Einfügen im Finder, in Mail …).
     static func copyFiles(_ urls: [URL]) {
         guard !urls.isEmpty else { return }

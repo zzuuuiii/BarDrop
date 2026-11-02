@@ -539,12 +539,8 @@ final class ShelfStore: ObservableObject {
         }
     }
 
-    /// Eine Datei wurde verschoben (z. B. über eine Ordner-Aktion): Verweis aktualisieren.
-    /// Die Datei gehört danach dem Nutzer und wird beim Entfernen nicht gelöscht.
-    func relocate(_ old: URL, to new: URL) {
-        relocate([(old, new)])
-    }
-
+    /// Dateien wurden verschoben (z. B. über eine Ordner-Aktion): Verweise aktualisieren.
+    /// Die Dateien gehören danach dem Nutzer und werden beim Entfernen nicht gelöscht.
     /// Mehrere Verschiebungen auf einmal: `entries` wird nur einmal gesetzt, also nur einmal
     /// gespeichert und neu gezeichnet (vorher dreimal je Datei, bei 200 Dateien 600-mal)
     func relocate(_ moves: [(URL, URL)]) {

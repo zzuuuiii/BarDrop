@@ -34,7 +34,7 @@
       "homepage": "https://github.com/zzuuuiii/BarDrop/blob/main/docs/PLUGINS.md",
       "minAppVersion": "1.31.0",
       "toolsSize": 35435336,
-      "downloads": 1
+      "downloads": 2
     },
     {
       "id": "io.github.richard2007-21.convert",
@@ -73,7 +73,7 @@
       "homepage": "https://github.com/C4illin/ConvertX",
       "minAppVersion": "1.31.0",
       "toolsSize": 291188992,
-      "downloads": 3
+      "downloads": 7
     },
     {
       "id": "io.github.richard2007-21.gif",
@@ -105,7 +105,7 @@
       "author": "zzuuuiii",
       "minAppVersion": "1.31.0",
       "toolsSize": 45568216,
-      "downloads": 1
+      "downloads": 4
     },
     {
       "id": "io.github.richard2007-21.stems",
@@ -133,7 +133,7 @@
       },
       "author": "Richard",
       "minAppVersion": "1.31.0",
-      "downloads": 6,
+      "downloads": 7,
       "removed": true
     },
     {
@@ -162,7 +162,7 @@
       "homepage": "https://github.com/zzuuuiii/BarDrop",
       "minAppVersion": "1.31.0",
       "category": "links",
-      "downloads": 2,
+      "downloads": 3,
       "removed": true
     },
     {
@@ -195,7 +195,7 @@
       "author": "zzuuuiii",
       "minAppVersion": "1.31.0",
       "toolsSize": 91097024,
-      "downloads": 11
+      "downloads": 15
     }
   ]
 }

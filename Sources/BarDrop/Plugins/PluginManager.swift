@@ -13,7 +13,6 @@ struct InstalledPlugin: Identifiable, Equatable {
 
     var id: String { manifest.id }
     var scriptURL: URL { directory.appendingPathComponent(manifest.script) }
-    var manifestURL: URL { directory.appendingPathComponent("manifest.json") }
 
     static func == (a: InstalledPlugin, b: InstalledPlugin) -> Bool {
         a.id == b.id && a.fingerprint == b.fingerprint && a.isStandard == b.isStandard
@@ -621,18 +620,6 @@ final class PluginManager: ObservableObject {
             s.consented = false
             s.consentedText = nil
         }
-    }
-
-    /// Reihenfolge ändern (nur innerhalb von Standard- bzw. importierten Plugins)
-    func move(_ id: String, by offset: Int) {
-        guard let i = plugins.firstIndex(where: { $0.id == id }) else { return }
-        let j = i + offset
-        guard plugins.indices.contains(j), plugins[i].isStandard == plugins[j].isStandard else { return }
-        var list = plugins
-        list.swapAt(i, j)
-        plugins = list
-        order = list.map(\.id)
-        saveState()
     }
 
     /// Reihenfolge nur unter den automatischen Plugins (Einstellungen → Plugins →

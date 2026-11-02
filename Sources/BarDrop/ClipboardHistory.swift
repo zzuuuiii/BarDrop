@@ -43,7 +43,6 @@ final class ClipboardHistory {
         lastChange = pasteboard.changeCount
     }
 
-    var isRunning: Bool { timer != nil }
 
     /// Folgt dem Schalter in den Einstellungen
     func follow(_ settings: AppSettings) {

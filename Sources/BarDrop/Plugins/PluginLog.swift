@@ -107,13 +107,4 @@ final class PluginLog {
             NSSound.beep()
         }
     }
-
-    /// In der App Konsole öffnen (oder der App, die .log-Dateien öffnet)
-    func reveal() {
-        flush()
-        if !FileManager.default.fileExists(atPath: logURL.path) {
-            FileManager.default.createFile(atPath: logURL.path, contents: nil)
-        }
-        NSWorkspace.shared.open(logURL)
-    }
 }

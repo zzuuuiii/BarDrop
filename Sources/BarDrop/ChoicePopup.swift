@@ -61,23 +61,6 @@ final class ChoicePopup: NSPanel {
         current = popup
     }
 
-    /// Ablage: Menü am Zeiger, wie ein Rechtsklick-Menü. `onClose` nach dem Schließen.
-    static func present(_ menu: NSMenu, at point: NSPoint, parent: NSWindow, onClose: @escaping () -> Void) {
-        current?.dismiss()
-        let popup = make(menu, minWidth: 180)
-        popup.onClose = onClose
-        let size = popup.frame.size
-        var x = point.x + 2
-        var y = point.y - size.height - 2
-        if let area = (parent.screen ?? NSScreen.main)?.visibleFrame {
-            if y < area.minY + 8 { y = point.y + 2 }
-            if x + size.width > area.maxX - 8 { x = point.x - size.width - 2 }
-        }
-        popup.show(at: NSPoint(x: x, y: y), parent: parent)
-        popup.watch(parent: parent, closeWhenParentResigns: false)
-        current = popup
-    }
-
     private static func make(_ menu: NSMenu, minWidth: CGFloat) -> ChoicePopup {
         let popup = ChoicePopup(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
                                 backing: .buffered, defer: false)

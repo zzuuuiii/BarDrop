@@ -797,7 +797,7 @@ struct ShelfContent: View {
                 .foregroundStyle(Color.primary.opacity(0.45))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 20)
-            Button(L("Open System Settings", "Systemeinstellungen öffnen")) { FolderBrowser.openPrivacySettings() }
+            Button(L("Open System Settings", "Systemeinstellungen öffnen")) { FolderAccess.openPrivacySettings() }
                 .controlSize(.small)
         }
     }

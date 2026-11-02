@@ -10,16 +10,15 @@ import SwiftUI
 /// Material: Liquid Glass (ab macOS 26), von Anfang an bis zum Andocken. Es kostete beim Ziehen
 /// Bilder, solange das Fenster erst beim Lösen eingehängt und weich ein- und ausgeblendet wurde
 /// (Diagnose 27.10.2026, Aussetzer bis 160 ms); beides fällt jetzt weg (siehe EdgeController
-/// prepareGlassWindow, syncGlassWindow). Der Blur (blurView) dient vor macOS 26 und bleibt
-/// mit setMaterial für einen Wechsel erhalten.
+/// prepareGlassWindow, syncGlassWindow). Der Blur (blurView) dient vor macOS 26.
 final class ShelfGlassWindow: NSPanel {
-    /// Blur: während der Bewegung (und vor macOS 26 immer)
+    /// Blur: vor macOS 26 (ab macOS 26 nur noch für die Tönung „Manuell“, siehe setManualTint)
     private let blurView = NSVisualEffectView()
-    /// Liquid Glass: in Ruhe, erst bei Bedarf angelegt
+    /// Liquid Glass, erst bei Bedarf angelegt
     private var glassView: NSView?
 
-    enum Material { case blur, glass }
-    private(set) var material: Material = .blur
+    /// Liquid Glass ist eingesetzt (siehe useGlass)
+    private var usesGlass = false
 
     convenience init() {
         self.init(contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
@@ -64,45 +63,24 @@ final class ShelfGlassWindow: NSPanel {
         }
     }
 
-    /// Material wechseln: Blur zum Ziehen, Liquid Glass in Ruhe. Weich übergeblendet, damit die
-    /// Lichtkante des Glases nicht aufspringt; beim Anfassen schnell, damit die Bewegung gleich
-    /// ohne Liquid Glass läuft.
-    func setMaterial(_ new: Material, animated: Bool) {
-        guard new != material else { return }
-        material = new
+    /// Liquid Glass einsetzen (ab macOS 26; davor bleibt der Blur). Früher wechselte das
+    /// Begleitfenster weich zwischen Blur und Glas; das kostete beim Ziehen Bilder und fiel weg
+    /// (Diagnose 27.10.2026), seitdem gibt es nur noch diesen einen Wechsel, ohne Überblendung
+    func useGlass() {
+        guard !usesGlass else { return }
+        usesGlass = true
         guard #available(macOS 26.0, *) else { return }
-        if new == .glass, glassView == nil {
-            let glass = NSGlassEffectView()
-            glass.cornerRadius = EdgeTear.cornerRadius
-            // Dunkel: etwas Tönung im Glas selbst, so hell wie der Blur beim Ziehen (und wie das
-            // Glas mit der früheren Tönung 0,5 der Ablage); hell ohne
-            glass.tintColor = nil
-            glass.wantsLayer = true
-            glass.frame = blurView.frame
-            glass.alphaValue = 0
-            contentView?.addSubview(glass, positioned: .above, relativeTo: blurView)
-            glassView = glass
-        }
-        guard let glass = glassView else { return }
-        let glassAlpha: CGFloat = new == .glass ? 1 : 0
-        // Unsichtbares Liquid Glass ganz ausblenden (isHidden), nicht nur auf Deckkraft 0: Sonst
-        // rechnet der Fensterserver es bei jeder Bewegung weiter mit
-        glass.isHidden = false
-        if animated {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = new == .glass ? 0.35 : 0.12
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                glass.animator().alphaValue = glassAlpha
-                blurView.animator().alphaValue = 1 - glassAlpha
-            }, completionHandler: { [weak self] in
-                guard let self, self.material == .blur else { return }
-                glass.isHidden = true
-            })
-        } else {
-            glass.alphaValue = glassAlpha
-            blurView.alphaValue = 1 - glassAlpha
-            glass.isHidden = new == .blur
-        }
+        let glass = NSGlassEffectView()
+        glass.cornerRadius = EdgeTear.cornerRadius
+        // Dunkel: etwas Tönung im Glas selbst, so hell wie der Blur beim Ziehen (und wie das
+        // Glas mit der früheren Tönung 0,5 der Ablage); hell ohne
+        glass.tintColor = nil
+        glass.wantsLayer = true
+        glass.frame = blurView.frame
+        contentView?.addSubview(glass, positioned: .above, relativeTo: blurView)
+        glassView = glass
+        glass.alphaValue = 1
+        blurView.alphaValue = 0
     }
 
     override var canBecomeKey: Bool { false }
@@ -184,18 +162,9 @@ final class ShelfGlassWindow: NSPanel {
     /// Zuletzt gesetzte Maske (Größe, Radius, Seite)
     private var cornerKey = ""
 
-    /// Ein- und ausblenden (0 bis 1), auf Wunsch weich
-    func show(_ amount: CGFloat, duration: TimeInterval = 0) {
-        let target = max(0, min(1, amount))
-        if duration > 0 {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = duration
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                animator().alphaValue = target
-            }
-        } else {
-            alphaValue = target
-        }
+    /// Ein- und ausblenden (0 bis 1), sofort
+    func show(_ amount: CGFloat) {
+        alphaValue = max(0, min(1, amount))
     }
 
     /// Ganz weg und vom Fenster der Ablage gelöst

@@ -16,15 +16,6 @@ enum Thumbnails {
     private static var pending: [String: [(NSImage?) -> Void]] = [:]
     /// Kennung der laufenden Anfrage je Schlüssel (für das Sicherheitsnetz in `load`)
     private static var pendingToken: [String: UUID] = [:]
-    /// Schlüssel, für die schon das scharfe Vorschaubild im Speicher liegt (Hauptthread)
-    private static var sharp = Set<String>()
-
-    /// Liegt das scharfe Vorschaubild schon vor (nicht nur das schnelle)?
-    static func isSharp(_ url: URL, size: CGFloat) -> Bool {
-        // Nur, solange das Bild noch im Zwischenspeicher liegt (er kann es verdrängt haben)
-        let k = key(url, size: size)
-        return sharp.contains(k) && cache.object(forKey: k as NSString) != nil
-    }
 
     private static func key(_ url: URL, size: CGFloat) -> String {
         let path = url.standardizedFileURL.path
@@ -215,10 +206,6 @@ enum Thumbnails {
                         NotificationCenter.default.post(name: imageStored, object: url.standardizedFileURL.path)
                         ThumbnailEvents.shared.changed()
                     }
-                    if type == .thumbnail {
-                        if sharp.count > 5000 { sharp.removeAll() }
-                        sharp.insert(k)
-                    }
                 }
                 // Wartende bekommen das erste echte Bild, spätestens die letzte Stufe
                 guard (image != nil && type != .icon) || type == .thumbnail,
@@ -308,9 +295,11 @@ struct ThumbnailView: View {
     }
 
     var body: some View {
-        // Schon im Zwischenspeicher (vorab geladen), auch wenn das eigene Laden noch nicht lief
+        // Der Zwischenspeicher hat immer das beste Bild (das scharfe ersetzt das schnelle) und
+        // auch vorab geladene, für die das eigene Laden noch nicht lief. `image` nur, falls er es
+        // verdrängt hat. Kommt ein neues Bild, zeichnet `stored` diese Kachel neu
         let _ = stored
-        let shown = image ?? Thumbnails.cached(url, size: size)
+        let shown = Thumbnails.cached(url, size: size) ?? image
         let preview = isPreview || (image == nil && shown != nil)
         Image(nsImage: shown ?? Thumbnails.icon(url))
             .resizable()
@@ -325,7 +314,10 @@ struct ThumbnailView: View {
             // Öffnen einer vollen Ablage also jede Kachel so oft, wie es Bilder gab
             .onReceive(NotificationCenter.default.publisher(for: Thumbnails.imageStored)) { note in
                 // Nur diese Kachel neu zeichnen; der Inhalt kommt wie bisher aus dem Zwischenspeicher
-                if note.object as? String == path { stored &+= 1 }
+                guard note.object as? String == path else { return }
+                stored &+= 1
+                // Schon ein Bild gemerkt: das neue (scharfe) übernehmen, falls der Speicher es später verdrängt
+                if image != nil, let newer = Thumbnails.cached(url, size: size) { image = newer }
             }
             // Spätestens nach kurzer Zeit das Symbol zeigen, falls Quick Look länger braucht.
             // Bilder, PDFs und Videos bekommen fast immer gleich ein Vorschaubild: etwas länger
@@ -357,15 +349,9 @@ struct ThumbnailView: View {
                         reveal()
                         // War die Kachel schon zu sehen, kam nur das Bild dazu
                         if wasShown { NotificationCenter.default.post(name: Thumbnails.didChange, object: nil) }
-                        // Erst das schnelle Bild: kurz darauf das scharfe übernehmen
-                        for _ in 0..<12 where !Thumbnails.isSharp(url, size: size) {
-                            try? await Task.sleep(nanoseconds: 250_000_000)
-                            if Task.isCancelled { return }
-                        }
-                        if let sharp = Thumbnails.cached(url, size: size), sharp !== found {
-                            image = sharp
-                            NotificationCenter.default.post(name: Thumbnails.didChange, object: nil)
-                        }
+                        // Das scharfe Bild folgt dem schnellen von selbst: Es landet im
+                        // Zwischenspeicher, und `imageStored` zeichnet die Kachel neu. Früher
+                        // fragte hier eine Schleife drei Sekunden lang alle 250 ms nach
                         return
                     }
                     // Erster Versuch ohne echtes Vorschaubild: Symbol zeigen, außer bei Dateien,

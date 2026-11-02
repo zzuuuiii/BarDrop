@@ -1037,7 +1037,7 @@ final class EdgeController: NSObject {
         // Menüverfolgung und könnte sie stören (die Markierung springt dann verspätet).
         // Die Ablage bleibt dabei ohnehin offen.
         if ui.menuOpen { return }
-        endResizeIfReleased()
+        releaseStaleHolds()
         // Während die Ablage gezogen wird, steuert das Ziehen (tearTick) alles; schwebt sie,
         // gibt es keinen Rand, nur Maus und Fokus über ihr
         if let drag = tearDrag {
@@ -1094,10 +1094,6 @@ final class EdgeController: NSObject {
         let dragCount = dragPasteboard.changeCount
         if !mouseDown { dragBaseline = dragCount }
         let dragging = mouseDown && dragCount != dragBaseline && (ui.ownDragActive || hasDroppableContent())
-
-        // Auswahlrahmen: Ist die Maustaste los, ohne dass die Ablage das gemerkt hat
-        // (z. B. außerhalb losgelassen), ist er vorbei
-        if ui.bandActive && !mouseDown { ui.bandActive = false }
 
         if pendingResignFocus && !ui.ownDragActive {
             resignFocus()
@@ -1247,12 +1243,8 @@ final class EdgeController: NSObject {
         let expandedBody = bodyRect(.expanded, on: screen)
         ui.expandedBody = expandedBody
         let quickLookVisible = actions.isQuickLookVisible
-        // Aktion mit ⌘ gezogen, aber keine Taste mehr gedrückt: Ihr Loslassen ist nicht
-        // angekommen. Sonst bliebe die Ablage gesperrt offen, bis man erneut eine Aktion zieht
-        // (Nutzer, 25.10.2026: nach dem Wechsel in die andere Reihe)
-        if ui.actionMoving && !mouseDown { ui.actionMoving = false }
         // Beim Ändern der Größe läuft der Zeiger über die Ablage hinaus: Sie bleibt offen
-        let locked = ui.isLocked || quickLookVisible || cornerResize != nil
+        let locked = holdsOpen
         // Übersicht geschlossen: Steht der Zeiger außerhalb der Ablage, schließt sie wie sonst
         // nach kurzer Zeit. Die Frist beginnt erst jetzt, so trifft eine schnell folgende
         // Leertaste noch die Ablage und öffnet die Übersicht wieder.
@@ -1307,8 +1299,7 @@ final class EdgeController: NSObject {
                                           && !fullScreenFrames.contains(screen.frame),
                                       openMode: settings.openMode,
                                       openDelay: settings.openDelay,
-                                      generousHitArea: settings.generousHitArea,
-                                      exactPointer: settings.exactPointer)
+                                      generousHitArea: settings.generousHitArea)
         logic.level = ui.level
         let result = EdgeLogic.decide(&logic, sample, config)
         if result.haptic { Haptics.tap() }   // erster Streifen oder Datei erreicht die Ablage
@@ -1326,7 +1317,6 @@ final class EdgeController: NSObject {
         // Datei beim Loslassen in der App dahinter.
         // Nur im Bereich der Ablage selbst, damit Drops in Fenster daneben ungestört bleiben
         let catchesThrow = dragging && !ui.ownDragActive
-            && !config.exactPointer
             && onScreen && !innerEdge && dx < config.dragExpand.distance
             && expandedBody.insetBy(dx: 0, dy: -12).contains(loc)
         // Fährt der Zeiger in die offene Ablage, bekommt sie den Tastaturfokus, auch wenn sie
@@ -1490,6 +1480,25 @@ extension EdgeController {
     /// Das Loslassen beim Ändern der Größe kam nicht an (Mission Control, App-Wechsel, Bildschirmfoto):
     /// wie beim Loslassen beenden. Sonst blieb die Ablage gesperrt offen, und ein späteres Ziehen
     /// ohne ⌘ änderte weiter ihre Größe
+    /// Die Ablage hält etwas offen: Menü, Teilen, Auswahlrahmen, ⌘-Verschieben einer Aktion
+    /// (ui.isLocked), die Übersicht oder ⌘-Ändern der Größe
+    private var holdsOpen: Bool { ui.isLocked || actions.isQuickLookVisible || cornerResize != nil }
+
+    /// Gerade läuft etwas, das keine neue Geste (Abziehen, Größe ändern) beginnen lässt
+    private var gestureBlocked: Bool { ui.isLocked || ui.ownDragActive || actions.isQuickLookVisible }
+
+    /// Maustaste los, ohne dass das Loslassen ankam (Mission Control, App-Wechsel,
+    /// Bildschirmfoto, außerhalb losgelassen): alles, was nur bis zum Loslassen gilt, an einer
+    /// Stelle beenden. Sonst blieb die Ablage gesperrt offen (Nutzer, 25.10.2026: Aktion nach
+    /// dem Wechsel in die andere Reihe). Vorher stand das je Zustand einzeln im Takt, beim
+    /// Schweben nur für die Größe: Ein hängender Auswahlrahmen hielt dort den Takt für immer wach
+    private func releaseStaleHolds() {
+        guard (NSEvent.pressedMouseButtons & 1) == 0 else { return }
+        if ui.bandActive { ui.bandActive = false }
+        if ui.actionMoving { ui.actionMoving = false }
+        endResizeIfReleased()
+    }
+
     private func endResizeIfReleased() {
         guard let r = cornerResize, (NSEvent.pressedMouseButtons & 1) == 0 else { return }
         applyResize(r, at: NSEvent.mouseLocation, snap: true)
@@ -1502,8 +1511,7 @@ extension EdgeController {
     func resizeEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
-            guard event.modifierFlags.contains(.command), event.window === panel,
-                  !ui.isLocked, !ui.ownDragActive, !actions.isQuickLookVisible,
+            guard event.modifierFlags.contains(.command), event.window === panel, !gestureBlocked,
                   let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
             cornerResize = CornerResize(start: NSEvent.mouseLocation, width: settings.shelfWidth,
                                         height: settings.shelfHeight, handle: handle,
@@ -1656,8 +1664,7 @@ extension EdgeController {
             let p = NSEvent.mouseLocation
             if let drag = tearDrag {
                 guard drag.phase == .floating, event.window === panel, grabZone(drag.body).contains(p),
-                      !ui.isLocked, !ui.ownDragActive, !actions.isQuickLookVisible,
-                      hitsBackground(event) else { return event }
+                      !gestureBlocked, hitsBackground(event) else { return event }
                 drag.phase = .pending
                 drag.pendingFromFloating = true
                 drag.down = event
@@ -1740,8 +1747,7 @@ extension EdgeController {
             // Abziehen in der Einführung ging beim Nutzer nicht (31.10.2026): festhalten, woran es lag
             Diagnostics.shared.record("tear", "intro down level=\(ui.level) tear=\(ui.tear != nil) locked=\(ui.isLocked) ownDrag=\(ui.ownDragActive) ql=\(actions.isQuickLookVisible) modal=\(NSApp.modalWindow != nil) zone=\(grabZone(ui.expandedBody).contains(point)) background=\(hitsBackground(event)) body=\(ui.expandedBody) point=\(point)")
         }
-        guard ui.level == .expanded, ui.tear == nil, !ui.isLocked, !ui.ownDragActive,
-              !actions.isQuickLookVisible, IntroGate.allowsTear, !guideActive || intro,
+        guard ui.level == .expanded, ui.tear == nil, !gestureBlocked, IntroGate.allowsTear, !guideActive || intro,
               previewUntil == nil || intro, NSApp.modalWindow == nil else { return false }
         return grabZone(ui.expandedBody).contains(point) && hitsBackground(event)
     }
@@ -2119,7 +2125,7 @@ extension EdgeController {
                       edgeRadius: EdgeTear.edgeRadius(attach: ui.tear?.attach ?? 1))
         // Liquid Glass von Anfang an bis zum Andocken, ohne Wechsel (Nutzer, 27.10.2026). Flüssig
         // bleibt es, weil das Fenster schon hier eingehängt und nie überblendet wird
-        window.setMaterial(.glass, animated: false)
+        window.useGlass()
         window.setManualTint(manual ? settings.glassTint : nil)
         window.show(0)
     }
@@ -2465,13 +2471,13 @@ extension EdgeController {
     private func floatingIsCalm(_ drag: TearDrag) -> Bool {
         !pointerInside && !showsResizeCursor && !ui.grabberHover && !layoutDirty && !pendingResignFocus
             && (NSEvent.pressedMouseButtons & 1) == 0
-            && !ui.isLocked && !actions.isQuickLookVisible && cornerResize == nil && !ui.ownDragActive
+            && !gestureBlocked && cornerResize == nil
             && !isNearFloating(NSEvent.mouseLocation)
     }
 
     /// Schwebend: statt Rand und Takt nur Maus und Fokus über der Ablage
     func floatTick(_ drag: TearDrag) {
-        endResizeIfReleased()
+        releaseStaleHolds()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
@@ -2488,7 +2494,7 @@ extension EdgeController {
         }
         let body = drag.body
         ui.expandedBody = body
-        let locked = ui.isLocked || actions.isQuickLookVisible || cornerResize != nil
+        let locked = holdsOpen
         // Liegt etwas anderes darüber (Kontrollzentrum, Menüs anderer Apps), ist der Zeiger
         // nicht über der Ablage: sonst holte sie sich den Fokus und schloss das Kontrollzentrum
         let inside = body.contains(loc) && !coveredByOtherWindow(at: loc)

@@ -103,9 +103,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
     private func showMenu(with event: NSEvent) {
         onMouseDown([])
         guard let menu = menuProvider(self) else { return }
-        ui?.menuOpen = true
-        ShelfMenu.popUp(menu, with: event, for: self)
-        ui?.menuOpen = false
+        ShelfUIModel.keepOpen(ui) { ShelfMenu.popUp(menu, with: event, for: self) }
     }
 
     override func mouseDragged(with event: NSEvent) {

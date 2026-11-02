@@ -923,10 +923,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         alert.addButton(withTitle: L("Remove", "Entfernen"))
         alert.addButton(withTitle: L("Cancel", "Abbrechen"))
         alert.buttons.first?.hasDestructiveAction = true
-        ui?.menuOpen = true                 // Ablage bleibt offen, solange die Frage steht
-        AppActivation.activateKeepingWindows()
-        let answer = alert.runModal()
-        ui?.menuOpen = false
+        // Ablage bleibt offen, solange die Frage steht
+        let answer = ShelfUIModel.keepOpen(ui) {
+            AppActivation.activateKeepingWindows()
+            return alert.runModal()
+        }
         return answer == .alertFirstButtonReturn
     }
 

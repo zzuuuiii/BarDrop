@@ -12,12 +12,11 @@ enum PluginDialogs {
     /// Die Ablage bleibt offen, solange eine Frage steht
     @discardableResult
     static func run(_ alert: NSAlert, ui: ShelfUIModel?) -> NSApplication.ModalResponse {
-        ui?.menuOpen = true
-        // Die Einstellungen bleiben dabei, wo sie waren (Frage kam aus der Ablage)
-        AppActivation.activateKeepingWindows()
-        let answer = alert.runModal()
-        ui?.menuOpen = false
-        return answer
+        ShelfUIModel.keepOpen(ui) {
+            // Die Einstellungen bleiben dabei, wo sie waren (Frage kam aus der Ablage)
+            AppActivation.activateKeepingWindows()
+            return alert.runModal()
+        }
     }
 
     /// Alles, was ein Plugin noch braucht, in **einem** kurzen Fenster: Zustimmung zum

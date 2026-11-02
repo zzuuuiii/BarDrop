@@ -55,9 +55,7 @@ final class PluginTools {
             let dir = URL(fileURLWithPath: path, isDirectory: true)
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
                   let meta = try? JSONDecoder().decode(Meta.self, from: data),
-                  meta.url == tool.resolvedURL, meta.outdated != true else { continue }
-            if let pinned = tool.sha256, pinned.lowercased() != meta.sha256 { continue }
-            if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(max(days, 1)) * 86_400 { continue }
+                  Self.isCurrent(meta, for: tool) else { continue }
             let files = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
             guard let binary = files.first(where: { $0.lastPathComponent != "meta.json" && fm.isExecutableFile(atPath: $0.path) }),
                   PluginPackage.sha256(of: binary)?.lowercased() == meta.sha256 || tool.archive == "zip" else { continue }
@@ -124,12 +122,19 @@ final class PluginTools {
     func installed(_ tool: PluginTool) -> URL? {
         let url = binary(tool)
         guard FileManager.default.isExecutableFile(atPath: url.path),
-              let meta = storedMeta(of: tool), meta.url == tool.resolvedURL else { return nil }
-        if let pinned = tool.sha256, pinned.lowercased() != meta.sha256 { return nil }
-        // Höchstens einmal am Tag neu laden: 0 oder weniger hieß sonst bei jedem Lauf
-        if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(max(days, 1)) * 86_400 { return nil }
-        if meta.outdated == true { return nil }
+              let meta = storedMeta(of: tool), Self.isCurrent(meta, for: tool) else { return nil }
         return url
+    }
+
+    /// Gilt ein geladenes Programm noch für `tool`? Dieselbe Adresse, passende Prüfsumme, nicht
+    /// zu alt und nicht zum Neuladen markiert. Gilt für das eigene und für mitbenutzte
+    /// (vorher stand die Regel zweimal da, in installed und sharedCopy)
+    private static func isCurrent(_ meta: Meta, for tool: PluginTool) -> Bool {
+        guard meta.url == tool.resolvedURL, meta.outdated != true else { return false }
+        if let pinned = tool.sha256, pinned.lowercased() != meta.sha256 { return false }
+        // Höchstens einmal am Tag neu laden: 0 oder weniger hieß sonst bei jedem Lauf
+        if let days = tool.refreshDays, Date().timeIntervalSince(meta.fetched) > Double(max(days, 1)) * 86_400 { return false }
+        return true
     }
 
     /// Liefert das Programm; lädt es beim ersten Mal nach Zustimmung (`ask`, auf dem

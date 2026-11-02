@@ -61,11 +61,9 @@ enum EdgeLogic {
         var openDelay: TimeInterval = 0.3
         /// Etwas größerer Bereich um Streifen und Griff, in dem der Zeiger noch zählt
         var generousHitArea = false
-        /// Mit dem Zeiger allein nur der Streifen selbst; beim Ziehen bleibt der Bereich großzügig
-        var exactPointer = false
 
         /// Zusätzlicher Spielraum quer zum Rand und entlang des Rands
-        var hitSlack: (x: CGFloat, y: CGFloat) { generousHitArea && !exactPointer ? (8, 24) : (0, 0) }
+        var hitSlack: (x: CGFloat, y: CGFloat) { generousHitArea ? (8, 24) : (0, 0) }
         /// Beim Ziehen einer Datei: ab hier öffnet die Ablage ganz. Mit größerem
         /// Trefferbereich etwas weiter vom Rand und höher, nicht übertrieben.
         var dragExpand: (distance: CGFloat, span: CGFloat) {
@@ -94,10 +92,7 @@ enum EdgeLogic {
         if state.level == .hidden { state.hapticGiven = false }
         defer { if result.haptic { state.hapticGiven = true } }
 
-        // Kleiner Trefferbereich: auch gezogene Dateien müssen den Streifen selbst erreichen
-        let expand: (distance: CGFloat, span: CGFloat) = c.exactPointer
-            ? (max(12, s.width + 4), max(40, s.height / 2 + s.fillet + 6))
-            : c.dragExpand
+        let expand = c.dragExpand
 
         if s.locked {
             result.target = .expanded
@@ -119,7 +114,7 @@ enum EdgeLogic {
                 result.target = .expanded
                 // Die Datei hat die Ablage erreicht: ein leichter Impuls, sofort
                 if state.level != .expanded { result.haptic = true }
-            } else if !c.exactPointer && s.dx < dragHintDistance && s.dy < dragHintSpan {
+            } else if s.dx < dragHintDistance && s.dy < dragHintSpan {
                 result.target = .hint
             } else {
                 // „Streifen sofort zeigen“: schmaler Streifen schon beim Start des Ziehens.

@@ -349,9 +349,7 @@ final class ShelfHostingView<Content: View>: NSHostingView<Content> {
             super.rightMouseDown(with: event)
             return
         }
-        actions.ui.menuOpen = true
-        ShelfMenu.popUp(actions.backgroundMenu(), with: event, for: self)
-        actions.ui.menuOpen = false
+        ShelfUIModel.keepOpen(actions.ui) { ShelfMenu.popUp(actions.backgroundMenu(), with: event, for: self) }
     }
 
     override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {

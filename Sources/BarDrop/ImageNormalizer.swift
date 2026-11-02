@@ -38,7 +38,7 @@ enum ImageNormalizer {
         }()
         let target: UTType = hasAlpha ? .png : .jpeg
         let ext = hasAlpha ? "png" : "jpg"
-        let destURL = uniqueURL(url.deletingPathExtension().appendingPathExtension(ext))
+        let destURL = unique(url.deletingPathExtension().appendingPathExtension(ext))
 
         guard let dest = CGImageDestinationCreateWithURL(destURL as CFURL, target.identifier as CFString, 1, nil) else {
             return fixExtension(of: url, for: type)
@@ -63,7 +63,7 @@ enum ImageNormalizer {
         guard let ext = type.preferredFilenameExtension else { return url }
         let base = current.isEmpty || UTType(filenameExtension: current) == nil
             ? url : url.deletingPathExtension()
-        let renamed = uniqueURL(base.appendingPathExtension(ext))
+        let renamed = unique(base.appendingPathExtension(ext))
         do {
             try FileManager.default.moveItem(at: url, to: renamed)
             return renamed
@@ -72,18 +72,8 @@ enum ImageNormalizer {
         }
     }
 
-    private static func uniqueURL(_ url: URL) -> URL {
-        let fm = FileManager.default
-        guard fm.fileExists(atPath: url.path) else { return url }
-        let base = url.deletingPathExtension().lastPathComponent
-        let ext = url.pathExtension
-        let dir = url.deletingLastPathComponent()
-        var n = 2
-        var candidate = url
-        while fm.fileExists(atPath: candidate.path) {
-            candidate = dir.appendingPathComponent(ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
-            n += 1
-        }
-        return candidate
+    /// Freier Name neben `url` („Name 2.png“), wie überall in BarDrop
+    private static func unique(_ url: URL) -> URL {
+        ShelfActions.uniqueURL(for: url.lastPathComponent, in: url.deletingLastPathComponent())
     }
 }

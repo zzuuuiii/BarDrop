@@ -322,9 +322,7 @@ private struct PluginJobMenuArea: NSViewRepresentable {
         }
 
         private func show(_ event: NSEvent) {
-            ui?.menuOpen = true
-            ShelfMenu.popUp(menuProvider(), with: event, for: self)
-            ui?.menuOpen = false
+            ShelfUIModel.keepOpen(ui) { ShelfMenu.popUp(menuProvider(), with: event, for: self) }
         }
     }
 }

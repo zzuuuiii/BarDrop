@@ -257,7 +257,7 @@ struct OpeningSettings: View {
                           options: OpenChoice.all.map { ($0, $0.title) })
                 // Als Menü: Für einen Umschalter sind die Texte zu lang, er drückte den Titel
                 // auf mehrere Zeilen zusammen. „Nur am Streifen“ gibt es nicht mehr (Nutzer,
-                // 27.10.2026), siehe AppSettings.exactPointer
+                // 27.10.2026)
                 PickerRow(L("Strip while dragging", "Streifen beim Ziehen"),
                           selection: $settings.dragReveal,
                           options: DragReveal.selectable.map { ($0, $0.title) }, menu: true)

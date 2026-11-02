@@ -468,6 +468,17 @@ struct SegmentedValue<Value: Hashable>: View {
     @State private var settling = false
 
     private var shown: Value { chosen ?? selection }
+
+    /// Erst die Markierung (`chosen`, auf Wunsch animiert), dann im nächsten Durchlauf die
+    /// Einstellung: In der Einführung zog beim Wechsel des Rands die ganze Ablage um, und die
+    /// Markierung blieb stehen, bis man ein zweites Mal klickte. Für alle Wege gleich
+    private func commit(_ value: Value, animation: Animation? = nil) {
+        if let animation { withAnimation(animation) { chosen = value } } else { chosen = value }
+        DispatchQueue.main.async {
+            selection = value
+            chosen = nil
+        }
+    }
     private var selectedIndex: Int? { options.firstIndex { $0.0 == shown } }
     private static var space: String { "segmented" }
 
@@ -554,24 +565,12 @@ struct SegmentedValue<Value: Hashable>: View {
                     if lensX == nil {
                         // Einfacher Klick: Die Kapsel gleitet zur neuen Wahl
                         guard options[index].0 != selection else { return }
-                        let value = options[index].0
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { chosen = value }
-                        DispatchQueue.main.async {
-                            selection = value
-                            chosen = nil
-                        }
+                        commit(options[index].0, animation: .spring(response: 0.3, dampingFraction: 0.82))
                         return
                     }
                     // Kein eigener Impuls: Der Klick auf dem Trackpad ist schon einer.
                     // Erst die Markierung, dann (im nächsten Durchlauf) die Einstellung, wie bei klack
-                    if options[index].0 != selection {
-                        chosen = options[index].0
-                        let value = options[index].0
-                        DispatchQueue.main.async {
-                            selection = value
-                            chosen = nil
-                        }
-                    }
+                    if options[index].0 != selection { commit(options[index].0) }
                     // Die Linse gleitet auf die Möglichkeit und nimmt ihre Größe an, dann wird
                     // sie zur Kapsel; vorher sprang die Kapsel von der alten Stelle herüber
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
@@ -673,16 +672,8 @@ struct SegmentedValue<Value: Hashable>: View {
                 Button {
                     guard !selected else { return }
                     // Kein eigener Impuls: Der Klick auf dem Trackpad ist schon einer,
-                    // zusammen fühlte es sich doppelt an.
-                    // Erst die Markierung, dann (im nächsten Durchlauf) die Einstellung: In der
-                    // Einführung zog beim Wechsel des Rands die ganze Ablage um, und die
-                    // Markierung blieb stehen, bis man ein zweites Mal klickte
-                    chosen = option.0
-                    let value = option.0
-                    DispatchQueue.main.async {
-                        selection = value
-                        chosen = nil
-                    }
+                    // zusammen fühlte es sich doppelt an
+                    commit(option.0)
                 } label: {
                     ZStack {
                         // Platz für die fette Schrift, damit die Breite gleich bleibt

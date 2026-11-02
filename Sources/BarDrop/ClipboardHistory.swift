@@ -139,7 +139,7 @@ final class ClipboardHistory {
     }
 
     private func write(_ data: Data, name: String) -> Bool {
-        let url = uniqueURL(for: name)
+        let url = ShelfActions.uniqueURL(for: name, in: folder)
         do {
             try data.write(to: url)
             return true
@@ -162,7 +162,7 @@ final class ClipboardHistory {
             guard values?.isDirectory != true,
                   Int64(values?.fileSize ?? .max) <= Self.maxForeignFileSize else { return nil }
         }
-        let target = uniqueURL(for: source.lastPathComponent)
+        let target = ShelfActions.uniqueURL(for: source.lastPathComponent, in: folder)
         do {
             try FileManager.default.copyItem(at: source, to: target)
             return target
@@ -170,19 +170,6 @@ final class ClipboardHistory {
             Diagnostics.shared.record("clipboard", "Datei nicht übernommen: \(error.localizedDescription)")
             return nil
         }
-    }
-
-    private func uniqueURL(for name: String) -> URL {
-        let fm = FileManager.default
-        var url = folder.appendingPathComponent(name)
-        let base = (name as NSString).deletingPathExtension
-        let ext = (name as NSString).pathExtension
-        var n = 2
-        while fm.fileExists(atPath: url.path) {
-            url = folder.appendingPathComponent(ext.isEmpty ? "\(base) \(n)" : "\(base) \(n).\(ext)")
-            n += 1
-        }
-        return url
     }
 
     /// Einträge, neueste zuerst (wie der Ordner in der Ablage sie zeigt)
@@ -253,7 +240,7 @@ final class ClipboardHistory {
         let parking = folder.deletingLastPathComponent().appendingPathComponent(".clipboard-\(UUID().uuidString)")
         guard (try? fm.moveItem(at: url, to: parking)) != nil else { return }
         if (try? fm.moveItem(at: parking, to: url)) == nil {
-            try? fm.moveItem(at: parking, to: uniqueURL(for: url.lastPathComponent))
+            try? fm.moveItem(at: parking, to: ShelfActions.uniqueURL(for: url.lastPathComponent, in: folder))
         }
     }
 }

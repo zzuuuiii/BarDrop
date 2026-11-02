@@ -41,8 +41,19 @@ final class ShelfUIModel: ObservableObject {
     /// Kachel und ihr Abstand zur Oberkante des sichtbaren Bereichs
     var savedScroll: (id: UUID, top: CGFloat, height: CGFloat)?
 
-    /// Ein Kontextmenü der Ablage ist geöffnet.
+    /// Ein Kontextmenü oder eine Rückfrage der Ablage ist geöffnet (siehe keepOpen).
     var menuOpen = false
+
+    /// Hält die Ablage offen, solange `body` läuft (Menü, Rückfrage). Stellt danach den
+    /// vorigen Stand her: Eine Rückfrage aus einem offenen Menü gab die Ablage sonst frei,
+    /// obwohl das Menü noch offen war. Ohne Ablage (`ui` nil) läuft nur `body`
+    @discardableResult
+    static func keepOpen<T>(_ ui: ShelfUIModel?, _ body: () -> T) -> T {
+        let before = ui?.menuOpen ?? false
+        ui?.menuOpen = true
+        defer { ui?.menuOpen = before }
+        return body()
+    }
     /// Ein Teilen-Fenster (Picker) ist geöffnet.
     var sharingOpen = false
     /// Gerade wird ein Objekt aus der Ablage herausgezogen.

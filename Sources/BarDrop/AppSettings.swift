@@ -423,9 +423,6 @@ final class AppSettings: ObservableObject {
     /// Etwas größerer Bereich um Streifen und Griff, in dem der Zeiger noch zählt.
     /// Seit 1.30.0 Beta 15 immer an, nicht mehr einstellbar.
     var generousHitArea: Bool { true }
-    /// Mit dem Zeiger allein öffnet nur der Streifen selbst (beim Ziehen von Dateien bleibt
-    /// der Bereich großzügig)
-    @Published var exactPointer: Bool { didSet { defaults.set(exactPointer, forKey: Key.exactPointer) } }
     /// Ausführliches, anonymes Diagnoseprotokoll (nur Beta-Versionen, standardmäßig aus)
     @Published var diagnosticsEnabled: Bool { didSet { defaults.set(diagnosticsEnabled, forKey: Key.diagnosticsEnabled) } }
     /// Beim Öffnen dort weitermachen, wo man aufgehört hat: offener Stapel und Scrollstand bleiben
@@ -617,7 +614,6 @@ final class AppSettings: ObservableObject {
             Key.openDelay: OpenDelay.quick,
             Key.language: AppLanguage.system.rawValue,
             Key.reopenWhereLeft: false,
-            Key.exactPointer: false,
             Key.diagnosticsEnabled: false,
             Key.pinFromShelf: true,
             Key.clipboardHistory: false,
@@ -719,8 +715,8 @@ final class AppSettings: ObservableObject {
         defaults.removeObject(forKey: Key.generousHitArea)
         reopenWhereLeft = defaults.bool(forKey: Key.reopenWhereLeft)
         // „Nur am Streifen“ ist aus den Einstellungen entfernt (Nutzer, 27.10.2026): immer aus,
-        // auch wenn es früher eingeschaltet war
-        exactPointer = false
+        // auch wenn es früher eingeschaltet war. Seitdem gibt es den Wert nicht mehr, alten aufräumen
+        defaults.removeObject(forKey: Key.exactPointer)
         diagnosticsEnabled = defaults.bool(forKey: Key.diagnosticsEnabled)
         // Ohne gespeicherten Wert: alles in die obere Reihe
         actionRowSplit = defaults.object(forKey: Key.actionRowSplit) as? Int ?? QuickAction.perRow
@@ -807,7 +803,6 @@ final class AppSettings: ObservableObject {
         openMode = .automatic
         openDelay = OpenDelay.quick
         reopenWhereLeft = false
-        exactPointer = false
         diagnosticsEnabled = false
         actionRowSplit = QuickAction.perRow
         pinFromShelf = true

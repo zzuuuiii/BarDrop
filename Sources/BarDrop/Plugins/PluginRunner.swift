@@ -206,8 +206,13 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         job.startNative { task.cancel() }
         jobs.append(job)
         PluginLog.shared.record(identity.id, "start", "\(files.count) Objekt(e)")
+        if placeholder { showAfterDelay(job) }
+    }
+
+    /// Erst nach einem Augenblick zeigen; ist der Lauf bis dahin fertig, sieht man nichts
+    private func showAfterDelay(_ job: PluginJob) {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.showDelay) { [weak self] in
-            guard placeholder, let self, self.jobs.contains(where: { $0 === job }) else { return }
+            guard let self, self.jobs.contains(where: { $0 === job }) else { return }
             withAnimation(.easeOut(duration: 0.2)) {
                 job.shown = true
                 self.objectWillChange.send()
@@ -241,14 +246,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
 
     private func enqueue(_ job: PluginJob) {
         jobs.append(job)
-        // Erst nach einem Augenblick zeigen; ist der Lauf bis dahin fertig, sieht man nichts
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.showDelay) { [weak self] in
-            guard let self, self.jobs.contains(where: { $0 === job }) else { return }
-            withAnimation(.easeOut(duration: 0.2)) {
-                job.shown = true
-                self.objectWillChange.send()
-            }
-        }
+        showAfterDelay(job)
         if runtimes.count < Self.maxConcurrent { launch(job) } else { waiting.append(job) }
     }
 

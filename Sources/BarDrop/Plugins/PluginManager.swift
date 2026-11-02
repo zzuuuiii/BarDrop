@@ -51,6 +51,18 @@ struct PluginState: Codable, Equatable {
 
     init() {}
 
+    /// „Alle Einstellungen zurücksetzen“: aus und ohne Rechte. Herkunft und Ordner, die schon
+    /// vor dem Plugin da waren, sind keine Einstellungen und bleiben: Ohne `foreignInstalls`
+    /// löschte „Mit Programmen entfernen“ danach auch diese Ordner, ohne `fromCatalog` kämen
+    /// keine Updates mehr. Neue Felder hier einordnen
+    func resettingChoices() -> PluginState {
+        var fresh = PluginState()
+        fresh.isStandard = isStandard
+        fresh.fromCatalog = fromCatalog
+        fresh.foreignInstalls = foreignInstalls
+        return fresh
+    }
+
     /// Fehlende Schlüssel (ältere Fassungen) bekommen ihren Standard, statt alles zu verwerfen
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -154,8 +166,12 @@ final class PluginManager: ObservableObject {
     @Published private(set) var states: [String: PluginState] = [:]
     /// Standard-Plugins, die der Katalog nennt, die aber nicht geladen werden konnten
     @Published private(set) var missingStandard: [PluginCatalogEntry] = []
-    /// Weitere Plugins im Katalog (nicht Standard, noch nicht installiert)
-    @Published private(set) var catalogExtras: [PluginCatalogEntry] = []
+    /// Weitere Plugins im Katalog (nicht Standard, noch nicht installiert). Berechnet statt
+    /// gespeichert: Vorher wurde die Liste an jeder Stelle, die installiert oder entfernt,
+    /// von Hand nachgeführt, und beim Import aus einer Datei fehlte das
+    var catalogExtras: [PluginCatalogEntry] {
+        catalogEntries.filter { $0.standard != true && plugin($0.id) == nil }
+    }
     /// Die meistgeladenen noch nicht installierten Plugins für die Startseite (ohne Zahlen in
     /// der Reihenfolge des Katalogs)
     func popularExtras(_ count: Int = 5) -> [PluginCatalogEntry] {
@@ -853,9 +869,6 @@ final class PluginManager: ObservableObject {
         if lastErrors[id] != nil { dropError(id) }
         order.removeAll { $0 == id }
         reload()
-        // Steht es in der Galerie, gehört es wieder zu den ladbaren (Top 5 auf der Startseite);
-        // vorher wurde die Liste erst beim nächsten Abgleich neu gebildet (Nutzer, 24.10.2026)
-        catalogExtras = catalogEntries.filter { $0.standard != true && plugin($0.id) == nil }
         // Aktionen dieses Plugins aus der Leiste nehmen
         let settings = AppSettings.shared
         if settings.quickActions.contains(where: { $0.kind == .plugin && $0.path == id }) {
@@ -902,7 +915,6 @@ final class PluginManager: ObservableObject {
     private func applyCatalog(_ catalog: PluginCatalog?, online: Bool, completion: @escaping () -> Void = {}) {
         guard let catalog else {
             missingStandard = []
-            catalogExtras = []
             catalogEntries = []
             return completion()
         }
@@ -914,7 +926,6 @@ final class PluginManager: ObservableObject {
             if state(entry.id).isStandard || entry.standard == true { uninstall(entry.id) }
         }
         let live = usable.filter { $0.removed != true }
-        catalogExtras = live.filter { $0.standard != true && plugin($0.id) == nil }
         catalogEntries = live
         let needed = live.filter { entry in
             let standard = entry.standard == true || state(entry.id).isStandard
@@ -993,7 +1004,6 @@ final class PluginManager: ObservableObject {
             }
             self.grantAll(installed)
             self.update(entry.id) { $0.fromCatalog = true }
-            self.catalogExtras.removeAll { $0.id == entry.id }
             completion(true)
         }
     }
@@ -1003,14 +1013,7 @@ final class PluginManager: ObservableObject {
     func resetAll() {
         for id in states.keys {
             update(id) { s in
-                // Herkunft und Ordner, die schon vor dem Plugin da waren, sind keine
-                // Einstellungen: Ohne `foreignInstalls` löschte „Mit Programmen entfernen“
-                // danach auch diese Ordner, ohne `fromCatalog` kämen keine Updates mehr
-                let kept = s
-                s = PluginState()
-                s.isStandard = kept.isStandard
-                s.fromCatalog = kept.fromCatalog
-                s.foreignInstalls = kept.foreignInstalls
+                s = s.resettingChoices()
             }
         }
     }

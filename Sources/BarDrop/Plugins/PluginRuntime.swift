@@ -801,6 +801,13 @@ final class PluginRuntime {
         if let tool = plugin.manifest.tools?.first(where: { $0.id == name }), let url = tools.installed(tool) {
             return url.path
         }
+        return lookUpProgram(name)
+    }
+
+    /// Programm außerhalb von `tools`: ganzer Pfad oder bloßer Name in `programFolders`. Für
+    /// findProgram und run gleich (vorher zweimal geschrieben; run nahm dabei auch einen
+    /// leeren Namen an)
+    private func lookUpProgram(_ name: String) -> String? {
         if name.hasPrefix("/") { return FileManager.default.isExecutableFile(atPath: name) ? name : nil }
         guard !name.isEmpty, !name.contains("/") else { return nil }
         return programFolders.map { $0 + "/" + name }.first(where: FileManager.default.isExecutableFile)
@@ -862,14 +869,7 @@ final class PluginRuntime {
                 }
             })
         }
-        if name.hasPrefix("/") {
-            guard FileManager.default.isExecutableFile(atPath: name) else {
-                throw PluginRunError.script(L("Program not found: \(name)", "Programm nicht gefunden: \(name)"))
-            }
-            return URL(fileURLWithPath: name)
-        }
-        guard !name.contains("/"),
-              let path = programFolders.map({ $0 + "/" + name }).first(where: FileManager.default.isExecutableFile) else {
+        guard let path = lookUpProgram(name) else {
             throw PluginRunError.script(L("Program not found: \(name)", "Programm nicht gefunden: \(name)"))
         }
         return URL(fileURLWithPath: path)

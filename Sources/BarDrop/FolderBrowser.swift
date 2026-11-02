@@ -126,32 +126,44 @@ final class FolderBrowser: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, !box.applied, let result = box.result else { return }
                 box.applied = true
-                self.applyFirstRead(result, of: url, generation: current)
+                self.apply(result, of: url, generation: current)
             }
         }
         if Self.isLocal(url), finished.wait(timeout: .now() + 0.12) == .success, let result = box.result {
             box.applied = true
-            applyFirstRead(result, of: url, generation: current)
+            apply(result, of: url, generation: current)
         }
     }
 
-    /// Erstes Lesen eines gezeigten Ordners übernehmen
-    private func applyFirstRead(_ result: Result<[ShelfFile], Error>, of url: URL, generation current: Int) {
+    /// Gelesenen Inhalt übernehmen, beim ersten Lesen nach dem Öffnen wie beim Neuladen.
+    /// Vorher gab es dafür zwei Wege, und nur der erste begann zu beobachten: Kam ein Neuladen
+    /// ihm zuvor, änderte sich der Ordner nie mehr von selbst
+    private func apply(_ result: Result<[ShelfFile], Error>, of url: URL, generation current: Int) {
         guard generation == current, folder == url else { return }
+        isLoading = false
+        let listed: [ShelfFile]
         switch result {
-        case .success(let listed):
-            watch(url)
+        case .success(let files):
+            listed = files
+        case .failure(let error) where Self.isDenied(error):
+            return denied(error)
+        case .failure(let error):
+            Diagnostics.shared.failure("folder", "Ordner nicht lesbar, geschlossen", error)
+            return vanished()
+        }
+        if accessDenied { accessDenied = false }
+        // Auch nach verweigertem Zugriff, der inzwischen erteilt ist
+        if watcher == nil { watch(url) }
+        let first = firstLoad
+        firstLoad = false
+        if first { Diagnostics.shared.record("folder", "open items=\(listed.count) local=\(Self.isLocal(url))") }
+        guard listed != files else { return }
+        if first {
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) { files = listed }
-            isLoading = false
-            firstLoad = false
-            Diagnostics.shared.record("folder", "open items=\(listed.count) local=\(Self.isLocal(url))")
-        case .failure(let error) where Self.isDenied(error):
-            denied(error)
-        case .failure(let error):
-            Diagnostics.shared.failure("folder", "Ordner nicht lesbar, geschlossen", error)
-            vanished()
+        } else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) { files = listed }
         }
     }
 
@@ -174,13 +186,6 @@ final class FolderBrowser: ObservableObject {
         return ns.domain == NSPOSIXErrorDomain && (ns.code == Int(EPERM) || ns.code == Int(EACCES))
     }
 
-    /// Die Systemeinstellungen bei „Dateien und Ordner“ öffnen, wo man BarDrop den Zugriff erlaubt
-    static func openPrivacySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
     private static func isLocal(_ url: URL) -> Bool {
         (try? url.resourceValues(forKeys: [.volumeIsLocalKey]))?.volumeIsLocal == true
     }
@@ -199,35 +204,7 @@ final class FolderBrowser: ObservableObject {
         let current = generation
         queue.async { [weak self] in
             let result = Self.read(folder)
-            DispatchQueue.main.async {
-                guard let self, self.generation == current, self.folder == folder else { return }
-                self.isLoading = false
-                let listed: [ShelfFile]
-                switch result {
-                case .success(let files):
-                    listed = files
-                    if self.accessDenied { self.accessDenied = false }
-                    // Kam ein Neuladen dem ersten Lesen zuvor (oder war der Zugriff vorher
-                    // verweigert), hat noch niemand den Ordner beobachtet: Er änderte sich
-                    // dann nie mehr von selbst
-                    if self.watcher == nil { self.watch(folder) }
-                case .failure(let error) where Self.isDenied(error):
-                    return self.denied(error)
-                case .failure(let error):
-                    Diagnostics.shared.failure("folder", "Ordner nicht lesbar, geschlossen", error)
-                    return self.vanished()
-                }
-                let first = self.firstLoad
-                self.firstLoad = false
-                guard listed != self.files else { return }
-                if first {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) { self.files = listed }
-                } else {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) { self.files = listed }
-                }
-            }
+            DispatchQueue.main.async { self?.apply(result, of: folder, generation: current) }
         }
     }
 

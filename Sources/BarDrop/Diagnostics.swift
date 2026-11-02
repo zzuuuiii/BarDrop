@@ -249,7 +249,7 @@ final class Diagnostics {
         let s = AppSettings.shared
         var lines: [String] = [
             "edge=\(s.edge.rawValue) adaptive=\(s.adaptivePosition) zone=\(s.adaptiveZone) spot=\(s.verticalPosition) displays=\(s.displayMode.rawValue)",
-            "openMode=\(s.openMode.rawValue) openDelay=\(s.openDelay) dragReveal=\(s.dragReveal.rawValue) smallHitArea=\(s.exactPointer) fullScreen=\(s.openInFullScreen) excludedApps=\(s.excludedApps.count)",
+            "openMode=\(s.openMode.rawValue) openDelay=\(s.openDelay) dragReveal=\(s.dragReveal.rawValue) fullScreen=\(s.openInFullScreen) excludedApps=\(s.excludedApps.count)",
             "size=\(Int(s.shelfWidth))×\(Int(s.shelfHeight)) icon=\(Int(s.tileIconSize)) strip=\(s.peekThickness)/\(s.peekLength) outline=\(s.showOutline) animation=\(s.animationStyle.rawValue) reduceMotion=\(AnimationStyle.reduceMotion)",
             "stacks=\(s.stackMultiple ? String(s.stackThreshold) : "off") reopenWhereLeft=\(s.reopenWhereLeft) removeAfterDragOut=\(s.removeAfterDragOut) keepAfterAction=\(s.keepAfterAction) dragOutCopyOnly=\(s.dragOutCopyOnly)",
             "finderFiles=\(s.copyAllFiles ? "copy" : "original") webAsPNGorJPEG=\(s.convertWebImages) screenshots=\(s.addScreenshots) airdrop=\(s.addAirDrop) autoRemove=\(Int(s.autoRemoveAfter))s",

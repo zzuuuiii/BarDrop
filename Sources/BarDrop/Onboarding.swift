@@ -1277,10 +1277,10 @@ private struct HoverPage: View {
 
     private var text: String {
         settings.openMode == .click
-            ? L("Without a file, move the pointer to the \(edgeWord(settings)) edge. A small strip appears; click it and the shelf opens.",
-                "Ohne Datei fährst du mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint; ein Klick darauf öffnet die Ablage.")
-            : L("Without a file, move the pointer to the \(edgeWord(settings)) edge. A small strip appears, and a moment later the shelf opens.",
-                "Ohne Datei fährst du mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint, kurz darauf öffnet sich die Ablage.")
+            ? L("It works without a file, too: move the pointer to the \(edgeWord(settings)) edge. A small strip appears; click it and the shelf opens.",
+                "Auch ohne Datei geht es: Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint; ein Klick darauf öffnet die Ablage.")
+            : L("It works without a file, too: move the pointer to the \(edgeWord(settings)) edge. A small strip appears, and a moment later the shelf opens.",
+                "Auch ohne Datei geht es: Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint, kurz darauf öffnet sich die Ablage.")
     }
 
     var body: some View {

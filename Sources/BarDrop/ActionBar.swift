@@ -11,6 +11,8 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     var onClick: (NSView) -> Void = { _ in }
     /// Zweiter Klick eines Doppelklicks (der erste kam als `onClick`)
     var onDoubleClick: () -> Void = {}
+    /// Rechtsklick (oder ⌃-Klick): Menü der Aktion
+    var menuProvider: (() -> NSMenu?)?
     /// Maustaste gedrückt bzw. losgelassen (die Aktion wird dabei kurz größer)
     var onPress: (Bool) -> Void = { _ in }
     /// Vorgang, den der Zeiger beim Drüberziehen zeigt (Ordner: verschieben oder kopieren)
@@ -93,9 +95,23 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     }
 
     override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control), menuProvider != nil {
+            showMenu(with: event)
+            return
+        }
         pressed = true
         downEvent = event
         onPress(true)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        showMenu(with: event)
+    }
+
+    /// Wie bei den Objekten: Die Ablage bleibt offen, solange das Menü steht
+    private func showMenu(with event: NSEvent) {
+        guard let menu = menuProvider?() else { return }
+        ShelfUIModel.keepOpen(ui) { ShelfMenu.popUp(menu, with: event, for: self) }
     }
 
     override func mouseUp(with event: NSEvent) {
@@ -379,6 +395,7 @@ struct ActionDropTarget: NSViewRepresentable {
     var onOwnDrop: ([URL], NSView) -> Void
     var onClick: (NSView) -> Void
     var onDoubleClick: () -> Void = {}
+    var menuProvider: (() -> NSMenu?)? = nil
     var onPress: (Bool) -> Void = { _ in }
     var operation: (NSDraggingInfo) -> NSDragOperation = { _ in .copy }
     var kind: QuickAction.Kind? = nil
@@ -405,6 +422,7 @@ struct ActionDropTarget: NSViewRepresentable {
         view.onOwnDrop = onOwnDrop
         view.onClick = onClick
         view.onDoubleClick = onDoubleClick
+        view.menuProvider = menuProvider
         view.onPress = onPress
         view.operation = operation
         view.kind = kind
@@ -689,6 +707,7 @@ struct QuickActionButton: View {
                     actions.click(action)
                 },
                 onDoubleClick: { actions.doubleClick(action) },
+                menuProvider: { actions.menu(for: action) },
                 onPress: { down in setPressed(down) },
                 operation: { info in dropOperation(info) },
                 kind: action.kind,

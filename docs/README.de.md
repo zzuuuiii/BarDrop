@@ -86,7 +86,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Dateien, Ordner, Bilder aus dem Web (WebP, AVIF und HEIC lassen sich als PNG oder JPEG speichern), Links und Text
 * Neue Bildschirmfotos und per AirDrop empfangene Dateien landen auf Wunsch automatisch in der Ablage
 * Umwandeln per Rechtsklick: Bilder, PDF-Seiten, Textdokumente, Audio und Video, nur mit dem, was macOS mitbringt
-* Neueste zuerst, Stapel, Auswahl wie im Finder; ein Doppelklick auf einen Ordner zeigt seinen Inhalt direkt in der Ablage
+* Neueste zuerst, Stapel (ein Objekt auf ein anderes ziehen), Auswahl wie im Finder; ein Doppelklick auf einen Ordner zeigt seinen Inhalt direkt in der Ablage
 * ZIP-Archive direkt in der Ablage entpacken
 * Dateien aus dem Finder als Original oder als eigene Kopie
 * Versehentlich entfernt oder in den Papierkorb gelegt? `⌘Z` holt es zurück

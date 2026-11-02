@@ -1632,6 +1632,11 @@ extension EdgeController {
             height = height.rounded()
         }
         guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
+        // Eine Spalte mehr oder weniger: ein leichter Impuls, so spürt man das Raster
+        if ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)
+            != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize) {
+            Haptics.tap()
+        }
         if settings.shelfWidth != width { settings.shelfWidth = width }
         if settings.shelfHeight != height { settings.shelfHeight = height }
         // Fenster und Inhalt sofort und im selben Bild umstellen, nicht erst im nächsten Takt:

@@ -59,14 +59,14 @@ enum PluginPermission: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Ein Satz unter der Frage, wenn ein Plugin ein Recht zum ersten Mal nutzt
+    /// Kurz unter dem Recht auf der Seite „Zugriff“. Die Bitte, nur Vertrautem zu erlauben,
+    /// steht im Erlauben-Fenster (PluginDialogs), nicht dauerhaft auch hier
     var explanation: String {
         switch self {
         case .network:
             return L("The plugin can load web pages and download files.", "Das Plugin kann Webseiten und Dateien laden.")
         case .run:
-            return L("This gives it full access to your Mac. Only allow plugins you trust.",
-                     "Damit hat es vollen Zugriff auf deinen Mac. Erlaub das nur Plugins, denen du vertraust.")
+            return L("Full access to your Mac.", "Voller Zugriff auf deinen Mac.")
         case .clipboard:
             return L("It can put text on the clipboard.", "Es kann Text in die Zwischenablage legen.")
         }

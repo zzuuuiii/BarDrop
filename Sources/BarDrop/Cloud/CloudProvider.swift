@@ -196,8 +196,9 @@ enum CloudOAuth {
         if let error = query["error"] {
             // Ohne passendes state könnte jede Webseite den Text bestimmen: dann nur allgemein melden
             guard query["state"] == state else { throw CloudError(message: L("Sign-in failed.", "Anmeldung fehlgeschlagen.")) }
-            throw CloudError(message: error == "access_denied" ? L("Sign-in canceled.", "Anmeldung abgebrochen.")
-                                                               : L("Sign-in failed: \(error)", "Anmeldung fehlgeschlagen: \(error)"))
+            // Selbst abgebrochen: kein Fehler, den man noch lesen müsste (siehe CloudManager.connect)
+            if error == "access_denied" { throw CancellationError() }
+            throw CloudError(message: L("Sign-in failed: \(error)", "Anmeldung fehlgeschlagen: \(error)"))
         }
         guard query["state"] == state, let code = query["code"] else {
             throw CloudError(message: L("Sign-in failed.", "Anmeldung fehlgeschlagen."))

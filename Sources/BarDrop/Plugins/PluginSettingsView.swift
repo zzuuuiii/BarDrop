@@ -737,6 +737,9 @@ private struct PluginPageView: View {
                               isOn: replace)
                 }
             }
+            // Ist das Plugin aus, wirkt nichts davon: abgeblendet wie in den Systemeinstellungen.
+            // Vorher stand „Beim Ablegen“ blau auf an, obwohl nichts lief
+            .disabled(!manager.isOn(plugin))
         }
 
         if let specs = manifest.settings, !specs.isEmpty {

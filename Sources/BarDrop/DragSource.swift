@@ -54,9 +54,15 @@ final class DragSourceNSView: NSView, NSDraggingSource {
     /// Ablegen im geöffneten Ordner; `into`: der Unterordner oder der geöffnete Ordner
     var onFolderDrop: (NSDraggingInfo, URL) -> Void = { _, _ in }
 
+    /// Nur bei Objekten aus der Ablage selbst auf dem Pasteboard: Kacheln nehmen nur sie an
+    /// (zum Stapeln). Alles von außen geht weiter an die Ablage, die es wie gewohnt aufnimmt
+    static let ownDragType = NSPasteboard.PasteboardType("io.github.zzuuuiii.bardrop.shelf-item")
+
     private func updateDropRegistration() {
-        if dropTargetID != nil || folderTarget != nil {
+        if folderTarget != nil {
             registerForDraggedTypes(ShelfStore.acceptedTypes)
+        } else if dropTargetID != nil {
+            registerForDraggedTypes([Self.ownDragType])
         } else {
             unregisterDraggedTypes()
         }
@@ -128,6 +134,9 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         ui?.draggedFileURLs = files.map(\.url)
         Log.export.info("Ziehe \(files.count, privacy: .public) Objekt(e), davon \(files.filter(\.owned).count, privacy: .public) als Versprechen")
         let session = beginDraggingSession(with: items, event: down, source: self)
+        // Markiert den Zug als eigenen (siehe ownDragType); andere Apps kennen den Typ nicht
+        session.draggingPasteboard.addTypes([Self.ownDragType], owner: nil)
+        session.draggingPasteboard.setData(Data(), forType: Self.ownDragType)
         session.animatesToStartingPositionsOnCancelOrFail = true
         session.draggingFormation = .default   // Ziele wie der Finder ordnen die Dateien selbst an
     }

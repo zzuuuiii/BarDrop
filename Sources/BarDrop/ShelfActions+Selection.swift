@@ -199,21 +199,30 @@ extension ShelfActions {
     /// Kopien ausgewählt. In angehefteten Ordnern nicht (dort lägen die Kopien im Finder)
     func duplicateCurrentSelection() {
         guard !isFolderOpen else { return NSSound.beep() }
-        if isInStack, let stack = openStackEntry {
-            let ids = Set(selectedMembers.map(\.id))
-            guard !ids.isEmpty else { return NSSound.beep() }
-            let made = store.duplicate(files: ids, in: stack.id)
-            guard !made.isEmpty else { return }
-            ui.memberSelection = Set(made)
-            ui.memberAnchor = made.last
+        if isInStack {
+            guard !selectedMembers.isEmpty else { return NSSound.beep() }
+            duplicateMembers(selectedMembers)
         } else {
-            let ids = Set(selectedEntries.map(\.id))
-            guard !ids.isEmpty else { return NSSound.beep() }
-            let made = store.duplicate(entries: ids)
-            guard !made.isEmpty else { return }
-            ui.selection = Set(made)
-            ui.selectionAnchor = made.last
+            guard !selectedEntries.isEmpty else { return NSSound.beep() }
+            duplicate(selectedEntries)
         }
+    }
+
+    /// Objekte der Ablage duplizieren (⌘D oder Rechtsklick); danach sind die Kopien ausgewählt
+    func duplicate(_ entries: [ShelfEntry]) {
+        let made = store.duplicate(entries: Set(entries.map(\.id)))
+        guard !made.isEmpty else { return }
+        ui.selection = Set(made)
+        ui.selectionAnchor = made.last
+    }
+
+    /// Dateien im geöffneten Stapel duplizieren; die Kopien stehen direkt dahinter
+    func duplicateMembers(_ files: [ShelfFile]) {
+        guard let stack = openStackEntry else { return }
+        let made = store.duplicate(files: Set(files.map(\.id)), in: stack.id)
+        guard !made.isEmpty else { return }
+        ui.memberSelection = Set(made)
+        ui.memberAnchor = made.last
     }
 
     func trashCurrentSelection() {

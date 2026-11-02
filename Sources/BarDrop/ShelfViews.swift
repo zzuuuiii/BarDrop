@@ -284,7 +284,8 @@ struct ShelfContent: View {
     /// Raster passend zur Symbolgröße (Spalten mindestens Symbol + 22 pt, höchstens + 40 pt)
     private var grid: TileGridLayout {
         let icon = CGFloat(settings.tileIconSize)
-        return TileGridLayout(minimum: icon + 22, maximum: icon + 40, spacing: 8, rowSpacing: 4)
+        return TileGridLayout(minimum: ShelfGrid.minimum(icon), maximum: ShelfGrid.maximum(icon),
+                              spacing: ShelfGrid.spacing, rowSpacing: 4)
     }
 
     /// Geöffneter Stapel, solange er noch ein Stapel ist, oder der geöffnete Ordner
@@ -1195,9 +1196,11 @@ struct TileView: View {
 
     /// Bild und Name in der Kachel: nur dort reagiert sie auf Klicks
     @State private var hitRects: [CGRect] = []
+    /// Ein anderes Objekt wird gerade darauf gehalten: Loslassen macht daraus einen Stapel
+    @State private var dropTargeted = false
 
     var body: some View {
-        TileLabel(title: entry.title, isSelected: isSelected, isKey: ui.isKey || ui.level == .expanded, iconSize: iconSize) {
+        TileLabel(title: entry.title, isSelected: isSelected || dropTargeted, isKey: ui.isKey || ui.level == .expanded, iconSize: iconSize) {
             if entry.isStack {
                 StackPreview(files: Array(entry.files.prefix(3)), size: (iconSize * 0.82).rounded())
             } else if let file = entry.files.first {
@@ -1221,6 +1224,13 @@ struct TileView: View {
                 },
                 menu: { anchor in actions.menu(for: entry, anchor: anchor) },
                 draggedIDs: { Set(actions.targets(for: entry).map(\.id)) },
+                // Ein Objekt der Ablage kurz auf diesem halten und loslassen: beide werden ein
+                // Stapel, wie Ordner auf dem iPhone (Nutzer, 02.11.2026)
+                dropTargetID: entry.id,
+                onDropTargeted: { targeted in
+                    withAnimation(.easeOut(duration: 0.15)) { dropTargeted = targeted }
+                },
+                onOwnDrop: { actions.stackDragged(onto: entry) },
                 onShelfDrop: { pb in actions.store.ingest(from: pb, byUser: true) },
                 onShelfTargeted: { targeted in
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) { ui.isDropTargeted = targeted }

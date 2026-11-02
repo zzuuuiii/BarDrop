@@ -103,9 +103,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// Spalten des Rasters, wie es `ShelfContent` anlegt (Kachel mindestens Symbol + 22 pt, 8 pt Abstand)
     var columnCount: Int {
-        let usable = CGFloat(settings.shelfWidth) - 24
-        let tile = CGFloat(settings.tileIconSize) + 22
-        return max(1, Int((usable + 8) / (tile + 8)))
+        ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize)
     }
 
     // MARK: Aktionen auf Einträgen
@@ -563,7 +561,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 openSettings()
             }
         default:
-            break
+            // AirDrop, Papierkorb, Mail, Kurzbefehle, Plugins: arbeiten mit Objekten, die man
+            // darauf zieht. Vorher geschah beim Klick gar nichts, das wirkte kaputt
+            announce(L("Drag items here", "Objekte hierher ziehen"))
         }
     }
 
@@ -636,6 +636,35 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// Doppelklick auf eine Aktion: dort öffnen, wo sie hinführt (Nutzer, 27.10.2026). Der
     /// erste Klick ist schon als einfacher Klick angekommen (Ordner zeigt seinen Inhalt)
+    /// Rechtsklick auf eine Aktion: öffnen wie der Doppelklick, entfernen, bearbeiten. Vorher
+    /// gab es hier kein Menü, und Entfernen ging nur mit ⌘-Ziehen, das nirgends stand
+    func menu(for action: QuickAction) -> NSMenu {
+        let menu = NSMenu()
+        let open: String?
+        switch action.kind {
+        case .folder, .app, .trash, .airdrop, .mail, .messages: open = L("Open", "Öffnen")
+        case .cloud: open = action.cloudService?.localFolder != nil ? L("Show in Finder", "Im Finder zeigen") : nil
+        case .shortcut: open = L("Edit in Shortcuts", "In Kurzbefehle bearbeiten")
+        case .plugin: open = L("Plugin Settings", "Plugin-Einstellungen")
+        case .share, .clipboard, .convert: open = nil
+        }
+        if let open {
+            menu.addItem(ClosureMenuItem(open) { [weak self] in self?.doubleClick(action) })
+            menu.addItem(.separator())
+        }
+        let id = action.id
+        menu.addItem(ClosureMenuItem(L("Remove from Action Bar", "Aus der Aktionsleiste entfernen")) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                AppSettings.shared.removeQuickAction(id)
+            }
+        })
+        menu.addItem(ClosureMenuItem(L("Edit Actions", "Aktionen bearbeiten")) { [weak self] in
+            SettingsNavigation.shared.pane = .actions
+            self?.openSettings()
+        })
+        return menu
+    }
+
     func doubleClick(_ action: QuickAction) {
         Diagnostics.shared.record("action", "double click \(action.kind.rawValue)")
         let workspace = NSWorkspace.shared
@@ -1044,6 +1073,19 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
+    /// Objekte der Ablage auf `entry` gezogen und dort losgelassen: zusammen ein Stapel an
+    /// dessen Stelle (liegt dort schon einer, kommen sie hinzu)
+    func stackDragged(onto entry: ShelfEntry) {
+        // Kein Herausziehen: sonst nähme „Nach dem Verwenden“ die Objekte aus der Ablage
+        ui.lastDropWasInternal = true
+        let dragged = ui.draggedEntryIDs.subtracting([entry.id])
+        guard !dragged.isEmpty else { return }
+        Diagnostics.shared.record("stack", "drop onto tile items=\(dragged.count)")
+        store.merge(dragged, into: entry.id)
+        ui.selection = [entry.id]
+        ui.selectionAnchor = entry.id
+    }
+
     func mergeSelection(_ entries: [ShelfEntry]) {
         store.merge(Set(entries.map(\.id)))
         ui.selection = []
@@ -1076,13 +1118,23 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     // MARK: Menüs
 
-    private func addFileItems(to menu: NSMenu, urls: [URL], anchor: NSView, open: @escaping () -> Void) {
+    /// `duplicate`: nur in der Ablage und im Stapel (im angehefteten Ordner lägen Kopien im Finder)
+    private func addFileItems(to menu: NSMenu, urls: [URL], anchor: NSView, duplicate: (() -> Void)? = nil,
+                              open: @escaping () -> Void) {
         menu.addItem(ClosureMenuItem(L("Open", "Öffnen"), key: "o", handler: open))
         menu.addItem(ClosureMenuItem(L("Show in Finder", "Im Finder zeigen"), key: "r") { [weak self] in
             self?.reveal(urls)
         })
         menu.addItem(ClosureMenuItem(L("Get Info", "Informationen"), key: "i") { [weak self] in
             self?.getInfo(urls)
+        })
+        // Wie im Finder auch im Menü, nicht nur über die Leertaste
+        menu.addItem(ClosureMenuItem(L("Quick Look", "Übersicht"), key: " ", modifiers: []) { [weak self] in
+            // Erst nach dem Schließen des Menüs: Die Übersicht braucht die Ablage als Hauptfenster
+            DispatchQueue.main.async {
+                self?.quickLookPagesSelection = urls.count > 1
+                self?.quickLook(urls: urls)
+            }
         })
         menu.addItem(ClosureMenuItem(L("Copy", "Kopieren"), key: "c") { [weak self] in
             ShelfActions.copyFiles(urls)
@@ -1092,6 +1144,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             ShelfActions.copyPaths(self?.originals(urls) ?? urls)
             self?.announceCopy(urls.count, pathsOnly: true)
         })
+        if let duplicate {
+            menu.addItem(ClosureMenuItem(L("Duplicate", "Duplizieren"), key: "d", handler: duplicate))
+        }
         menu.addItem(ClosureMenuItem(L("Share", "Teilen")) { [weak self, weak anchor] in
             guard let anchor else { return }
             // erst nach dem Schließen des Menüs zeigen, damit der Picker an der Kachel sitzt
@@ -1110,7 +1165,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let urls = targets.flatMap(\.urls)
         let multiple = targets.count > 1
         let menu = NSMenu()
-        addFileItems(to: menu, urls: urls, anchor: anchor) { [weak self] in
+        addFileItems(to: menu, urls: urls, anchor: anchor, duplicate: { [weak self] in self?.duplicate(targets) }) { [weak self] in
             guard let self else { return }
             // Ein einzelner Ordner: wie der Doppelklick in der Ablage zeigen
             if !multiple, self.isBrowsableFolder(entry) { self.openFolder(from: entry) } else { self.open(targets) }
@@ -1144,7 +1199,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let files = memberTargets(for: file)
         let urls = files.map(\.url)
         let menu = NSMenu()
-        addFileItems(to: menu, urls: urls, anchor: anchor) { [weak self] in self?.openMembers(files) }
+        addFileItems(to: menu, urls: urls, anchor: anchor,
+                     duplicate: isFolderOpen ? nil : { [weak self] in self?.duplicateMembers(files) }) { [weak self] in
+            self?.openMembers(files)
+        }
         menu.addItem(.separator())
         if isFolderOpen {
             // Im angehefteten Ordner: nichts lässt sich „aus der Ablage“ nehmen

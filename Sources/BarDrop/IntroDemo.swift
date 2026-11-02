@@ -566,7 +566,7 @@ struct DemoLayout {
     /// Ablage (ShelfContent: Kopf, Abstände, anpassbare Spalten)
     /// Spalten des Rasters (anpassbare Spalten wie in ShelfContent)
     var columns: Int {
-        max(1, Int((full.width - 24 + 8) / (iconSize + 22 + 8)))
+        ShelfGrid.columns(shelfWidth: Double(full.width), iconSize: Double(iconSize))
     }
 
     /// Mitte der Aktion an Stelle `index` in der Leiste unten (eine Reihe, gleich breite Plätze
@@ -581,17 +581,17 @@ struct DemoLayout {
     }
 
     func tileCenter(_ index: Int) -> CGPoint {
-        let available = full.width - 24
-        let maximum = iconSize + 40, spacing: CGFloat = 8
-        let column = min(maximum, (available - spacing * CGFloat(columns - 1)) / CGFloat(columns))
-        let used = column * CGFloat(columns) + spacing * CGFloat(columns - 1)
-        let start = 12 + (available - used) / 2
+        let grid = ShelfGrid.layout(gridWidth: full.width - 2 * ShelfGrid.sidePadding,
+                                    minimum: ShelfGrid.minimum(iconSize), maximum: ShelfGrid.maximum(iconSize),
+                                    spacing: ShelfGrid.spacing)
+        let column = grid.width
+        let start = ShelfGrid.sidePadding + grid.inset
         let row = CGFloat(index / columns), col = CGFloat(index % columns)
         let top: CGFloat = full.fillet + 12 + 30 + 4 + 6
         let box = TileMetrics.box(iconSize)
         let rowHeight = box + 4 + 30 + 12
         let frame = shelfFrame
-        return CGPoint(x: frame.minX + start + col * (column + spacing) + column / 2,
+        return CGPoint(x: frame.minX + start + col * grid.step + column / 2,
                        y: frame.minY + top + row * (rowHeight + 6) + 6 + box / 2)
     }
 }

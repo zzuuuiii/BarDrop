@@ -759,11 +759,13 @@ struct HotKeyEditor: View {
         let name: String
     }
 
+    /// Beschriftet wie die Tasten auf der Mac-Tastatur und wie in der Einführung (ShortcutKeys);
+    /// vorher hier abgekürzt („ctrl“, „opt“, „cmd“), dort ausgeschrieben
     private let modifiers: [Modifier] = [
         Modifier(flag: shiftKey, symbol: "⇧", name: "shift"),
-        Modifier(flag: controlKey, symbol: "⌃", name: "ctrl"),
-        Modifier(flag: optionKey, symbol: "⌥", name: "opt"),
-        Modifier(flag: cmdKey, symbol: "⌘", name: "cmd")
+        Modifier(flag: controlKey, symbol: "⌃", name: "control"),
+        Modifier(flag: optionKey, symbol: "⌥", name: "option"),
+        Modifier(flag: cmdKey, symbol: "⌘", name: "command")
     ]
 
     var body: some View {

@@ -26,6 +26,8 @@ final class CloudManager: ObservableObject {
         defer { connecting = nil }
         do {
             try await service.provider.connect()
+        } catch is CancellationError {
+            // Anmeldung im Browser abgebrochen: so lassen, ohne orange Meldung
         } catch {
             connectErrors[service] = (error as? CloudError).map { $0.message + ($0.hint.map { " " + $0 } ?? "") }
                 ?? error.localizedDescription

@@ -51,8 +51,9 @@ struct GeneralSettings: View {
                 needsApproval = LoginItem.needsApproval
             }
 
-            SettingsSection(L("Reset", "Zurücksetzen")) {
-                SettingsRow(L("All settings", "Alle Einstellungen")) {
+            // Ohne Überschrift: Zeile und Knopf sagen schon, worum es geht
+            SettingsSection {
+                SettingsRow(L("Reset all settings", "Alle Einstellungen zurücksetzen")) {
                     Button(L("Reset", "Zurücksetzen")) { confirmReset() }
                         .buttonStyle(KlackButtonStyle(destructive: true))
                 }
@@ -240,8 +241,12 @@ struct OpeningSettings: View {
                               range: AppSettings.adaptiveZoneRange, step: AppSettings.adaptiveZoneStep,
                               format: SliderRow.percent)
                 } else {
+                    // Unten, Mitte und Oben benannt: „0 %“ sagte nicht, wo das ist
                     SliderRow(L("Vertical position", "Höhe am Rand"), value: $settings.verticalPosition, range: 0...1, step: 0.05,
-                              format: SliderRow.percent)
+                              format: { v in
+                                  v < 0.01 ? L("Bottom", "Unten") : v > 0.99 ? L("Top", "Oben")
+                                      : abs(v - 0.5) < 0.01 ? L("Middle", "Mitte") : SliderRow.percent(v)
+                              })
                 }
                 SliderRow(L("Thickness", "Dicke"), value: $settings.peekThickness, range: 3...20, step: 1,
                           format: SliderRow.points)
@@ -300,14 +305,35 @@ struct OpeningSettings: View {
 struct AppearanceSettings: View {
     @ObservedObject var settings: AppSettings
 
+    static func columnsText(_ count: Int) -> String {
+        count == 1 ? L("1 column", "1 Spalte") : L("\(count) columns", "\(count) Spalten")
+    }
+
+    /// Objektgröße ändern behält die Spalten: Die Ablage wird so breit, dass sie weiter
+    /// passen. Vorher sprang die Spaltenzahl mit, und es blieb ein leerer Rand. Geht es nicht
+    /// (zu breit), wie bisher nur die Größe
+    private var iconSize: Binding<Double> {
+        Binding(get: { settings.tileIconSize }, set: { newSize in
+            let count = ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize)
+            settings.tileIconSize = newSize
+            let fits = ShelfGrid.widths(columns: count, iconSize: newSize)
+            let allowed = EdgeController.widthRange
+            guard fits.upperBound >= allowed.lowerBound, fits.lowerBound <= allowed.upperBound else { return }
+            let width = min(max(settings.shelfWidth, fits.lowerBound.rounded(.up)), fits.upperBound.rounded(.down))
+            let clamped = min(max(width, allowed.lowerBound), allowed.upperBound)
+            if clamped != settings.shelfWidth { settings.shelfWidth = clamped }
+        })
+    }
+
     var body: some View {
         SettingsPage {
             SettingsSection(L("Size", "Größe")) {
+                // Breite als Spalten: „240 pt“ sagte nicht, was man sieht
                 SliderRow(L("Width", "Breite"), value: $settings.shelfWidth, range: EdgeController.widthRange, step: 10,
-                          format: SliderRow.points)
+                          format: { width in Self.columnsText(ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)) })
                 SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: EdgeController.heightRange, step: 10,
                           format: SliderRow.points)
-                SliderRow(L("Item size", "Objektgröße"), value: $settings.tileIconSize, range: 40...96, step: 4,
+                SliderRow(L("Item size", "Objektgröße"), value: iconSize, range: 40...96, step: 4,
                           format: SliderRow.points)
             }
 
@@ -315,8 +341,8 @@ struct AppearanceSettings: View {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
                 PickerRow(L("Icons", "Symbole"),
-                          info: L("Look of BarDrop’s own icons such as Share, AirDrop, cloud services and plugins in the action bar, the right-click menu and Settings. Automatic follows Light or Dark Mode. Plugin icons stay in color in Settings and the gallery. Icons of apps and folders follow the icon style in System Settings → Appearance.",
-                                  "Aussehen der eigenen Symbole von BarDrop, etwa Teilen, AirDrop, Cloud-Dienste und Plugins, in der Aktionsleiste, im Rechtsklick-Menü und in den Einstellungen. Automatisch folgt dem hellen oder dunklen Modus. Plugin-Symbole bleiben in den Einstellungen und der Galerie farbig. Symbole von Apps und Ordnern folgen dem Symbolstil in Systemeinstellungen → Erscheinungsbild."),
+                          info: L("Applies to BarDrop’s own icons such as AirDrop and plugins, not to apps and folders. Automatic follows Light or Dark Mode.",
+                                  "Gilt für die eigenen Symbole von BarDrop wie AirDrop und Plugins, nicht für Apps und Ordner. Automatisch folgt dem hellen oder dunklen Modus."),
                           selection: $settings.iconStyle,
                           options: IconStyle.allCases.map { ($0, $0.title) })
                 PickerRow(L("Animation", "Animation"),
@@ -500,8 +526,8 @@ struct ItemSettings: View {
         SettingsPage {
             SettingsSection(L("Stacks", "Stapel")) {
                 PickerRow(L("Group into a stack", "Stapel bilden"),
-                          info: L("Items dropped together become a stack. Or select several, right-click and choose “Group as Stack”.",
-                                  "Zusammen abgelegte Objekte werden zum Stapel. Oder mehrere auswählen, Rechtsklick, „Als Stapel zusammenfassen“."),
+                          info: L("Items dropped together become a stack. Or drag one item onto another and hold it there for a moment.",
+                                  "Zusammen abgelegte Objekte werden zum Stapel. Oder ein Objekt kurz auf ein anderes ziehen."),
                           selection: stackFrom,
                           options: [(0, L("Never", "Nie"))] + stackThresholds.map { ($0, L("\($0) or more items", "Ab \($0) Objekten")) })
             }
@@ -511,9 +537,9 @@ struct ItemSettings: View {
             SettingsSection(L("Removing", "Entfernen")) {
                 PickerRow(L("After use", "Nach dem Verwenden"), info: afterUseNote, selection: afterUse,
                           options: AfterUse.allCases.map { ($0, $0.title) })
-                PickerRow(L("Automatically", "Automatisch"),
-                          info: L("⌫ only takes items out of the shelf; files stay in the Finder. What exists only in BarDrop is deleted once ⌘Z can’t bring it back, at the latest after 15 minutes. ⌘⌫ moves files to the Trash.",
-                                  "⌫ nimmt Objekte nur aus der Ablage, Dateien im Finder bleiben. Was nur in BarDrop liegt, wird gelöscht, sobald ⌘Z es nicht mehr zurückholt, spätestens nach 15 Minuten. ⌘⌫ legt Dateien in den Papierkorb."),
+                PickerRow(L("Remove automatically", "Automatisch entfernen"),
+                          info: L("Removes items from the shelf after this time. Files in the Finder stay; what exists only in BarDrop is deleted.",
+                                  "Entfernt Objekte nach dieser Zeit aus der Ablage. Dateien im Finder bleiben, was nur in BarDrop liegt, wird gelöscht."),
                           selection: autoRemove,
                           options: AutoRemoveOption.allCases.map { ($0, $0.title) })
                 // Nur bei „Dateien aus dem Finder: Original“: Mit „Kopie“ gehören alle Dateien
@@ -533,7 +559,7 @@ struct ItemSettings: View {
                                   "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
                           selection: finderFiles,
                           options: FinderFiles.allCases.map { ($0, $0.title) })
-                ToggleRow(L("Convert web images", "Webbilder umwandeln"),
+                ToggleRow(L("Convert web images", "Bilder aus dem Web umwandeln"),
                           info: L("WebP, AVIF and HEIC become PNG or JPEG, so any app can open them.",
                                   "WebP, AVIF und HEIC werden zu PNG oder JPEG, damit jede App sie öffnen kann."),
                           isOn: $settings.convertWebImages)

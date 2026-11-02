@@ -104,6 +104,8 @@ enum Thumbnails {
     /// Eine Kachel zeigt jetzt ihr Symbol oder Vorschaubild (Hauptthread). Die Ablage
     /// zeichnet sich daraufhin neu, auch wenn sie gerade keinen Fokus hat.
     static let didChange = Notification.Name("BarDropThumbnailDidChange")
+    /// Ein Vorschaubild liegt jetzt im Zwischenspeicher; `object`: Pfad der Datei
+    static let imageStored = Notification.Name("BarDropThumbnailImageStored")
 
     /// Dateien, für die Quick Look kein Vorschaubild erzeugen kann (z. B. Links als .webloc,
     /// Programme, Disk-Images), und bis wann das gilt. Der Schlüssel enthält das
@@ -209,6 +211,8 @@ enum Thumbnails {
                     // Das scharfe Bild ersetzt das schnelle; umgekehrt nie
                     if type == .thumbnail || cache.object(forKey: k as NSString) == nil {
                         cache.setObject(image, forKey: k as NSString)
+                        // Nur die Kacheln dieser Datei sehen nach (siehe ThumbnailView)
+                        NotificationCenter.default.post(name: imageStored, object: url.standardizedFileURL.path)
                         ThumbnailEvents.shared.changed()
                     }
                     if type == .thumbnail {
@@ -261,9 +265,9 @@ enum Thumbnails {
 
 /// Meldet neue Vorschaubilder an die Kacheln: Sie zeigen ein Bild aus dem Zwischenspeicher,
 /// sobald es da ist, auch wenn ihr eigenes Laden (noch) nicht gestartet ist
-final class ThumbnailEvents: ObservableObject {
+/// Meldet neue Vorschaubilder gebündelt, damit die offene Ablage neu zeichnet (EdgeController)
+final class ThumbnailEvents {
     static let shared = ThumbnailEvents()
-    @Published private(set) var revision = 0
     private var scheduled = false
 
     /// Viele Bilder auf einmal (großer Ordner): höchstens alle 30 ms neu zeichnen
@@ -273,7 +277,6 @@ final class ThumbnailEvents: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
             guard let self else { return }
             self.scheduled = false
-            self.revision &+= 1
             NotificationCenter.default.post(name: Thumbnails.didChange, object: nil)
         }
     }
@@ -282,7 +285,10 @@ final class ThumbnailEvents: ObservableObject {
 struct ThumbnailView: View {
     let url: URL
     let size: CGFloat
-    @ObservedObject private var events = ThumbnailEvents.shared
+    /// Für den Vergleich mit `Thumbnails.imageStored`, einmal berechnet
+    private let path: String
+    /// Zählt neue Vorschaubilder dieser Datei; im Inhalt gelesen, damit er neu entsteht
+    @State private var stored = 0
     @State private var image: NSImage?
     /// Echte Vorschau (Bild, PDF, Video …) statt Symbol: bekommt runde Ecken wie im Finder.
     /// Wird beim Laden gemerkt statt beim Zeichnen geprüft (das kostet Dateizugriffe).
@@ -294,6 +300,7 @@ struct ThumbnailView: View {
     init(url: URL, size: CGFloat) {
         self.url = url
         self.size = size
+        path = url.standardizedFileURL.path
         let cached = Thumbnails.cached(url, size: size)
         _image = State(initialValue: cached)
         _isPreview = State(initialValue: cached != nil)
@@ -302,6 +309,7 @@ struct ThumbnailView: View {
 
     var body: some View {
         // Schon im Zwischenspeicher (vorab geladen), auch wenn das eigene Laden noch nicht lief
+        let _ = stored
         let shown = image ?? Thumbnails.cached(url, size: size)
         let preview = isPreview || (image == nil && shown != nil)
         Image(nsImage: shown ?? Thumbnails.icon(url))
@@ -312,6 +320,13 @@ struct ThumbnailView: View {
             .frame(width: size, height: size)
             .shadow(color: .black.opacity(0.35), radius: 3, x: 0, y: 1)
             .opacity(ready || shown != nil || Thumbnails.isUnavailable(url, size: size) ? 1 : 0)
+            // Vorab geladenes Bild dieser Datei übernehmen. Vorher beobachtete jede Kachel einen
+            // gemeinsamen Zähler: Jedes neue Vorschaubild zeichnete alle Kacheln neu, beim
+            // Öffnen einer vollen Ablage also jede Kachel so oft, wie es Bilder gab
+            .onReceive(NotificationCenter.default.publisher(for: Thumbnails.imageStored)) { note in
+                // Nur diese Kachel neu zeichnen; der Inhalt kommt wie bisher aus dem Zwischenspeicher
+                if note.object as? String == path { stored &+= 1 }
+            }
             // Spätestens nach kurzer Zeit das Symbol zeigen, falls Quick Look länger braucht.
             // Bilder, PDFs und Videos bekommen fast immer gleich ein Vorschaubild: etwas länger
             // darauf warten, statt erst das Symbol und dann das Bild zu zeigen (das flackerte)

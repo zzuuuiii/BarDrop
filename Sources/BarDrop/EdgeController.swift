@@ -278,7 +278,10 @@ final class EdgeController: NSObject {
         // Viele Kacheln auf einmal (Öffnen einer vollen Ablage): höchstens alle 30 ms
         tileObserver = NotificationCenter.default.publisher(for: Thumbnails.didChange)
             .throttle(for: .milliseconds(30), scheduler: DispatchQueue.main, latest: true)
-            .sink { [weak self] _ in self?.redrawContent() }
+            // Nur ohne Fokus: Beim Öffnen einer vollen Ablage (dann mit Fokus) kam sonst für
+            // jedes neue Vorschaubild ein erzwungenes Layout des ganzen Inhalts dazu, mitten in
+            // der Animation. Die Kachel selbst zeichnet sich neu (ThumbnailView, Prüfung 02.11.2026)
+            .sink { [weak self] _ in self?.redrawContent(unlessFocused: true) }
 
         let cleanup = Timer(timeInterval: 60, target: self, selector: #selector(removeExpired), userInfo: nil, repeats: true)
         // Mit Spielraum: macOS kann das Aufwecken dann mit anderem zusammenlegen (Energie im Leerlauf)
@@ -849,8 +852,10 @@ final class EdgeController: NSObject {
     /// Zeichnet die offene Ablage sofort neu und kurz danach noch einmal (die Änderung
     /// erreicht die Ansicht teils erst im nächsten Durchlauf). Ohne Fokus täte macOS das
     /// teils erst beim nächsten Öffnen.
-    private func redrawContent() {
+    /// `unlessFocused`: Hat die Ablage den Fokus, zeichnet macOS selbst; dann nichts tun
+    private func redrawContent(unlessFocused: Bool = false) {
         guard ui.level == .expanded, let host = panel.contentView else { return }
+        if unlessFocused && panel.isKeyWindow { return }
         host.needsLayout = true
         host.needsDisplay = true
         Self.invalidateScrollContent(in: host)

@@ -130,6 +130,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 | `⌘X` | Ausschneiden: in die Zwischenablage und aus der Ablage |
 | `⌘C`, `⌥⌘C` | Kopieren, Pfad kopieren |
 | `⌘D` | Duplizieren |
+| `⇧⌘N` | Neuer Ordner (mit der Auswahl, falls vorhanden) |
 | `⌘V` | Aus der Zwischenablage einfügen |
 | `⌫` | Auswahl aus der Ablage entfernen, danach ist das nächste Objekt ausgewählt; bricht ausgewählte Plugins ab |
 | `⌘⌫` | Auswahl in den Papierkorb legen |

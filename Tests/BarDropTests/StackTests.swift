@@ -151,4 +151,31 @@ final class StackTests: XCTestCase {
         XCTAssertEqual(store.entries[0].files.count, 2)
         XCTAssertFalse(store.entries[0].files.contains { $0.url == url })
     }
+
+    /// „Neuer Ordner mit Auswahl“: Kopien im Ordner, der an die Stelle der Objekte tritt;
+    /// die Dateien im Finder bleiben, ⌘Z holt die Objekte zurück
+    func testNewFolderWithSelection() throws {
+        let stack = makeStack(2)
+        let originals = stack.files.map(\.url)
+        actions.makeFolder(with: [stack])
+        XCTAssertEqual(store.entries.count, 1)
+        let folder = try XCTUnwrap(store.entries.first?.files.first)
+        XCTAssertTrue(folder.owned)
+        let inside = try FileManager.default.contentsOfDirectory(atPath: folder.url.path).sorted()
+        XCTAssertEqual(inside, originals.map(\.lastPathComponent).sorted())
+        XCTAssertTrue(originals.allSatisfy { FileManager.default.fileExists(atPath: $0.path) })
+        XCTAssertEqual(ui.selection, [store.entries[0].id])
+        actions.undo()
+        XCTAssertTrue(store.entries.contains { $0.id == stack.id })
+    }
+
+    /// Leerer neuer Ordner kommt ganz nach vorn
+    func testEmptyNewFolder() throws {
+        _ = makeStack(2)
+        actions.makeFolder(with: [])
+        let folder = try XCTUnwrap(store.entries.first?.files.first)
+        XCTAssertEqual(folder.url.lastPathComponent, L("New Folder", "Neuer Ordner"))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.url.path), [])
+        XCTAssertEqual(store.entries.count, 2)
+    }
 }

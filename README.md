@@ -130,6 +130,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 | `⌘X` | Cut: to the clipboard and out of the shelf |
 | `⌘C`, `⌥⌘C` | Copy, copy path |
 | `⌘D` | Duplicate |
+| `⇧⌘N` | New folder (with the selection, if any) |
 | `⌘V` | Paste from clipboard |
 | `⌫` | Remove selection from the shelf, the next item is selected; cancels selected plugins |
 | `⌘⌫` | Move selection to the Trash |

@@ -139,6 +139,10 @@ final class ShelfPanel: NSPanel {
             actions.getInfo(actions.currentSelectionURLs)
         case "z":
             if event.modifierFlags.contains(.shift) { actions.redo() } else { actions.undo() }
+        case "n" where event.modifierFlags.contains(.shift):
+            // ⇧⌘N wie im Finder: neuer Ordner, mit Auswahl als „Neuer Ordner mit Auswahl“
+            guard !event.isARepeat, !actions.isFolderOpen, !actions.isInStack else { return true }
+            actions.makeFolder(with: actions.selectedEntries)
         case ",":
             // Wie im Kontextmenü angezeigt: Einstellungen öffnen
             actions.openSettings()

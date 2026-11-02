@@ -1073,6 +1073,17 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
     }
 
+    /// Neuer Ordner, leer oder mit Kopien der Objekte `entries` an deren Stelle (wie
+    /// „Neuer Ordner mit Auswahl“ im Finder); danach ist er ausgewählt
+    func makeFolder(with entries: [ShelfEntry]) {
+        let ids = Set(entries.map(\.id))
+        ui.selection.subtract(ids)
+        guard let id = store.makeFolder(named: L("New Folder", "Neuer Ordner"),
+                                        with: entries.flatMap(\.files), replacing: ids) else { return NSSound.beep() }
+        ui.selection = [id]
+        ui.selectionAnchor = id
+    }
+
     /// Objekte der Ablage auf `entry` gezogen und dort losgelassen: zusammen ein Stapel an
     /// dessen Stelle (liegt dort schon einer, kommen sie hinzu)
     func stackDragged(onto entry: ShelfEntry) {
@@ -1171,13 +1182,15 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             if !multiple, self.isBrowsableFolder(entry) { self.openFolder(from: entry) } else { self.open(targets) }
         }
 
+        menu.addItem(.separator())
+        menu.addItem(ClosureMenuItem(L("New Folder with Selection", "Neuer Ordner mit Auswahl")) { [weak self] in
+            self?.makeFolder(with: targets)
+        })
         if multiple {
-            menu.addItem(.separator())
             menu.addItem(ClosureMenuItem(L("Group as Stack", "Als Stapel zusammenfassen")) { [weak self] in
                 self?.mergeSelection(targets)
             })
         } else if entry.isStack {
-            menu.addItem(.separator())
             menu.addItem(ClosureMenuItem(L("Open Stack", "Stapel öffnen")) { [weak self] in
                 self?.openStack(entry)
             })
@@ -1437,6 +1450,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         if store.undoManager.canUndo {
             menu.addItem(ClosureMenuItem(L("Undo", "Widerrufen"), key: "z") { [weak self] in
                 self?.undo()
+            })
+        }
+        if !isInStack {
+            menu.addItem(ClosureMenuItem(L("New Folder", "Neuer Ordner"), key: "n", modifiers: [.command, .shift]) { [weak self] in
+                self?.makeFolder(with: [])
             })
         }
         if !store.entries.isEmpty {

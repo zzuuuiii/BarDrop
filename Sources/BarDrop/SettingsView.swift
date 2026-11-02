@@ -124,6 +124,7 @@ struct KeyboardSettings: View {
                     ShortcutRow(L("Paste", "Einsetzen"), ["⌘", "V"])
                     ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
                 ShortcutRow(L("Duplicate", "Duplizieren"), ["⌘", "D"])
+                ShortcutRow(L("New Folder", "Neuer Ordner"), ["⇧", "⌘", "N"])
                     ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
                     ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
                     ShortcutRow(L("Remove", "Entfernen"), ["⌫"])

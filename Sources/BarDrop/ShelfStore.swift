@@ -1004,6 +1004,34 @@ final class ShelfStore: ObservableObject {
         }
     }
 
+    // MARK: Neuer Ordner
+
+    /// Neuer Ordner in BarDrops eigenem Speicher (Nutzer, 02.11.2026), mit Kopien von
+    /// `files` (auf APFS Klone ohne Wartezeit). Dateien aus dem Finder bleiben, wo sie
+    /// sind. Der Ordner steht an der Stelle des ersten der Einträge `replacing`, die dabei
+    /// aus der Ablage gehen (⌘Z holt sie zurück); ohne sie ganz vorn. Liefert seinen Eintrag
+    @discardableResult
+    func makeFolder(named name: String, with files: [ShelfFile] = [], replacing ids: Set<UUID> = []) -> UUID? {
+        let fm = FileManager.default
+        let dir = itemsDir.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let folder = dir.appendingPathComponent(name, isDirectory: true)
+        do {
+            try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+            for file in files {
+                try fm.copyItem(at: file.url, to: ShelfActions.uniqueURL(for: file.url.lastPathComponent, in: folder))
+            }
+        } catch {
+            try? fm.removeItem(at: dir)
+            diagnostics?.failure("folder", "Neuer Ordner fehlgeschlagen", error)
+            return nil
+        }
+        let entry = ShelfEntry(files: [ShelfFile(url: folder, owned: true)])
+        let index = entries.firstIndex { ids.contains($0.id) } ?? 0
+        insertWithoutAnimation { $0.insert(entry, at: min(index, $0.count)) }
+        if !ids.isEmpty { remove(ids) }
+        return entry.id
+    }
+
     // MARK: Duplizieren
 
     /// ⌘D wie im Finder: Jeder Eintrag (auch ein Stapel) bekommt direkt dahinter einen Zwilling

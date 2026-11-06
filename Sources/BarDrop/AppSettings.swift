@@ -235,8 +235,9 @@ extension NSScreen {
 
 /// Form des ersten Streifens: flach, lang und dicht am Rand.
 enum PeekDefaults {
-    static let thickness = 7.0
-    static let length = 80.0
+    /// Fest seit 07.11.2026 (Nutzer: Regler weg, so als Standard)
+    static let thickness = 6.0
+    static let length = 84.0
     /// Rundung zum Rand: fest (nicht mehr einstellbar)
     static let roundness = 0.65
 }
@@ -684,7 +685,10 @@ final class AppSettings: ObservableObject {
         // „Nie“ gibt es nicht mehr (Ablegen ist die Hauptsache): wird zu „Erst in Randnähe“
         let storedReveal = DragReveal(rawValue: defaults.string(forKey: Key.dragReveal) ?? "")
             ?? (defaults.bool(forKey: Key.showOnDrag) ? .immediately : .nearEdge)
-        dragReveal = storedReveal == .off ? .nearEdge : storedReveal
+        _ = storedReveal
+        // Fest: Beim Ziehen von Dateien zeigt sich der Streifen sofort (Nutzer, 07.11.2026:
+        // Einstellung weg, immer so)
+        dragReveal = .immediately
         // Ab 1.8 ist der Streifen flacher: alte Standardwerte (16 / 84 / 0,62) einmalig übernehmen,
         // selbst gewählte Werte bleiben
         // (nur einmal: sonst verlöre, wer 16 / 84 später selbst wählt, das bei jedem Start)
@@ -696,8 +700,9 @@ final class AppSettings: ObservableObject {
             }
             defaults.set(true, forKey: "peekDefaults18Migrated")
         }
-        peekThickness = defaults.double(forKey: Key.peekThickness)
-        peekLength = defaults.double(forKey: Key.peekLength)
+        // Dicke und Länge des Streifens sind fest (Nutzer, 07.11.2026)
+        peekThickness = PeekDefaults.thickness
+        peekLength = PeekDefaults.length
         hapticsEnabled = defaults.bool(forKey: Key.hapticsEnabled)
         removeAfterDragOut = defaults.bool(forKey: Key.removeAfterDragOut)
         stackMultiple = defaults.bool(forKey: Key.stackMultiple)
@@ -709,7 +714,8 @@ final class AppSettings: ObservableObject {
         let storedKeep = defaults.bool(forKey: Key.keepAfterAction)
         keepAfterAction = storedKeep || !storedRemove
         animationStyle = AnimationStyle(rawValue: defaults.string(forKey: Key.animationStyle) ?? "") ?? .standard
-        iconStyle = IconStyle(rawValue: defaults.string(forKey: Key.iconStyle) ?? "") ?? .automatic
+        // Symbole folgen immer dem Erscheinungsbild von macOS (Nutzer, 07.11.2026: Einstellung weg)
+        iconStyle = .automatic
         openMode = OpenMode(rawValue: defaults.string(forKey: Key.openMode) ?? "") ?? .automatic
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)

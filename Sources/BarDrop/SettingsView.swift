@@ -227,9 +227,7 @@ struct OpeningSettings: View {
                           options: DisplayMode.allCases.map { ($0, $0.title) })
             }
 
-            // Alles zum Streifen am Rand in einer Karte: wo er sitzt und wie groß er ist. Dicke
-            // und Länge standen vorher unter Aussehen, getrennt von „Höhe am Rand“ (Nutzer,
-            // 30.10.2026: wirkte doppelt)
+            // Wo der Streifen am Rand sitzt. Dicke und Länge sind fest (Nutzer, 07.11.2026)
             SettingsSection(L("Strip at the edge", "Streifen am Rand")) {
                 PickerRow(L("Position along the edge", "Position am Rand"), selection: heightMode,
                           options: HeightMode.allCases.map { ($0, $0.title) })
@@ -249,10 +247,6 @@ struct OpeningSettings: View {
                                       : abs(v - 0.5) < 0.01 ? L("Middle", "Mitte") : SliderRow.percent(v)
                               })
                 }
-                SliderRow(L("Thickness", "Dicke"), value: $settings.peekThickness, range: 3...20, step: 1,
-                          format: SliderRow.points)
-                SliderRow(L("Length", "Länge"), value: $settings.peekLength, range: 60...200, step: 4,
-                          format: SliderRow.points)
             }
 
             SettingsSection(L("When", "Wann")) {
@@ -261,12 +255,6 @@ struct OpeningSettings: View {
                                   "Ab 1 Sekunde Wartezeit öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
                           selection: $settings.openChoice,
                           options: OpenChoice.all.map { ($0, $0.title) })
-                // Als Menü: Für einen Umschalter sind die Texte zu lang, er drückte den Titel
-                // auf mehrere Zeilen zusammen. „Nur am Streifen“ gibt es nicht mehr (Nutzer,
-                // 27.10.2026)
-                PickerRow(L("When dragging files", "Beim Ziehen von Dateien"),
-                          selection: $settings.dragReveal,
-                          options: DragReveal.selectable.map { ($0, $0.title) }, menu: true)
                 ToggleRow(L("Reopen where you left off", "Dort öffnen, wo du warst"),
                           info: L("The shelf opens where you were last: at the same place in the list, in the same stack or folder.",
                                   "Die Ablage öffnet sich dort, wo du zuletzt warst: an derselben Stelle in der Liste, im selben Stapel oder Ordner."),
@@ -359,11 +347,6 @@ struct AppearanceSettings: View {
             SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
-                PickerRow(L("BarDrop icons", "BarDrop-Symbole"),
-                          info: L("Applies to BarDrop’s own icons such as AirDrop and plugins, not to apps and folders. Automatic follows Light or Dark Mode.",
-                                  "Gilt für die eigenen Symbole von BarDrop wie AirDrop und Plugins, nicht für Apps und Ordner. Automatisch folgt dem hellen oder dunklen Modus."),
-                          selection: $settings.iconStyle,
-                          options: IconStyle.allCases.map { ($0, $0.title) })
                 PickerRow(L("Animation", "Animation"),
                           // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
                           info: AnimationStyle.reduceMotion

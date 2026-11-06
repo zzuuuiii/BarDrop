@@ -563,7 +563,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         default:
             // AirDrop, Papierkorb, Mail, Kurzbefehle, Plugins: arbeiten mit Objekten, die man
             // darauf zieht. Vorher geschah beim Klick gar nichts, das wirkte kaputt
-            announce(L("Drag items here", "Objekte hierher ziehen"))
+            announce(L("Drag here", "Hierher ziehen"))
         }
     }
 

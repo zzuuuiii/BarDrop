@@ -96,28 +96,22 @@ struct AppIconBackground: View {
         }
     }
 
-    /// Lichtkante wie bei macOS: Sie folgt dem Rand und ist so hell, wie der Rand nach oben
-    /// zeigt (Licht von oben), also auch in den oberen Ecken, dazu schwächer unten und in den
-    /// unteren Ecken (Nutzer, 29.10.2026: „oben in den Ecken mehr Glanz“). Nachgemessen am
-    /// Symbol von Nachrichten in Leistengröße (34 pt, 2x), je Winkel vom Mittelpunkt aus
-    /// (`RimCompare` im Test-Gerüst). Kleine Symbole von macOS haben eine viel zartere Kante als
-    /// große (34 pt: 49 neben 30 im Grund, 512 pt: 178): Stärke und Breite hängen darum von der
-    /// Größe in Bildpunkten ab, nie unter zwei Bildpunkten Breite.
+    /// Lichtkante wie bei macOS: eine scharfe helle Linie genau auf dem Rand, oben am hellsten
+    /// (auch in den oberen Ecken), unten schwächer, an den Seiten fast nichts; dazu ein kurzer
+    /// Schein nach innen. Nachgemessen neben Nachrichten und Mail im selben Zeichenweg (SwiftUI,
+    /// 2x, macOS 27, 06.11.2026): bei 40 pt oben 70 und unten 50 auf dem Grund von 31 bzw. 15,
+    /// bei 128 pt oben 153 und unten 98. Vorher lag ein breiter, matter Schein innen und eine
+    /// dunkle Linie außen: Die Kacheln wirkten dunkler umrandet und flacher als die Apps
+    /// daneben (Nutzer, 06.11.2026). Stärke hängt von der Größe in Bildpunkten ab.
     private func rim(_ shape: RoundedRectangle) -> some View {
         let pixels = size * displayScale
         let large = max(0, min(1, (pixels - 60) / 240))
         let px = 1 / displayScale
-        // Ein Schein knapp innerhalb des Rands; der äußerste Bildpunkt bleibt dunkler (bei 96 pt
-        // gemessen: 23 am Rand, 55 zwei Punkte weiter innen)
-        let wide = max(size * 0.028, 2.2 * px)
-        // Nachgemessen neben Rechner und Nachrichten in der Aktionsleiste (40 pt, 2x, macOS 27,
-        // 30.10.2026): oben und unten heller als vorher, seitlich keine dunkle Linie mehr. Mit
-        // der alten Linie wirkten die Kacheln wie ausgeschnitten (Nutzer: „da fehlt der Rand“)
-        let wideAlpha = 0.11 + 0.04 * large
+        let line = max(1.5 * px, size * 0.007)
         return ZStack {
-            shape.strokeBorder(Self.light(wideAlpha), lineWidth: wide)
-            // Außen nur ein Hauch dunkler, damit die Kachel auf hellem Grund nicht ausläuft
-            shape.strokeBorder(Color.black.opacity(0.12 + 0.1 * large), lineWidth: max(size * 0.008, 0.7 * px))
+            // Schein knapp innerhalb, verklingt nach wenigen Bildpunkten
+            shape.strokeBorder(Self.light(0.06 + 0.06 * large), lineWidth: max(3 * px, size * 0.02))
+            shape.strokeBorder(Self.light(0.14 + 0.58 * large), lineWidth: line)
         }
     }
 
@@ -125,7 +119,7 @@ struct AppIconBackground: View {
     /// 0° rechts, -90° unten); links wie rechts
     private static let edgeLight: [(angle: Double, light: Double)] = [
         (90, 1), (75, 0.95), (60, 0.9), (52, 0.6), (45, 0.4), (38, 0.25), (30, 0.06), (15, 0),
-        (0, 0.1), (-30, 0.15), (-45, 0.4), (-60, 0.95), (-75, 0.75), (-90, 0.55)
+        (0, 0.05), (-30, 0.1), (-45, 0.35), (-60, 0.7), (-75, 0.65), (-90, 0.6)
     ]
 
     /// Weiß mit der Helligkeit je Richtung als Kreisverlauf um die Mitte der Kachel. SwiftUI zählt
@@ -149,9 +143,11 @@ struct AppIconBackground: View {
 }
 
 extension View {
-    /// Schatten unter einer Kachel wie unter App-Symbolen (weich, leicht nach unten)
+    /// Schatten unter einer Kachel wie unter App-Symbolen: kurz und nach unten, über der
+    /// Kachel praktisch keiner (nachgemessen neben Mail, 06.11.2026; vorher lag er wie ein
+    /// dunkler Hof rundum)
     func appIconShadow(size: CGFloat) -> some View {
-        shadow(color: .black.opacity(0.3), radius: size * 0.04, y: size * 0.02)
+        shadow(color: .black.opacity(0.2), radius: size * 0.03, y: size * 0.02)
     }
 }
 
@@ -190,18 +186,24 @@ struct SymbolIconTile: View {
             .font(.system(size: size * glyphScale, weight: weight))
             .offset(y: size * glyphOffset)
         if dark {
-            // Etwas heller als der Verlauf, damit das Zeichen auf Schwarz so kräftig wirkt wie
-            // die farbigen Teile der App-Symbole im dunklen Stil
-            image.foregroundStyle(LinearGradient(colors: colors.map { Self.lifted($0) }, startPoint: .top, endPoint: .bottom))
+            // Wie die farbigen Teile der App-Symbole im dunklen Stil (Mail, Nachrichten,
+            // nachgemessen 06.11.2026): kräftiger Verlauf von deutlich heller oben bis etwas
+            // tiefer unten, gesättigt, mit leichtem farbigem Schein darunter. Vorher war das
+            // Zeichen nur aufgehellt und fast einfarbig, das wirkte blass neben den Apps
+            let base = colors.last ?? .blue
+            image.foregroundStyle(LinearGradient(colors: Self.darkGlyphColors(base), startPoint: .top, endPoint: .bottom))
+                .shadow(color: base.opacity(0.35), radius: size * 0.05, y: size * 0.02)
         } else {
             image.foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.18), radius: max(0.5, size / 30), y: max(0.3, size / 60))
         }
     }
 
-    private static func lifted(_ color: Color) -> Color {
+    /// Verlauf eines farbigen Zeichens im dunklen Stil: oben heller, unten tiefer als die Farbe
+    static func darkGlyphColors(_ color: Color) -> [Color] {
         let base = NSColor(color).usingColorSpace(.sRGB) ?? NSColor(color)
-        return Color(nsColor: base.blended(withFraction: 0.12, of: .white) ?? base)
+        return [Color(nsColor: base.blended(withFraction: 0.28, of: .white) ?? base),
+                Color(nsColor: base.blended(withFraction: 0.16, of: .black) ?? base)]
     }
 }
 

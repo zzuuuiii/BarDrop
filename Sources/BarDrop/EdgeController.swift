@@ -1631,6 +1631,11 @@ extension EdgeController {
             width = width.rounded()
             height = height.rounded()
         }
+        // Die Breite rastet auf ganze Spalten ein, wie in den Einstellungen (Nutzer, 07.11.2026)
+        let count = ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)
+        if let snapped = ShelfGrid.width(columns: count, iconSize: settings.tileIconSize, range: Self.widthRange) {
+            width = snapped
+        }
         guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
         // Eine Spalte mehr oder weniger: ein leichter Impuls, so spürt man das Raster
         if ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)

@@ -34,7 +34,7 @@ struct GeneralSettings: View {
                 }
                 PickerRow(L("Language", "Sprache"), selection: $settings.language,
                           options: AppLanguage.allCases.map { ($0, $0.title) })
-                ToggleRow(L("Haptic feedback", "Haptisches Feedback"),
+                ToggleRow(L("Trackpad haptics", "Haptik am Trackpad"),
                           isOn: $settings.hapticsEnabled)
             }
             .onChange(of: launchAtLogin) { _, enabled in
@@ -264,21 +264,22 @@ struct OpeningSettings: View {
                 // Als Menü: Für einen Umschalter sind die Texte zu lang, er drückte den Titel
                 // auf mehrere Zeilen zusammen. „Nur am Streifen“ gibt es nicht mehr (Nutzer,
                 // 27.10.2026)
-                PickerRow(L("Strip while dragging", "Streifen beim Ziehen"),
+                PickerRow(L("When dragging files", "Beim Ziehen von Dateien"),
                           selection: $settings.dragReveal,
                           options: DragReveal.selectable.map { ($0, $0.title) }, menu: true)
                 ToggleRow(L("Reopen where you left off", "Dort öffnen, wo du warst"),
                           info: L("The shelf opens where you were last: at the same place in the list, in the same stack or folder.",
                                   "Die Ablage öffnet sich dort, wo du zuletzt warst: an derselben Stelle in der Liste, im selben Stapel oder Ordner."),
                           isOn: $settings.reopenWhereLeft)
+                // Vorher unter „Ausnahmen“, wo „an“ aber hieß: öffnet doch (Nutzer, 07.11.2026)
+                ToggleRow(L("Also open in full screen", "Auch im Vollbild öffnen"),
+                          isOn: $settings.openInFullScreen)
             }
 
             // Wie die Aktionsliste: Liste in einer Karte, „Hinzufügen“ als eigene Karte darunter
             VStack(alignment: .leading, spacing: 8) {
                 // Ausnahmen: Vollbild und einzelne Apps, in denen der Rand die Ablage nicht öffnet
                 SettingsSection(L("Exceptions", "Ausnahmen")) {
-                    ToggleRow(L("Over full-screen apps", "Über Apps im Vollbild"),
-                              isOn: $settings.openInFullScreen)
                     if settings.excludedApps.isEmpty {
                         Text(L("No apps excluded", "Keine Apps ausgenommen"))
                             .font(.system(size: 13.5))
@@ -310,38 +311,55 @@ struct AppearanceSettings: View {
         count == 1 ? L("1 column", "1 Spalte") : L("\(count) columns", "\(count) Spalten")
     }
 
-    /// Objektgröße ändern behält die Spalten: Die Ablage wird so breit, dass sie weiter
-    /// passen. Vorher sprang die Spaltenzahl mit, und es blieb ein leerer Rand. Geht es nicht
-    /// (zu breit), wie bisher nur die Größe
-    private var iconSize: Binding<Double> {
-        Binding(get: { settings.tileIconSize }, set: { newSize in
-            let count = ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize)
-            settings.tileIconSize = newSize
-            let fits = ShelfGrid.widths(columns: count, iconSize: newSize)
-            let allowed = EdgeController.widthRange
-            guard fits.upperBound >= allowed.lowerBound, fits.lowerBound <= allowed.upperBound else { return }
-            let width = min(max(settings.shelfWidth, fits.lowerBound.rounded(.up)), fits.upperBound.rounded(.down))
-            let clamped = min(max(width, allowed.lowerBound), allowed.upperBound)
-            if clamped != settings.shelfWidth { settings.shelfWidth = clamped }
+    private var range: ClosedRange<Double> { EdgeController.widthRange }
+
+    private var columns: Int { ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize) }
+
+    /// Spalten: die Breite ergibt sich daraus, ohne leeren Rand
+    private var columnChoice: Binding<Int> {
+        Binding(get: {
+            let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
+            return choices.min { abs($0 - columns) < abs($1 - columns) } ?? columns
+        }, set: { count in
+            if let width = ShelfGrid.width(columns: count, iconSize: settings.tileIconSize, range: range) {
+                settings.shelfWidth = width
+            }
         })
+    }
+
+    /// Objektgröße ändern behält die Spalten, die Ablage wird mitbreiter oder schmaler. Passen
+    /// sie nicht mehr, die nächstmögliche Zahl
+    private var itemSize: Binding<Double> {
+        Binding(get: { ShelfSizes.nearest(settings.tileIconSize, in: ShelfSizes.items) }, set: { size in
+            let count = columns
+            settings.tileIconSize = size
+            let choices = ShelfGrid.columnChoices(iconSize: size, range: range)
+            guard let best = choices.min(by: { abs($0 - count) < abs($1 - count) }),
+                  let width = ShelfGrid.width(columns: best, iconSize: size, range: range) else { return }
+            settings.shelfWidth = width
+        })
+    }
+
+    private var height: Binding<Double> {
+        Binding(get: { ShelfSizes.nearest(settings.shelfHeight, in: ShelfSizes.heights) },
+                set: { settings.shelfHeight = $0 })
     }
 
     var body: some View {
         SettingsPage {
+            // Alles in festen Stufen statt Reglern in pt: Spalten, Objektgröße, Höhe (Nutzer,
+            // 07.11.2026). Die Symbole der Aktionsleiste passen sich der Objektgröße an
             SettingsSection(L("Size", "Größe")) {
-                // Breite als Spalten: „240 pt“ sagte nicht, was man sieht
-                SliderRow(L("Width", "Breite"), value: $settings.shelfWidth, range: EdgeController.widthRange, step: 10,
-                          format: { width in Self.columnsText(ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)) })
-                SliderRow(L("Height", "Höhe"), value: $settings.shelfHeight, range: EdgeController.heightRange, step: 10,
-                          format: SliderRow.points)
-                SliderRow(L("Item size", "Objektgröße"), value: iconSize, range: 40...96, step: 4,
-                          format: SliderRow.points)
+                PickerRow(L("Columns", "Spalten"), selection: columnChoice,
+                          options: ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range).map { ($0, "\($0)") })
+                PickerRow(L("Item size", "Objektgröße"), selection: itemSize, options: ShelfSizes.items)
+                PickerRow(L("Height", "Höhe"), selection: height, options: ShelfSizes.heights)
             }
 
             SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
-                PickerRow(L("Icons", "Symbole"),
+                PickerRow(L("BarDrop icons", "BarDrop-Symbole"),
                           info: L("Applies to BarDrop’s own icons such as AirDrop and plugins, not to apps and folders. Automatic follows Light or Dark Mode.",
                                   "Gilt für die eigenen Symbole von BarDrop wie AirDrop und Plugins, nicht für Apps und Ordner. Automatisch folgt dem hellen oder dunklen Modus."),
                           selection: $settings.iconStyle,
@@ -543,30 +561,34 @@ struct ItemSettings: View {
                                   "Entfernt Objekte nach dieser Zeit aus der Ablage. Dateien im Finder bleiben, was nur in BarDrop liegt, wird gelöscht."),
                           selection: autoRemove,
                           options: AutoRemoveOption.allCases.map { ($0, $0.title) })
-                // Nur bei „Dateien aus dem Finder: Original“: Mit „Kopie“ gehören alle Dateien
-                // BarDrop, Verschieben kann keine Datei des Nutzers wegnehmen (Nutzer, 27.10.2026:
-                // überschnitt sich mit „Original/Kopie“)
+            }
+
+            // Original oder Kopie und das Kopieren beim Herausziehen an einer Stelle (Nutzer,
+            // 07.11.2026); die automatischen Quellen in einer eigenen Karte darunter
+            SettingsSection(L("Files", "Dateien")) {
+                PickerRow(L("Files from the Finder", "Dateien aus dem Finder"),
+                          info: L("Original: The shelf uses the file where it is, always in its latest version. Copy: The shelf keeps its own copy, which doesn’t change. Images from the web, text and links are always stored in BarDrop.",
+                                  "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
+                          selection: finderFiles,
+                          options: FinderFiles.allCases.map { ($0, $0.title) })
+                // Nur bei „Original“: Mit „Kopie“ gehören alle Dateien BarDrop, Verschieben kann
+                // keine Datei des Nutzers wegnehmen (Nutzer, 27.10.2026)
                 if !settings.copyAllFiles {
                     ToggleRow(L("Always copy when dragging out", "Beim Herausziehen immer kopieren"),
                               info: L("When off, the Finder may move files you drag out.",
                                       "Aus: Der Finder darf herausgezogene Dateien verschieben."),
                               isOn: $settings.dragOutCopyOnly)
                 }
-            }
-
-            SettingsSection(L("Adding", "Hinzufügen")) {
-                PickerRow(L("Files from the Finder", "Dateien aus dem Finder"),
-                          info: L("Original: The shelf uses the file where it is, always in its latest version. Copy: The shelf keeps its own copy, which doesn’t change. Images from the web, text and links are always stored in BarDrop.",
-                                  "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
-                          selection: finderFiles,
-                          options: FinderFiles.allCases.map { ($0, $0.title) })
-                ToggleRow(L("Convert web images", "Bilder aus dem Web umwandeln"),
+                ToggleRow(L("Web images as PNG or JPEG", "Bilder aus dem Web als PNG/JPEG"),
                           info: L("WebP, AVIF and HEIC become PNG or JPEG, so any app can open them.",
                                   "WebP, AVIF und HEIC werden zu PNG oder JPEG, damit jede App sie öffnen kann."),
                           isOn: $settings.convertWebImages)
-                ToggleRow(L("Screenshots", "Bildschirmfotos"),
+            }
+
+            SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {
+                ToggleRow(L("New screenshots", "Neue Bildschirmfotos"),
                           isOn: $settings.addScreenshots)
-                ToggleRow(L("AirDrop files", "AirDrop-Dateien"),
+                ToggleRow(L("Received AirDrop files", "Empfangene AirDrop-Dateien"),
                           info: L("Received files go straight into the shelf instead of the Downloads folder.",
                                   "Empfangene Dateien kommen direkt in die Ablage statt in den Ordner „Downloads“."),
                           isOn: $settings.addAirDrop)
@@ -646,15 +668,14 @@ struct ActionSettings: View {
             }
             .zIndex(1)
 
+            // Die Größe der Symbole folgt der Objektgröße (Aussehen → Größe)
             SettingsSection(L("Layout", "Darstellung")) {
-                SliderRow(L("Size", "Größe"), value: $settings.actionIconSize, range: 24...54, step: 2,
-                          format: SliderRow.points)
                 PickerRow(L("Show names", "Namen anzeigen"), selection: labelMode,
                           options: ActionLabelMode.allCases.map { ($0, $0.title) })
             }
 
             SettingsSection(L("In the shelf", "In der Ablage")) {
-                ToggleRow(L("Pin by dragging", "Per Ziehen anheften"),
+                ToggleRow(L("Pin folders and apps", "Ordner und Apps anheften"),
                           info: L("Drop a folder or app on “Pin” at the end of the action bar. To remove an action, hold ⌘ and drag it out.",
                                   "Ordner oder App auf „Anheften“ am Ende der Aktionsleiste ziehen. Zum Entfernen ⌘ halten und die Aktion herausziehen."),
                           isOn: $settings.pinFromShelf)

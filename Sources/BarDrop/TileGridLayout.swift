@@ -23,6 +23,20 @@ enum ShelfGrid {
         return ratio.isFinite ? max(1, Int(min(10_000, ratio))) : 1
     }
 
+    /// Bequeme Breite für genau `count` Spalten: jede Spalte Symbol + 30 pt, also zwischen
+    /// knapp und weit (siehe minimum/maximum), im erlaubten Bereich. nil, wenn dort nicht genau
+    /// `count` Spalten hineinpassen (Nutzer, 07.11.2026: Breite in ganzen Spalten statt in pt)
+    static func width(columns count: Int, iconSize: Double, range: ClosedRange<Double>) -> Double? {
+        let wanted = Double(2 * sidePadding) + Double(count) * (iconSize + 30) + Double(count - 1) * Double(spacing)
+        let width = min(max(wanted, range.lowerBound), range.upperBound).rounded()
+        return columns(shelfWidth: width, iconSize: iconSize) == count ? width : nil
+    }
+
+    /// Spaltenzahlen, die bei dieser Objektgröße möglich sind
+    static func columnChoices(iconSize: Double, range: ClosedRange<Double>) -> [Int] {
+        (1...8).filter { width(columns: $0, iconSize: iconSize, range: range) != nil }
+    }
+
     /// Breiten der Ablage, bei denen es genau `count` Spalten sind
     static func widths(columns count: Int, iconSize: Double) -> ClosedRange<Double> {
         let step = Double(minimum(CGFloat(iconSize)) + spacing)

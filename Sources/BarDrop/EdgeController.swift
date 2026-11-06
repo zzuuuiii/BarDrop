@@ -839,6 +839,8 @@ final class EdgeController: NSObject {
     /// Wie es vor dem Öffnen der Ablage war: War BarDrop aktiv, und welches eigene Fenster
     /// (Einstellungen, Einführung) hatte den Fokus? Nur beim ersten Mal je Öffnen gemerkt.
     private var focusBefore: (appActive: Bool, window: NSWindow?)?
+    /// Ausstehende Rückgabe des Fokus der schwebenden Ablage (siehe returnFloatingFocusSoon)
+    private var floatFocusReturn: DispatchWorkItem?
 
     private func rememberFocus() {
         guard focusBefore == nil, !panel.isKeyWindow else { return }
@@ -1975,24 +1977,35 @@ extension EdgeController {
 
     /// Wo der Zeiger sein wird, wenn das Bild erscheint. Den Zeiger zeichnet macOS selbst und sofort,
     /// das Fenster erst mit dem nächsten Bild: Ohne Vorhersage lag die Ablage beim Ziehen sichtbar
-    /// hinter dem Zeiger (Nutzer, 01.11.2026). Bewusst knapp (etwa 10 ms), damit sie beim Umkehren
-    /// nicht überschießt; steht die Maus, gibt es keine Vorhersage
+    /// hinter dem Zeiger (Nutzer, 01.11.2026). Bewusst knapp (etwa 10 ms); steht die Maus, gibt es
+    /// keine Vorhersage.
+    /// Beim Umkehren schoss sie trotzdem über: Die Geschwindigkeit über 30 ms zeigte noch in die
+    /// alte Richtung, die Ablage lief bis zu 40 pt weiter und sprang dann zurück. Beim Hin- und
+    /// Herziehen ruckelte sie so bei jeder Umkehr (Nutzer, 07.11.2026). Jetzt gilt je Richtung nur,
+    /// was die kurze (rund 10 ms) und die lange Messung gemeinsam haben: Bremst der Zeiger oder
+    /// kehrt er um, fällt die Vorhersage sofort weg
     private func predictedPointer(_ drag: TearDrag, target: CFTimeInterval) -> NSPoint? {
         guard let last = drag.motion.last, drag.motion.count >= 2 else { return nil }
         let now = ProcessInfo.processInfo.systemUptime
         // Keine Bewegung mehr seit 40 ms: stehen geblieben
         guard now - last.t < 0.04 else { return nil }
-        // Geschwindigkeit über die letzten rund 30 ms (ruhiger als nur zwei Ereignisse)
-        guard let first = drag.motion.last(where: { last.t - $0.t >= 0.03 }) ?? drag.motion.first,
-              last.t - first.t > 0.004 else { return nil }
-        let dt = CGFloat(last.t - first.t)
-        let velocity = CGVector(dx: (last.p.x - first.p.x) / dt, dy: (last.p.y - first.p.y) / dt)
+        func velocity(over span: TimeInterval) -> CGVector? {
+            guard let first = drag.motion.last(where: { last.t - $0.t >= span }) ?? drag.motion.first,
+                  last.t - first.t > 0.004 else { return nil }
+            let dt = CGFloat(last.t - first.t)
+            return CGVector(dx: (last.p.x - first.p.x) / dt, dy: (last.p.y - first.p.y) / dt)
+        }
+        guard let long = velocity(over: 0.03), let short = velocity(over: 0.01) else { return nil }
+        // Gleiche Richtung: die kleinere der beiden; entgegengesetzt: keine Vorhersage
+        func agreed(_ a: CGFloat, _ b: CGFloat) -> CGFloat {
+            a.sign == b.sign ? (abs(a) < abs(b) ? a : b) : 0
+        }
         let horizon = CGFloat(min(max(target - CACurrentMediaTime(), 0), 0.02) + 0.006)
-        var dx = velocity.dx * horizon, dy = velocity.dy * horizon
+        var dx = agreed(long.dx, short.dx) * horizon, dy = agreed(long.dy, short.dy) * horizon
         let length = hypot(dx, dy)
-        if length > 40 { dx *= 40 / length; dy *= 40 / length }
-        let now2 = NSEvent.mouseLocation
-        return NSPoint(x: now2.x + dx, y: now2.y + dy)
+        if length > 30 { dx *= 30 / length; dy *= 30 / length }
+        let current = NSEvent.mouseLocation
+        return NSPoint(x: current.x + dx, y: current.y + dy)
     }
 
     private func updateTear(_ drag: TearDrag) {
@@ -2484,6 +2497,29 @@ extension EdgeController {
         if !live { redrawContent() }
     }
 
+    /// Verlässt der Zeiger die schwebende Ablage, bekommt die App davor den Tastaturfokus zurück,
+    /// wie beim Schließen der Ablage am Rand. Vorher behielt die schwebende Ablage ihn, nachdem der
+    /// Zeiger nur darübergefahren war: Im Vollbild ging die Leertaste dann an BarDrop statt an das
+    /// Video (Nutzer, 07.11.2026; Protokoll: „float Zeiger über der Ablage“, gleich danach „key+
+    /// Ablage“, kein „key-“). Nicht, solange etwas offen ist (Menü, Umbenennen, Übersicht, Dialog),
+    /// die Taste gedrückt ist oder BarDrop selbst die vorderste App ist (dann bleibt alles, wie es war)
+    private func returnFloatingFocusSoon() {
+        floatFocusReturn?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let drag = self.tearDrag, drag.phase == .floating,
+                  !self.pointerInside, self.panel.isKeyWindow,
+                  (NSEvent.pressedMouseButtons & 1) == 0, !self.holdsOpen, !self.ui.ownDragActive,
+                  NSApp.modalWindow == nil, !AppActivation.isFrontmost else { return }
+            Diagnostics.shared.record("focus", "float Zeiger fort: Fokus zurück")
+            if self.focusBefore == nil { self.focusBefore = (false, nil) }
+            // resignFocus nimmt das Fenster kurz heraus und wieder nach vorn: ohne Zwischenbild
+            self.panel.disableScreenUpdatesUntilFlush()
+            self.resignFocus()
+        }
+        floatFocusReturn = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
     /// Nichts, was der Takt beim Schweben noch nachführen müsste: Zeiger fern der Ablage (kein
     /// Griff, kein Pfeil, kein Fokuswechsel), keine Taste gedrückt, kein Menü, keine Übersicht,
     /// keine ⌘-Größenänderung, kein eigener Drag, keine ausstehende Einstellungsänderung
@@ -2528,10 +2564,13 @@ extension EdgeController {
         }
         // Hinter den Einstellungen (siehe settingsKeyChanged) nur per Klick nach vorn, nicht schon,
         // wenn der Zeiger über die verdeckte Stelle fährt
+        // Im Vollbild (wenn die Ablage dort nicht öffnen soll) holt sie sich den Fokus nur per Klick
+        let onFullScreen = fullScreenFrames.contains { $0.contains(NSPoint(x: body.midX, y: body.midY)) }
         if inside && !pointerInside && !mouseDown && !panel.isKeyWindow && !locked && NSApp.modalWindow == nil
-            && panel.level == ShelfPanel.shelfLevel {
+            && panel.level == ShelfPanel.shelfLevel && !onFullScreen {
             takeFocus()
         }
+        if !inside && pointerInside { returnFloatingFocusSoon() }
         pointerInside = inside
         let hover = inside && !mouseDown && headerZone(body).contains(loc)
         if ui.grabberHover != hover {

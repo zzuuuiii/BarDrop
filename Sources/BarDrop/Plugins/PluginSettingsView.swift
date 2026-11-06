@@ -11,6 +11,8 @@ enum PluginPage: Hashable {
     case permissions(String)
     case gallery
     case order
+    /// Aus Datei installieren, Plugin-Dateien, Reihenfolge, Fehlersuche (Entwurf A, 07.11.2026)
+    case advanced
 
     /// Wohin „Zurück“ führt
     var parent: PluginPage {
@@ -27,6 +29,7 @@ enum PluginPage: Hashable {
         case .permissions: return L("Access", "Zugriff")
         case .gallery: return L("All plugins", "Alle Plugins")
         case .order: return L("Order when dropped", "Reihenfolge beim Ablegen")
+        case .advanced: return L("Advanced", "Erweitert")
         }
     }
 }
@@ -127,8 +130,6 @@ struct PluginSettings: View {
     }
 
     private var page: PluginPage { navigation.pluginPage }
-    /// „Fehlersuche“ unter „Erweitert“ aufgeklappt (Standard: zu)
-    @State private var showDiagnostics = false
 
     var body: some View {
         SettingsPage(page: page) {
@@ -152,6 +153,8 @@ struct PluginSettings: View {
                 GalleryPage(manager: manager) { id in open(.plugin(id)) }
             case .order:
                 PluginOrderPage(manager: manager)
+            case .advanced:
+                advanced
             }
         } footer: {
             // Sind Plugins aus, steht in der Mitte der freien Fläche, was Plugins sind
@@ -206,10 +209,7 @@ struct PluginSettings: View {
 
     @ViewBuilder
     private var start: some View {
-        SettingsSection(L("General", "Allgemein")) {
-            ToggleRow(L("Use plugins", "Plugins verwenden"), isOn: $settings.pluginsEnabled)
-        }
-
+        // Der Hauptschalter „Plugins verwenden“ steht rechts in der Titelzeile (SettingsRoot)
         if settings.pluginsEnabled {
             // Ohne installierte Plugins dieselbe Startseite, nur ohne „Installiert“
             if !nothingInstalled {
@@ -252,16 +252,18 @@ struct PluginSettings: View {
                 NavigationRow(L("All plugins", "Alle Plugins")) { open(.gallery) }
             }
 
-            // Als letzte Karte der Seite, nicht mehr unten am Fenster festgemacht: Dort wuchs
-            // „Fehlersuche“ beim Aufklappen nach oben und schob die Zeile weg (Nutzer)
-            footer
+            // Alles Technische auf einer eigenen Seite, hier nur eine Zeile (Entwurf A)
+            SettingsCard {
+                NavigationRow(L("Advanced", "Erweitert")) { open(.advanced) }
+            }
         }
     }
 
-    /// Ganz unten auf der Startseite eine eigene Karte wie die anderen: Plugin aus einer Datei
-    /// installieren und das Protokoll für die Fehlersuche (an: zusätzlich „Sichern“)
-    private var footer: some View {
-        SettingsSection(L("Advanced", "Erweitert")) {
+    /// Seite „Erweitert“: Plugin aus einer Datei installieren, Ordner der Plugins, Reihenfolge und
+    /// das Protokoll für die Fehlersuche (an: zusätzlich „Sichern“)
+    @ViewBuilder
+    private var advanced: some View {
+        SettingsSection {
             if manager.plugins.filter({ manager.isAutomatic($0) }).count > 1 {
                 NavigationRow(L("Order when dropped", "Reihenfolge beim Ablegen")) { open(.order) }
             }
@@ -280,26 +282,14 @@ struct PluginSettings: View {
                 .buttonStyle(KlackButtonStyle())
                 .fixedSize()
             }
-            // Fehlersuche eingeklappt wie die Tastenkürzel: Die meisten brauchen sie nie
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showDiagnostics.toggle() }
-            } label: {
-                SettingsRow(L("Troubleshooting", "Fehlersuche")) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(showDiagnostics ? 90 : 0))
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            if showDiagnostics {
-                ToggleRow(L("Plugin log", "Plugin-Protokoll"),
-                          info: L("Records what plugins do, including file names and error messages, to help find problems. Stays on this Mac until you save it. Turning it off deletes it.",
-                                  "Hält fest, was Plugins tun, mit Dateinamen und Fehlermeldungen, um Probleme zu finden. Bleibt auf diesem Mac, bis du es sicherst. Ausschalten löscht es."),
-                          isOn: pluginLog)
-            }
-            if showDiagnostics && settings.pluginLogEnabled {
+        }
+        // Auf der eigenen Seite nicht mehr eingeklappt: Wer hierher kommt, sucht sie
+        SettingsSection(L("Troubleshooting", "Fehlersuche")) {
+            ToggleRow(L("Plugin log", "Plugin-Protokoll"),
+                      info: L("Records what plugins do, including file names and error messages, to help find problems. Stays on this Mac until you save it. Turning it off deletes it.",
+                              "Hält fest, was Plugins tun, mit Dateinamen und Fehlermeldungen, um Probleme zu finden. Bleibt auf diesem Mac, bis du es sicherst. Ausschalten löscht es."),
+                      isOn: pluginLog)
+            if settings.pluginLogEnabled {
                 SettingsRow(L("Log file", "Protokolldatei")) {
                     Button(L("Save Log", "Protokoll sichern")) { PluginLog.shared.saveReport() }
                         .buttonStyle(KlackButtonStyle())
@@ -378,75 +368,70 @@ private struct InstalledRow: View {
     @ObservedObject var manager: PluginManager
     let open: () -> Void
     @State private var hovering = false
-    /// Plugin und seine Programme zusammen
-    @State private var size: Int64?
-
-    private var state: PluginState { manager.state(plugin.id) }
-    private var running: Int { manager.runningCounts[plugin.id] ?? 0 }
-
-    /// Unter dem Namen immer Version und Größe. Was gerade ansteht (läuft, hat nicht geklappt,
-    /// gerade aktualisiert), zeigt ein farbiges Zeichen rechts (vor „Aus“) (Nutzer, 25.10.2026: vorher
-    /// stand es als Text unter dem Namen). Fehlt eine Erlaubnis, ist das Plugin aus
-    private var subtitle: String {
-        var parts = [L("Version \(plugin.manifest.version)", "Version \(plugin.manifest.version)")]
-        if let size { parts.append(PluginSize.text(size)) }
-        return parts.joined(separator: " · ")
-    }
 
     private var status: PluginStatus? {
         PluginStatus.current(of: plugin.id, manager: manager)
     }
 
-    var body: some View {
-        Button(action: open) {
-            HStack(spacing: 10) {
-                PluginIconView(icon: plugin.manifest.icon, size: 26)
-                    .modifier(PluginOffLook(off: !manager.isOn(plugin)))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(plugin.manifest.name.text)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                if let status {
-                    PluginStatusSymbol(status: status, size: 14)
-                        .help(status.text)
-                        .accessibilityLabel(status.text)
-                        .transition(.opacity)
-                }
-                // Nur „Aus“ steht da; eingeschaltet ist der Normalfall (Nutzer, 28.10.2026)
-                if !manager.isOn(plugin) {
-                    Text(L("Off", "Aus"))
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, SettingsTheme.rowPadding)
-            .frame(minHeight: 52)
-            .background(Color.primary.opacity(hovering ? 0.03 : 0))
-            .contentShape(Rectangle())
+    /// Unter dem Namen, was das Plugin macht (Entwurf A, 07.11.2026; vorher Version und Größe,
+    /// die stehen auf seiner Seite). Ist der letzte Lauf fehlgeschlagen, steht das dort in Orange
+    private var subtitle: (text: String, color: Color) {
+        if status == .failed, let status { return (status.text, status.color) }
+        if let description = plugin.manifest.description?.text, !description.isEmpty {
+            return (description, .secondary)
         }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.2), value: status)
-        .onAppear { measure() }
-        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in measure(fresh: true) }
-        .onChange(of: manager.toolsChanged) { _, _ in measure(fresh: true) }
+        return (L("Version \(plugin.manifest.version)", "Version \(plugin.manifest.version)"), .secondary)
     }
 
-    private func measure(fresh: Bool = false) {
-        let parts = PluginSize.parts(of: plugin, tools: manager.tools, fresh: fresh)
-        size = parts.own + (parts.programs ?? 0)
+    /// Wie der Schalter auf der Seite des Plugins: Einschalten fragt erst nach fehlender Erlaubnis
+    private var enabled: Binding<Bool> {
+        Binding(get: { manager.isOn(plugin) }, set: { on in
+            if on, !PluginDialogs.authorize(plugin, manager: manager, ui: nil) { return }
+            withAnimation(.easeOut(duration: 0.2)) { manager.update(plugin.id) { $0.enabled = on } }
+        })
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // Klick auf Symbol oder Name öffnet die Seite des Plugins, der Schalter schaltet nur
+            Button(action: open) {
+                HStack(spacing: 10) {
+                    PluginIconView(icon: plugin.manifest.icon, size: 26)
+                        .modifier(PluginOffLook(off: !manager.isOn(plugin)))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(plugin.manifest.name.text)
+                            .font(.system(size: 13.5))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        Text(subtitle.text)
+                            .font(.system(size: 11))
+                            .foregroundStyle(subtitle.color)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    // Läuft gerade oder frisch aktualisiert: das Zeichen wie bisher
+                    if let status, status != .failed {
+                        PluginStatusSymbol(status: status, size: 14)
+                            .help(status.text)
+                            .accessibilityLabel(status.text)
+                            .transition(.opacity)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            KlackSwitch(isOn: enabled)
+                .controlSize(.small)
+                .accessibilityLabel(plugin.manifest.name.text)
+        }
+        .padding(.horizontal, SettingsTheme.rowPadding)
+        .frame(minHeight: 52)
+        .background(Color.primary.opacity(hovering ? 0.03 : 0))
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.2), value: status)
     }
 }
+
 
 // MARK: Alle Plugins (Galerie)
 
@@ -485,8 +470,8 @@ private struct GalleryPage: View {
 
     @ViewBuilder
     private var content: some View {
-        // Suche erst, wenn es etwas zu suchen gibt
-        if available.count > 6 {
+        // Suche immer, sobald es etwas zu suchen gibt (Entwurf A, 07.11.2026; vorher erst ab sieben)
+        if !available.isEmpty {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 11, weight: .medium))
@@ -555,12 +540,13 @@ struct GalleryRow: View {
                     // Zwei Monate nach dem Erscheinen in der Galerie
                     if entry.isNew { Badge(L("NEW", "NEU")) }
                 }
-                Text(failed ? L("Download failed", "Laden fehlgeschlagen") : meta)
+                Text(failed ? L("Download failed", "Laden fehlgeschlagen") : subtitle)
                     .font(.system(size: 11))
                     .foregroundStyle(failed ? Color.orange : Color.secondary)
                     .lineLimit(1)
             }
-            .help(entry.description?.text ?? "")
+            // Größe und ob es offline läuft beim Darüberfahren (vorher die Zeile darunter)
+            .help(meta)
             Spacer(minLength: 8)
             if loading {
                 ProgressView().controlSize(.small)
@@ -602,6 +588,12 @@ struct GalleryRow: View {
     }
 
     private var meta: String { Self.summary(entry) }
+
+    /// Was das Plugin macht (Entwurf A, 07.11.2026); ohne Beschreibung wie bisher Größe und Art
+    private var subtitle: String {
+        if let description = entry.description?.text, !description.isEmpty { return description }
+        return meta
+    }
 
     /// „Läuft lokal · 14 KB“ (Internet nur, wenn der Katalog die Rechte nennt); auch im
     /// Fenster vor dem Laden über einen Link der Website (PluginLink)

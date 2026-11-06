@@ -61,6 +61,55 @@ final class SettingsNSWindow: NSWindow {
     }
     private var pressedButton: String?
 
+    /// Schalter in der Titelleiste (Plugins verwenden, Startseite der Plugins): wie die Knöpfe
+    /// ein echter Schalter von AppKit, sonst nähme die Titelleiste jeden Klick zum Verschieben
+    static var titlebarSwitches: [String: (frame: CGRect, isOn: Bool, label: String, set: (Bool) -> Void)] = [:] {
+        didSet {
+            for case let window as SettingsNSWindow in NSApp.windows { window.updateTitlebarSwitches() }
+        }
+    }
+    private var switches: [String: TitlebarSwitch] = [:]
+
+    private final class TitlebarSwitch: NSSwitch {
+        var key = ""
+        override var mouseDownCanMoveWindow: Bool { false }
+        @objc func changed() { SettingsNSWindow.titlebarSwitches[key]?.set(state == .on) }
+    }
+
+    fileprivate func updateTitlebarSwitches() {
+        guard let content = contentView,
+              let titlebar = Self.usesNativeTitlebarButtons ? content.superview
+                  : standardWindowButton(.closeButton)?.superview else { return }
+        for (key, view) in switches where Self.titlebarSwitches[key] == nil {
+            view.removeFromSuperview()
+            switches[key] = nil
+        }
+        for (key, entry) in Self.titlebarSwitches {
+            let control = switches[key] ?? {
+                let s = TitlebarSwitch(frame: .zero)
+                s.key = key
+                s.target = s
+                s.action = #selector(TitlebarSwitch.changed)
+                titlebar.addSubview(s, positioned: .above, relativeTo: nil)
+                switches[key] = s
+                return s
+            }()
+            control.setAccessibilityLabel(entry.label)
+            control.toolTip = entry.label
+            let state: NSControl.StateValue = entry.isOn ? .on : .off
+            if control.state != state { control.animator().state = state }
+            // Rahmen kommt oben links (SwiftUI), wie bei den Knöpfen; der Schalter mittig darin
+            let local = content.isFlipped ? entry.frame
+                : NSRect(x: entry.frame.minX, y: content.bounds.height - entry.frame.maxY,
+                         width: entry.frame.width, height: entry.frame.height)
+            let slot = titlebar.convert(local, from: content)
+            let size = control.fittingSize
+            let target = NSRect(x: (slot.maxX - size.width).rounded(), y: (slot.midY - size.height / 2).rounded(),
+                                width: size.width, height: size.height)
+            if control.frame != target { control.frame = target }
+        }
+    }
+
     /// Fenster verschiebbar oder nicht (aus, solange der Zeiger auf dem Zurück-Knopf steht)
     static func setMovable(_ movable: Bool) {
         for case let window as SettingsNSWindow in NSApp.windows where window.isMovable != movable {
@@ -437,7 +486,15 @@ struct SettingsRoot: View {
                     PaneIcon(pane: pane, size: 24)
                     Text(pane.title)
                         .font(.system(size: 17, weight: .semibold))
+                    // Plugins: der Hauptschalter rechts in der Titelzeile statt einer eigenen
+                    // Karte „Allgemein“ (Nutzer, 07.11.2026, Entwurf A)
+                    if pane == .plugins {
+                        Spacer(minLength: 8)
+                        TitlebarSwitchSlot(key: "plugins", label: L("Use plugins", "Plugins verwenden"),
+                                           isOn: $settings.pluginsEnabled)
+                    }
                 }
+                .padding(.trailing, 18)
             }
         }
     }
@@ -887,5 +944,35 @@ private struct SettingsKeyCap: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: active)
+    }
+}
+
+/// Platz für einen Schalter in der Titelleiste: Gezeichnet wird er von AppKit (siehe
+/// SettingsNSWindow.titlebarSwitches), hier steht nur, wo er hingehört und ob er an ist
+struct TitlebarSwitchSlot: View {
+    let key: String
+    let label: String
+    @Binding var isOn: Bool
+    @State private var frame: CGRect = .zero
+
+    var body: some View {
+        Color.clear
+            .frame(width: 42, height: 24)
+            .background(GeometryReader { g in
+                Color.clear
+                    .onAppear { register(g.frame(in: .global)) }
+                    .onChange(of: g.frame(in: .global)) { _, new in register(new) }
+            })
+            .onChange(of: isOn) { _, _ in register(frame) }
+            .onDisappear { SettingsNSWindow.titlebarSwitches[key] = nil }
+            .accessibilityHidden(true)
+    }
+
+    private func register(_ new: CGRect) {
+        frame = new
+        let binding = $isOn
+        SettingsNSWindow.titlebarSwitches[key] = (new, isOn, label, { on in
+            withAnimation(.easeInOut(duration: 0.2)) { binding.wrappedValue = on }
+        })
     }
 }

@@ -1779,8 +1779,12 @@ extension EdgeController {
     private func setTear(gap: CGFloat, attach: CGFloat? = nil, side: ScreenEdge, dock: CGFloat? = nil) {
         guard var tear = ui.tear else { return }
         if let dock { tear.dock = (max(0, min(1, dock)) * 50).rounded() / 50 }
-        // Auf halbe Punkte gerundet: Kleinste Änderungen zeichnen sonst unnötig neu
-        tear.gap = (max(0, gap) * 2).rounded() / 2
+        // Auf ganze Bildpunkte gerundet, genau wie die Lage des Fensters (applyTearFrame). Bisher
+        // auf halbe Punkte: Auf einem Bildschirm ohne Retina (1 Bildpunkt = 1 Punkt) lag der Bogen
+        // zum Bildschirmrand beim Andocken jedes zweite Bild einen halben Punkt daneben, die Kanten
+        // flackerten (Nutzer, 07.11.2026). Kleinste Änderungen zeichnen so auch nicht unnötig neu
+        let scale = panel.screen?.backingScaleFactor ?? 2
+        tear.gap = (max(0, gap) * scale).rounded() / scale
         if let attach { tear.attach = (max(0, min(1, attach)) * 100).rounded() / 100 }
         tear.side = side
         // Ohne Verbindung zum Rand spielt der Abstand keine Rolle: nicht bei jeder Bewegung
@@ -1791,6 +1795,10 @@ extension EdgeController {
         let relink = linked(tear) != linked(ui.tear)
         // Das Glas reicht auf der Seite zum Rand hinaus und rundet dort wie die Ablage
         let reshape = tear.side != ui.tear?.side || tear.attach != ui.tear?.attach
+        // Mit dem Rand verbunden: Fenster und Form erscheinen im selben Bild. Das Fenster rückt
+        // sonst sofort, die neue Form kam erst mit dem nächsten Zeichnen, und für ein Bild stand
+        // der Bogen am Bildschirmrand versetzt (Kanten flackerten beim Andocken)
+        if tear.attach > 0.01 || (ui.tear?.attach ?? 0) > 0.01 { panel.disableScreenUpdatesUntilFlush() }
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) { ui.tear = tear }

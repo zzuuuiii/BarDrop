@@ -140,6 +140,11 @@ struct TearGoo: View, Animatable {
             // verschmelzende Form; so gibt es keinen Moment, in dem es durchscheint
             let dockIn = Double(min(1, tear.dock * 2))
             let gooOut = Double(max(0, tear.dock * 2 - 1))
+            // Die hellen Rahmen wechseln über die ganze Überblendung, weich an Anfang und Ende.
+            // Mit dem Schwarz (dockIn) gingen sie in rund vier Bildern von der einen Form zur
+            // anderen über; das sah aus, als flackerten die Kanten (Nutzer, 07.11.2026)
+            let d = Double(max(0, min(1, tear.dock)))
+            let rimIn = d * d * (3 - 2 * d)
             // Ein gemeinsamer Schatten für beide Formen: Während der Überblendung lagen sonst
             // zwei Schatten übereinander, und er wurde kurz dunkler (im Video nachgemessen)
             ZStack {
@@ -169,13 +174,13 @@ struct TearGoo: View, Animatable {
                     outlineStroke
                     if attach > 0.01 { gooRim }
                 }
-                .opacity((1 - dockIn) * (1 - glass))
-                if dockIn > 0.001, let docked {
+                .opacity((1 - rimIn) * (1 - glass))
+                if rimIn > 0.001, let docked {
                     // Innen auf dem Schwarz, wie der Rahmen der angedockten Ablage
                     DockedSpan(base: Self.contour(docked), reach: reach, gap: tear.gap, side: tear.side)
                         .stroke(Color.white.opacity(0.2), lineWidth: 2)
                         .mask { DockedSpan(base: docked, reach: reach, gap: tear.gap, side: tear.side).fill(Color.black) }
-                        .opacity(dockIn)
+                        .opacity(rimIn)
                 }
             }
         }

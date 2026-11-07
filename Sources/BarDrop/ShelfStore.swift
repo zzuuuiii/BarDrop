@@ -443,7 +443,11 @@ final class ShelfStore: ObservableObject {
         // Ablage keinen Fokus mehr hat. Dann bliebe eine Einblend-Animation unsichtbar am
         // Anfang hängen, bis sich die Ablage neu öffnet.
         insertWithoutAnimation { $0.insert(contentsOf: newEntries, at: 0) }
+        if newEntries.count == 1, newEntries[0].isStack { onStackCreated?(newEntries[0].id) }
     }
+
+    /// Mehrere Objekte wurden eben zu einem Stapel (ShelfActions zeigt „Stapel abgelegt“)
+    var onStackCreated: ((UUID) -> Void)?
 
     /// Legt Objekte auf einen vorhandenen Eintrag: Er wird zum Stapel bzw. ergänzt.
     func append(_ files: [ShelfFile], to entryID: UUID) {

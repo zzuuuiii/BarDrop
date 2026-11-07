@@ -1104,6 +1104,7 @@ final class EdgeController: NSObject {
         let now = Date()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
+        syncFloatingFlag()
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         let dragCount = dragPasteboard.changeCount
         if !mouseDown { dragBaseline = dragCount }
@@ -1335,7 +1336,9 @@ final class EdgeController: NSObject {
         let inside = ui.level == .expanded && expandedBody.contains(loc)
         // Griff oben, solange der Zeiger in der Kopfzeile ist; nicht, während etwas gezogen
         // wird (Dateien über der Ablage) oder die Taste gedrückt ist
-        let hover = inside && !mouseDown && headerZone(expandedBody).contains(loc)
+        // Griff sichtbar, solange der Zeiger über der Ablage ist, nicht nur in der Kopfzeile
+        // (Nutzertest 07.11.2026: niemand fand ihn)
+        let hover = inside && !mouseDown
         if ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }
@@ -1457,6 +1460,12 @@ extension EdgeController {
 
     /// Schwebt die Ablage gerade frei?
     var isFloating: Bool { tearDrag?.phase == .floating }
+
+    /// Für den Knopf „Zurück an den Rand“ in der schwebenden Ablage
+    private func syncFloatingFlag() {
+        let floating = isFloating
+        if ui.floatingShelf != floating { ui.floatingShelf = floating }
+    }
 
     /// Einstellungen vorn: Die schwebende Ablage liegt sonst darüber (sie schwebt auf der Ebene
     /// der Menüleiste über allen Fenstern), und die Einstellungen öffneten sich dahinter (Nutzer,
@@ -2628,6 +2637,7 @@ extension EdgeController {
         releaseStaleHolds()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
+        syncFloatingFlag()
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         if !mouseDown { dragBaseline = dragPasteboard.changeCount }
         // Wo die Ablage wirklich liegt, aus dem Fenster selbst: Hat macOS oder SwiftUI das
@@ -2665,7 +2675,7 @@ extension EdgeController {
         }
         if !inside && pointerInside { returnFloatingFocusSoon() }
         pointerInside = inside
-        let hover = inside && !mouseDown && headerZone(body).contains(loc)
+        let hover = inside && !mouseDown
         if ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }

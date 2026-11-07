@@ -161,7 +161,8 @@ struct OpeningSettings: View {
             }
 
             SettingsSection(L("When", "Wann")) {
-                PickerRow(L("Open shelf", "Ablage öffnen"),
+                // „Wartezeit“ statt „Ablage öffnen“: danach suchten die Testpersonen (07.11.2026)
+                PickerRow(L("Delay", "Wartezeit"),
                           info: L("From a 1 second delay on, clicking the strip still opens the shelf right away.",
                                   "Ab 1 Sekunde Wartezeit öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
                           selection: $settings.openChoice,

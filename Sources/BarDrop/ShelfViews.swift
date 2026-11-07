@@ -469,6 +469,26 @@ struct ShelfContent: View {
                     .accessibilityHidden(true)
             }
         }
+        // Schwebend: oben links „Zurück an den Rand“, wo bei Fenstern der Schließen-Knopf sitzt
+        .overlay(alignment: .topLeading) {
+            if !shelfDemo && ui.floatingShelf {
+                Button { actions.returnToEdge?() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Color.primary.opacity(0.75))
+                        .frame(width: 16, height: 16)
+                        .background(Circle().fill(Color.primary.opacity(0.14)))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help(L("Back to the Edge (esc)", "Zurück an den Rand (esc)"))
+                .accessibilityLabel(L("Back to the Edge", "Zurück an den Rand"))
+                .padding(.leading, 9)
+                .padding(.top, 19)
+                .opacity(ui.grabberHover ? 1 : 0)
+                .animation(.easeOut(duration: 0.15), value: ui.grabberHover)
+            }
+        }
         .background(Group { if !shelfDemo {
             // Leere Stellen außerhalb des Rasters (Kopfbereich, Ränder): Klick und Rechtsklick
             SelectionBackground(
@@ -608,8 +628,28 @@ struct ShelfContent: View {
     @ViewBuilder
     private func status(_ fallback: String?) -> some View {
         if let notice = ui.notice {
-            countLabel(notice.text)
-                .id(notice.id)
+            // Widerrufbar: „Rückgängig“ zum Anklicken daneben. ⌘Z kannte im Nutzertest
+            // (07.11.2026) kaum jemand, und ohne sichtbaren Weg zurück traute sich niemand
+            // an „Alle Objekte entfernen“
+            HStack(spacing: 6) {
+                countLabel(notice.text)
+                if notice.canUndo {
+                    Button(L("Undo", "Rückgängig")) { actions.undo() }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .lineLimit(1)
+                        .help(L("Undo (⌘Z)", "Rückgängig (⌘Z)"))
+                } else if let id = notice.unstack {
+                    Button(L("Separate", "Einzeln")) { actions.unstackFromNotice(id) }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .lineLimit(1)
+                        .help(L("Ungroup Stack", "Stapel auflösen"))
+                }
+            }
+            .id(notice.id)
             .transition(.opacity)
         } else if let fallback {
             countLabel(fallback)

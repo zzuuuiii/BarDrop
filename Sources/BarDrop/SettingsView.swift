@@ -328,6 +328,16 @@ struct AppearanceSettings: View {
         })
     }
 
+    /// Regler über feste Stufen: Der Regler zählt die Stufe (0, 1, 2 …), gespeichert wird ihr Wert
+    private func stepIndex<V: Equatable>(_ binding: Binding<V>, in steps: [V]) -> Binding<Double> {
+        Binding(get: { Double(steps.firstIndex(of: binding.wrappedValue) ?? 0) },
+                set: { index in
+                    guard !steps.isEmpty else { return }
+                    let value = steps[min(max(Int(index.rounded()), 0), steps.count - 1)]
+                    if value != binding.wrappedValue { binding.wrappedValue = value }
+                })
+    }
+
     private var height: Binding<Double> {
         Binding(get: { ShelfSizes.nearest(settings.shelfHeight, in: ShelfSizes.heights) },
                 set: { settings.shelfHeight = $0 })
@@ -338,10 +348,20 @@ struct AppearanceSettings: View {
             // Alles in festen Stufen statt Reglern in pt: Spalten, Objektgröße, Höhe (Nutzer,
             // 07.11.2026). Die Symbole der Aktionsleiste passen sich der Objektgröße an
             SettingsSection(L("Size", "Größe")) {
-                PickerRow(L("Columns", "Spalten"), selection: columnChoice,
-                          options: ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range).map { ($0, "\($0)") })
-                PickerRow(L("Item size", "Objektgröße"), selection: itemSize, options: ShelfSizes.items)
-                PickerRow(L("Height", "Höhe"), selection: height, options: ShelfSizes.heights)
+                // Regler wie überall, aber in festen Stufen (Nutzer, 07.11.2026)
+                let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
+                SliderRow(L("Columns", "Spalten"),
+                          value: stepIndex(columnChoice, in: choices),
+                          range: 0...Double(max(1, choices.count - 1)), step: 1,
+                          format: { Self.columnsText(choices[min(max(Int($0.rounded()), 0), choices.count - 1)]) })
+                SliderRow(L("Item size", "Objektgröße"),
+                          value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
+                          range: 0...Double(ShelfSizes.items.count - 1), step: 1,
+                          format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
+                SliderRow(L("Height", "Höhe"),
+                          value: stepIndex(height, in: ShelfSizes.heights.map(\.0)),
+                          range: 0...Double(ShelfSizes.heights.count - 1), step: 1,
+                          format: { ShelfSizes.heights[min(max(Int($0.rounded()), 0), ShelfSizes.heights.count - 1)].1 })
             }
 
             SettingsSection(L("Style", "Stil")) {

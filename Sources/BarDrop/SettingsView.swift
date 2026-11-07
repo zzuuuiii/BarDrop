@@ -328,16 +328,6 @@ struct AppearanceSettings: View {
         })
     }
 
-    /// Regler über feste Stufen: Der Regler zählt die Stufe (0, 1, 2 …), gespeichert wird ihr Wert
-    private func stepIndex<V: Equatable>(_ binding: Binding<V>, in steps: [V]) -> Binding<Double> {
-        Binding(get: { Double(steps.firstIndex(of: binding.wrappedValue) ?? 0) },
-                set: { index in
-                    guard !steps.isEmpty else { return }
-                    let value = steps[min(max(Int(index.rounded()), 0), steps.count - 1)]
-                    if value != binding.wrappedValue { binding.wrappedValue = value }
-                })
-    }
-
     private var height: Binding<Double> {
         Binding(get: { ShelfSizes.nearest(settings.shelfHeight, in: ShelfSizes.heights) },
                 set: { settings.shelfHeight = $0 })
@@ -351,7 +341,7 @@ struct AppearanceSettings: View {
                 // Regler wie überall, aber in festen Stufen (Nutzer, 07.11.2026)
                 let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
                 SliderRow(L("Columns", "Spalten"),
-                          value: stepIndex(columnChoice, in: choices),
+                          value: stepIndex(columnChoice, in: choices.map(Double.init)),
                           range: 0...Double(max(1, choices.count - 1)), step: 1,
                           format: { Self.columnsText(choices[min(max(Int($0.rounded()), 0), choices.count - 1)]) })
                 SliderRow(L("Item size", "Objektgröße"),
@@ -671,8 +661,12 @@ struct ActionSettings: View {
             }
             .zIndex(1)
 
-            // Die Größe der Symbole folgt der Objektgröße (Aussehen → Größe)
             SettingsSection(L("Layout", "Darstellung")) {
+                // Eigene Größe, getrennt von den Objekten, in Stufen wie unter Aussehen
+                SliderRow(L("Icon size", "Symbolgröße"),
+                          value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
+                          range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
+                          format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
                 PickerRow(L("Show names", "Namen anzeigen"), selection: labelMode,
                           options: ActionLabelMode.allCases.map { ($0, $0.title) })
             }
@@ -1336,4 +1330,23 @@ enum MenuIcon {
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         return renderer.nsImage ?? action.icon.map(file)
     }
+}
+
+/// Regler über feste Stufen: Der Regler zählt die Stufe (0, 1, 2 …), gespeichert wird ihr Wert.
+/// Liegt der gespeicherte Wert zwischen zwei Stufen (ältere Version, Ziehen an der Ecke), steht
+/// der Regler auf der nächsten
+func stepIndex(_ binding: Binding<Double>, in steps: [Double]) -> Binding<Double> {
+    Binding(get: {
+        let value = binding.wrappedValue
+        return Double(steps.indices.min { abs(steps[$0] - value) < abs(steps[$1] - value) } ?? 0)
+    }, set: { index in
+        guard !steps.isEmpty else { return }
+        let value = steps[min(max(Int(index.rounded()), 0), steps.count - 1)]
+        if value != binding.wrappedValue { binding.wrappedValue = value }
+    })
+}
+
+/// Stufen-Regler für ganze Zahlen (Spalten)
+func stepIndex(_ binding: Binding<Int>, in steps: [Double]) -> Binding<Double> {
+    stepIndex(Binding(get: { Double(binding.wrappedValue) }, set: { binding.wrappedValue = Int($0) }), in: steps)
 }

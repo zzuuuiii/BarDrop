@@ -1471,6 +1471,8 @@ extension EdgeController {
     /// Grenzen der Regler in Einstellungen → Aussehen und beim Ziehen mit ⌘. Je eine Stufe
     /// kleiner als bis Beta 10 (vorher 220 und 280, Nutzer 27.10.2026)
     static let widthRange = 210.0...400.0
+    /// So nah (pt) an einer sauberen Breite oder Höhenstufe rastet das Ziehen an der Ecke ein
+    static let resizeMagnet = 14.0
     static let heightRange = 270.0...680.0
 
     /// ⌘ gedrückt und an einer Ecke oder Seite der offenen Ablage gezogen: An Ecken ändern sich
@@ -1631,15 +1633,28 @@ extension EdgeController {
             width = width.rounded()
             height = height.rounded()
         }
-        // Die Breite rastet auf ganze Spalten ein, wie in den Einstellungen (Nutzer, 07.11.2026)
-        let count = ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)
-        if let snapped = ShelfGrid.width(columns: count, iconSize: settings.tileIconSize, range: Self.widthRange) {
-            width = snapped
+        // Magnetisch statt in harten Stufen (Nutzer, 07.11.2026: Spalten-Raster war zu grob): Nah an
+        // einer Breite, bei der die Spalten genau passen, und nah an einer Höhenstufe der
+        // Einstellungen rastet sie ein; dazwischen bleibt sie frei. Wie Fenster-Werkzeuge mit
+        // Einrastzone (Rectangle), nicht wie Terminal-Fenster, die nur ganze Zellen kennen
+        let icon = settings.tileIconSize
+        let count = ShelfGrid.columns(shelfWidth: width, iconSize: icon)
+        let widths = [count - 1, count, count + 1].filter { $0 > 0 }
+            .compactMap { ShelfGrid.width(columns: $0, iconSize: icon, range: Self.widthRange) }
+        var snapped = false
+        if let best = widths.min(by: { abs($0 - width) < abs($1 - width) }), abs(best - width) <= Self.resizeMagnet {
+            width = best
+            snapped = settings.shelfWidth != best
+        }
+        if let best = ShelfSizes.heights.map(\.0).filter({ $0 <= maxHeight }).min(by: { abs($0 - height) < abs($1 - height) }),
+           abs(best - height) <= Self.resizeMagnet {
+            height = best
+            snapped = snapped || settings.shelfHeight != best
         }
         guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
-        // Eine Spalte mehr oder weniger: ein leichter Impuls, so spürt man das Raster
-        if ShelfGrid.columns(shelfWidth: width, iconSize: settings.tileIconSize)
-            != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize) {
+        // Einrasten oder eine Spalte mehr oder weniger: ein leichter Impuls, so spürt man das Raster
+        if snapped || ShelfGrid.columns(shelfWidth: width, iconSize: icon)
+            != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon) {
             Haptics.tap()
         }
         if settings.shelfWidth != width { settings.shelfWidth = width }

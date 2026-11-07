@@ -812,7 +812,7 @@ struct QuickActionBar: View {
 
     /// Symbolgröße: eingestellt, ohne Namen etwas größer, damit die Leiste nicht leer wirkt
     private var iconSize: CGFloat {
-        CGFloat(ShelfSizes.actionIcon(forItem: settings.tileIconSize)) + (settings.showActionLabels ? 0 : 10)
+        CGFloat(settings.actionIconSize) + (settings.showActionLabels ? 0 : 10)
     }
 
     /// Symbolgröße, wenn `count` Aktionen nebeneinander stehen: wie eingestellt, aber nie

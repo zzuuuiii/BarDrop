@@ -258,23 +258,24 @@ enum ShelfDefaults {
 /// Gespeichert bleibt die Größe in pt: Werte aus älteren Versionen oder vom Ziehen an der Ecke
 /// zeigen die Einstellungen als nächstliegende Stufe.
 enum ShelfSizes {
-    // Berechnet, nicht `let`: Die Namen folgen der gewählten Sprache
-    static var items: [(Double, String)] { [(52, L("Small", "Klein")), (64, L("Medium", "Mittel")), (80, L("Large", "Groß"))] }
-    static var heights: [(Double, String)] { [(300, L("Low", "Niedrig")), (400, L("Medium", "Mittel")), (540, L("Tall", "Hoch"))] }
+    // Berechnet, nicht `let`: Die Namen folgen der gewählten Sprache. Fünf bis sechs Stufen
+    // (Nutzer, 07.11.2026: drei waren zu grob)
+    static var items: [(Double, String)] { [
+        (44, L("Extra small", "Sehr klein")), (52, L("Small", "Klein")), (64, L("Medium", "Mittel")),
+        (76, L("Large", "Groß")), (88, L("Extra large", "Sehr groß")),
+    ] }
+    static var heights: [(Double, String)] { [
+        (280, L("Very low", "Sehr niedrig")), (340, L("Low", "Niedrig")), (400, L("Medium", "Mittel")),
+        (470, L("Tall", "Hoch")), (540, L("Very tall", "Sehr hoch")), (620, L("Maximum", "Maximal")),
+    ] }
+    /// Symbole der Aktionsleiste, eigene Einstellung (Nutzer: getrennt von den Objekten)
+    static var actions: [(Double, String)] { [
+        (26, L("Extra small", "Sehr klein")), (30, L("Small", "Klein")), (34, L("Medium", "Mittel")),
+        (40, L("Large", "Groß")), (46, L("Extra large", "Sehr groß")),
+    ] }
 
     static func nearest(_ value: Double, in steps: [(Double, String)]) -> Double {
         steps.min { abs($0.0 - value) < abs($1.0 - value) }?.0 ?? value
-    }
-
-    /// Symbole der Aktionsleiste passend zur Objektgröße (vorher ein eigener Regler unter
-    /// Aktionen): klein 30, mittel 34, groß 40 pt, dazwischen anteilig
-    static func actionIcon(forItem item: Double) -> Double {
-        let points: [(Double, Double)] = [(40, 26), (52, 30), (64, 34), (80, 40), (96, 46)]
-        let size = min(max(item, 40), 96)
-        for (a, b) in zip(points, points.dropFirst()) where size <= b.0 {
-            return (a.1 + (b.1 - a.1) * (size - a.0) / (b.0 - a.0)).rounded()
-        }
-        return points.last!.1
     }
 }
 

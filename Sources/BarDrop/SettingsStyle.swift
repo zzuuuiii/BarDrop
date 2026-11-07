@@ -635,7 +635,9 @@ struct SegmentedValue<Value: Hashable>: View {
             let growY: CGFloat = settling ? 0 : 6
             Color.clear
                 .frame(width: width + growX, height: first.height + growY)
-                .glassEffect(.clear.interactive(), in: Capsule())
+                // Ohne `.interactive()`: Das legte beim Drücken einen hellen Schimmer über die
+                // Linse, sie wirkte milchig und „nebelig“ (Nutzer, 07.11.2026). Nur klares Glas
+                .glassEffect(.clear, in: Capsule())
                 .offset(x: center - (width + growX) / 2, y: first.minY - growY / 2)
                 .allowsHitTesting(false)
                 // Nur überblenden: Mit Verkleinern schrumpfte die Linse beim Loslassen sichtbar

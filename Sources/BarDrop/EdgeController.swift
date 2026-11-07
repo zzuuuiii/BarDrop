@@ -135,6 +135,12 @@ final class EdgeController: NSObject {
         let height: Double
         let handle: ResizeHandle
         let floating: Bool
+        /// Angedockt: Mitte des Fensters beim Start (für die stehen bleibende Kante)
+        let centerY: CGFloat
+        /// Schwebend: Lage der Ablage beim Start
+        let body: NSRect
+        /// ⌥ gedrückt: um die Mitte statt an der gegenüberliegenden Kante
+        var symmetric = false
     }
     /// Ecke oder Seite: x −1 links, 1 rechts, 0 keine; y 1 oben, −1 unten, 0 keine
     private struct ResizeHandle: Equatable {
@@ -142,6 +148,11 @@ final class EdgeController: NSObject {
         let y: Int
     }
     private var cornerResize: CornerResize?
+    /// Nach dem Loslassen: die Ablage gleitet auf die nächste Stufe (siehe settleResize)
+    private var resizeSettle: Timer?
+    /// Angedockt während des Änderns der Größe: Mitte des Fensters, damit die gegenüberliegende
+    /// Kante stehen bleibt (statt Wunschhöhe, siehe panelCenterY)
+    private var resizeCenterY: CGFloat?
     /// Der Zeiger zeigt gerade den Pfeil zum Ändern der Größe
     private var showsResizeCursor = false
     /// Der Zeiger war im letzten Takt über der offenen Ablage
@@ -618,7 +629,7 @@ final class EdgeController: NSObject {
     private func panelCenterY(on screen: NSScreen) -> CGFloat {
         let vf = screen.visibleFrame
         let half = CGFloat(settings.shelfHeight) / 2 + ShelfMetrics.maxFillet + 8
-        return min(max(desiredY(on: screen), vf.minY + half), vf.maxY - half)
+        return min(max(resizeCenterY ?? desiredY(on: screen), vf.minY + half), vf.maxY - half)
     }
 
     /// Wunschhöhe: feste Position oder (adaptiv) die Zeigerhöhe.
@@ -1459,17 +1470,15 @@ extension EdgeController {
     // MARK: Größe mit ⌘ an einer Ecke
 
 
-    /// Grenzen der Regler in Einstellungen → Aussehen und beim Ziehen mit ⌘. Je eine Stufe
-    /// kleiner als bis Beta 10 (vorher 220 und 280, Nutzer 27.10.2026)
-    static let widthRange = 210.0...400.0
-    /// So nah (pt) an einer sauberen Breite oder Höhenstufe rastet das Ziehen an der Ecke ein
-    static let resizeMagnet = 14.0
-    static let heightRange = 270.0...680.0
+    /// Grenzen der Regler in Einstellungen → Aussehen und beim Ziehen mit ⌘ (siehe ShelfResize)
+    static var widthRange: ClosedRange<Double> { ShelfResize.widthRange }
+    static var heightRange: ClosedRange<Double> { ShelfResize.heightRange }
 
     /// ⌘ gedrückt und an einer Ecke oder Seite der offenen Ablage gezogen: An Ecken ändern sich
     /// Breite und Höhe, oben und unten nur die Höhe, an der Seite nur die Breite. Angedockt geht
     /// das nicht an der Seite am Bildschirmrand. Der Wert landet direkt in den Einstellungen (die
-    /// Regler laufen mit), beim Loslassen auf deren 10er-Schritten.
+    /// Regler laufen mit). Ohne ⌥ bleibt die gegenüberliegende Kante stehen, mit ⌥ wächst sie um
+    /// die Mitte; beim Loslassen gleitet sie auf die nächste Stufe (ShelfResize).
     /// Das Loslassen beim Ändern der Größe kam nicht an (Mission Control, App-Wechsel, Bildschirmfoto):
     /// wie beim Loslassen beenden. Sonst blieb die Ablage gesperrt offen, und ein späteres Ziehen
     /// ohne ⌘ änderte weiter ihre Größe
@@ -1493,39 +1502,39 @@ extension EdgeController {
     }
 
     private func endResizeIfReleased() {
-        guard let r = cornerResize, (NSEvent.pressedMouseButtons & 1) == 0 else { return }
-        applyResize(r, at: NSEvent.mouseLocation, snap: true)
-        cornerResize = nil
-        FrameRateBoost.shared.release()
-        redrawContent()
-        Diagnostics.shared.record("resize", "ende ohne Loslassen \(Int(settings.shelfWidth))x\(Int(settings.shelfHeight))")
+        guard let r = cornerResize, resizeSettle == nil, (NSEvent.pressedMouseButtons & 1) == 0 else { return }
+        Diagnostics.shared.record("resize", "ende ohne Loslassen")
+        settleResize(r)
     }
 
     func resizeEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
             guard event.modifierFlags.contains(.command), event.window === panel, !gestureBlocked,
-                  let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
+                  resizeSettle == nil, let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
+            let floating = tearDrag?.phase == .floating
+            let center = screen.map { panelCenterY(on: $0) } ?? panel.frame.midY
             cornerResize = CornerResize(start: NSEvent.mouseLocation, width: settings.shelfWidth,
-                                        height: settings.shelfHeight, handle: handle,
-                                        floating: tearDrag?.phase == .floating)
+                                        height: settings.shelfHeight, handle: handle, floating: floating,
+                                        centerY: center, body: floating ? tearDrag?.body ?? .zero : .zero,
+                                        symmetric: event.modifierFlags.contains(.option))
             // Volle Bildrate, solange gezogen wird (siehe FrameRateBoost)
             FrameRateBoost.shared.hold(on: panel)
             Diagnostics.shared.record("resize", "start x=\(handle.x) y=\(handle.y)")
             return nil
         case .leftMouseDragged:
-            guard let r = cornerResize else { return event }
-            applyResize(r, at: NSEvent.mouseLocation, snap: false)
+            guard var r = cornerResize else { return event }
+            guard resizeSettle == nil else { return nil }
+            // ⌥ gilt, solange es gedrückt ist (wie bei Fenstern)
+            r.symmetric = event.modifierFlags.contains(.option)
+            cornerResize = r
+            applyResize(r, at: NSEvent.mouseLocation)
             return nil
         case .leftMouseUp:
             guard let r = cornerResize else { return event }
-            applyResize(r, at: NSEvent.mouseLocation, snap: true)
-            cornerResize = nil
-            FrameRateBoost.shared.release()
-            // Erst jetzt einmal nachzeichnen lassen (während des Ziehens zeichnete applyResize
-            // selbst, siehe dort)
-            redrawContent()
-            Diagnostics.shared.record("resize", "ende \(Int(settings.shelfWidth))x\(Int(settings.shelfHeight))")
+            guard resizeSettle == nil else { return nil }
+            applyResize(r, at: NSEvent.mouseLocation)
+            settleResize(r)
             return nil
         default:
             return event
@@ -1598,56 +1607,99 @@ extension EdgeController {
         return x == 0 && y == 0 ? nil : ResizeHandle(x: x, y: y)
     }
 
-    private func applyResize(_ r: CornerResize, at p: NSPoint, snap: Bool) {
-        let dx = Double(p.x - r.start.x), dy = Double(p.y - r.start.y)
-        // Losgelöst wächst die Ablage um ihre Mitte, angedockt die Breite nur vom Rand weg und
-        // die Höhe um die Mitte: so bleibt die gezogene Ecke unter dem Zeiger
-        let widthFactor = r.floating ? 2.0 : 1.0
-        var width = r.width + dx * Double(r.handle.x) * widthFactor
-        var height = r.height + dy * Double(r.handle.y) * 2
-        // Nie höher, als der Bildschirm Platz hat: Sonst passte die Ablage (angedockt samt
-        // Bögen zum Rand) nicht mehr ganz darauf, und das Fenster sprang beim Zurechtrücken
-        var maxHeight = Self.heightRange.upperBound
+    /// Höchste Höhe, die auf den Bildschirm passt (angedockt samt Bögen zum Rand): Sonst sprang
+    /// das Fenster beim Zurechtrücken
+    private func resizeMaxHeight(_ r: CornerResize) -> Double {
         let floatingDrag = r.floating ? tearDrag.flatMap { $0.phase == .floating ? $0 : nil } : nil
         let resizeScreen = floatingDrag.map { tearScreen(at: NSPoint(x: $0.body.midX, y: $0.body.midY)) } ?? screen
-        if let vf = resizeScreen?.visibleFrame {
-            maxHeight = min(maxHeight, Double(vf.height - 2 * (ShelfMetrics.maxFillet + 8)))
-        }
-        width = min(max(width, Self.widthRange.lowerBound), Self.widthRange.upperBound)
-        height = max(min(height, maxHeight), Self.heightRange.lowerBound)
-        if snap {
-            width = (width / 10).rounded() * 10
-            height = (height / 10).rounded() * 10
-            // Auf 10er-Schritte gerundet, aber nicht über den Platz hinaus
-            if height > maxHeight { height = max(Self.heightRange.lowerBound, (maxHeight / 10).rounded(.down) * 10) }
-        } else {
-            width = width.rounded()
-            height = height.rounded()
-        }
-        // Magnetisch statt in harten Stufen (Nutzer, 07.11.2026: Spalten-Raster war zu grob): Nah an
-        // einer Breite, bei der die Spalten genau passen, und nah an einer Höhenstufe der
-        // Einstellungen rastet sie ein; dazwischen bleibt sie frei. Wie Fenster-Werkzeuge mit
-        // Einrastzone (Rectangle), nicht wie Terminal-Fenster, die nur ganze Zellen kennen
-        let icon = settings.tileIconSize
-        let count = ShelfGrid.columns(shelfWidth: width, iconSize: icon)
-        let widths = [count - 1, count, count + 1].filter { $0 > 0 }
-            .compactMap { ShelfGrid.width(columns: $0, iconSize: icon, range: Self.widthRange) }
-        var snapped = false
-        if let best = widths.min(by: { abs($0 - width) < abs($1 - width) }), abs(best - width) <= Self.resizeMagnet {
-            width = best
-            snapped = settings.shelfWidth != best
-        }
-        if let best = ShelfSizes.heights.map(\.0).filter({ $0 <= maxHeight }).min(by: { abs($0 - height) < abs($1 - height) }),
-           abs(best - height) <= Self.resizeMagnet {
-            height = best
-            snapped = snapped || settings.shelfHeight != best
-        }
+        guard let vf = resizeScreen?.visibleFrame else { return Self.heightRange.upperBound }
+        return Double(vf.height - 2 * (ShelfMetrics.maxFillet + 8))
+    }
+
+    /// Während des Ziehens: frei und flüssig, an den Grenzen wie ein Gummiband. Ein leichter
+    /// Impuls, wenn eine Spalte dazukommt oder wegfällt oder eine Höhenstufe überschritten wird:
+    /// so spürt man die Stufen, ohne dass die Ablage springt
+    private func applyResize(_ r: CornerResize, at p: NSPoint) {
+        let dx = Double(p.x - r.start.x), dy = Double(p.y - r.start.y)
+        // Ohne ⌥ bleibt die gegenüberliegende Kante stehen, die gezogene folgt dem Zeiger genau.
+        // Mit ⌥ wachsen beide Seiten (angedockt nur die Höhe: die Breite wächst vom Rand weg)
+        let widthFactor = r.floating && r.symmetric ? 2.0 : 1.0
+        let heightFactor = r.symmetric ? 2.0 : 1.0
+        let maxHeight = resizeMaxHeight(r)
+        var width = ShelfResize.rubber(r.width + dx * Double(r.handle.x) * widthFactor, in: Self.widthRange)
+        let heights = Self.heightRange.lowerBound...max(Self.heightRange.lowerBound, min(Self.heightRange.upperBound, maxHeight))
+        var height = min(ShelfResize.rubber(r.height + dy * Double(r.handle.y) * heightFactor, in: heights), maxHeight)
+        width = width.rounded()
+        height = height.rounded()
         guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
-        // Einrasten oder eine Spalte mehr oder weniger: ein leichter Impuls, so spürt man das Raster
-        if snapped || ShelfGrid.columns(shelfWidth: width, iconSize: icon)
-            != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon) {
+        let icon = settings.tileIconSize
+        if ShelfGrid.columns(shelfWidth: width, iconSize: icon) != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon)
+            || ShelfResize.crossesStep(from: settings.shelfHeight, to: height) {
             Haptics.tap()
         }
+        setResizeSize(r, width: width, height: height)
+    }
+
+    /// Nach dem Loslassen gleitet die Ablage weich auf die nächste ganze Spaltenzahl und die
+    /// nächste Höhenstufe (dieselben Werte wie die Regler), dann endet das Ändern der Größe
+    private func settleResize(_ r: CornerResize) {
+        let fromW = settings.shelfWidth, fromH = settings.shelfHeight
+        let toW = ShelfResize.settledWidth(fromW, iconSize: settings.tileIconSize, range: Self.widthRange)
+        let toH = ShelfResize.settledHeight(fromH, maxHeight: resizeMaxHeight(r))
+        let begin = CACurrentMediaTime()
+        let duration = Motion.reduceMotion ? 0 : ShelfResize.settleDuration
+        guard duration > 0, fromW != toW || fromH != toH else {
+            setResizeSize(r, width: toW, height: toH)
+            finishResize(r)
+            return
+        }
+        let timer = Timer(timeInterval: 1.0 / 120, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            let t = min(1, (CACurrentMediaTime() - begin) / duration)
+            let k = 1 - pow(1 - t, 3)
+            self.setResizeSize(r, width: (fromW + (toW - fromW) * k).rounded(),
+                               height: (fromH + (toH - fromH) * k).rounded())
+            if t >= 1 {
+                timer.invalidate()
+                self.resizeSettle = nil
+                self.finishResize(r)
+            }
+        }
+        resizeSettle = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func finishResize(_ r: CornerResize) {
+        cornerResize = nil
+        // Angedockt: Die neue Lage gilt auch für das nächste Öffnen. Feste Höhe: die Position am
+        // Rand rückt mit (der Streifen sitzt in der Mitte der Ablage), am Zeiger die zuletzt
+        // gezeigte Höhe
+        if let center = resizeCenterY {
+            resizeCenterY = nil
+            if !r.floating, r.handle.y != 0, !r.symmetric, let screen {
+                let vf = screen.visibleFrame
+                if settings.adaptivePosition {
+                    adaptiveY = center
+                } else {
+                    let position = ((Double((center - vf.minY) / vf.height)) * 1000).rounded() / 1000
+                    settings.verticalPosition = min(max(position, 0), 1)
+                }
+                lastLayoutSignature = settings.layoutSignature
+                resizeCenterY = center
+                layoutPanel()
+                resizeCenterY = nil
+            }
+        }
+        FrameRateBoost.shared.release()
+        // Erst jetzt einmal nachzeichnen lassen (während des Ziehens zeichnete setResizeSize selbst)
+        redrawContent()
+        Diagnostics.shared.record("resize", "ende \(Int(settings.shelfWidth))x\(Int(settings.shelfHeight))")
+    }
+
+    /// Größe übernehmen, Fenster und Inhalt im selben Bild umstellen. Die gegenüberliegende Kante
+    /// (bzw. mit ⌥ die Mitte) bleibt, wo sie war
+    private func setResizeSize(_ r: CornerResize, width: Double, height: Double) {
+        guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
         if settings.shelfWidth != width { settings.shelfWidth = width }
         if settings.shelfHeight != height { settings.shelfHeight = height }
         // Fenster und Inhalt sofort und im selben Bild umstellen, nicht erst im nächsten Takt:
@@ -1655,9 +1707,19 @@ extension EdgeController {
         // später. Jede Änderung startete außerdem die Größen-Vorschau mit mehreren verzögerten
         // Neuzeichnungen; beim schnellen Ziehen stauten sich die, und die Ablage flackerte
         // oder sprang.
-        if let drag = floatingDrag {
+        if r.floating, let drag = tearDrag, drag.phase == .floating {
+            let hx = r.symmetric ? 0 : r.handle.x, hy = r.symmetric ? 0 : r.handle.y
+            let fillet = r.body.height - CGFloat(r.height)
+            let cx = ShelfResize.anchoredCenter(start: Double(r.body.midX), startLength: Double(r.body.width),
+                                                length: width, handle: hx)
+            let cy = ShelfResize.anchoredCenter(start: Double(r.body.midY), startLength: Double(r.body.height),
+                                                length: height + Double(fillet), handle: hy)
+            // floatingSettingsChanged legt die neue Größe um die Mitte von drag.body
+            drag.body.origin = NSPoint(x: CGFloat(cx) - drag.body.width / 2, y: CGFloat(cy) - drag.body.height / 2)
             floatingSettingsChanged(drag, live: true)
         } else {
+            resizeCenterY = CGFloat(ShelfResize.anchoredCenter(start: Double(r.centerY), startLength: r.height,
+                                                               length: height, handle: r.symmetric ? 0 : r.handle.y))
             layoutDirty = false
             lastLayoutSignature = settings.layoutSignature
             lastSizeSignature = settings.sizeSignature

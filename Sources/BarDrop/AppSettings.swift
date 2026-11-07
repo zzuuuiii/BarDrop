@@ -176,8 +176,9 @@ enum ShelfSizes {
         (76, L("Large", "Groß")), (88, L("Extra large", "Sehr groß")),
     ] }
     static var heights: [(Double, String)] { [
-        (280, L("Very low", "Sehr niedrig")), (340, L("Low", "Niedrig")), (400, L("Medium", "Mittel")),
-        (470, L("Tall", "Hoch")), (540, L("Very tall", "Sehr hoch")), (620, L("Maximum", "Maximal")),
+        // Je Stufe rund ein Fünftel höher (gleich große Sprünge fürs Auge), bis 680 wie beim Ziehen
+        (280, L("Very low", "Sehr niedrig")), (340, L("Low", "Niedrig")), (410, L("Medium", "Mittel")),
+        (490, L("Tall", "Hoch")), (580, L("Very tall", "Sehr hoch")), (680, L("Maximum", "Maximal")),
     ] }
     /// Symbole der Aktionsleiste, eigene Einstellung (Nutzer: getrennt von den Objekten)
     static var actions: [(Double, String)] { [

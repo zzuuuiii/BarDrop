@@ -751,9 +751,12 @@ struct PopupValue<Value: Hashable>: View {
     var body: some View {
         Button(action: showMenu) {
             HStack(spacing: 9) {
+                // Nie umbrechen: zweizeilige Werte neben dem Pfeil sahen unsauber aus
                 Text(current)
                     .font(.system(size: 13.5))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .fixedSize()
                 // Etwas kräftiger: Im Dunkeln wirkten die Kreise neben den Umschaltern fast deaktiviert
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 8, weight: .bold))

@@ -458,9 +458,11 @@ private enum AfterUse: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .keep: return L("Keep", "Behalten")
-        case .afterDragOut: return L("Remove after dragging out", "Nach Herausziehen entfernen")
-        case .always: return L("Always remove", "Immer entfernen")
+        // Kurz, damit der Wert in einer Zeile bleibt; „entfernen“ steht schon über der Karte
+        // (Nutzer, 07.11.2026: „Nach Herausziehen entfernen“ brach um und sah unsauber aus)
+        case .keep: return L("Never", "Nie")
+        case .afterDragOut: return L("When dragged out", "Beim Herausziehen")
+        case .always: return L("Always", "Immer")
         }
     }
 }

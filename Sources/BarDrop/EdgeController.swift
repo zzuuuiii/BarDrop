@@ -710,6 +710,8 @@ final class EdgeController: NSObject {
     /// Lesen übernommener Wert wäre schon der verstellte, und das erste Verschieben des
     /// Reglers zeigte keine Beispieldateien.
     private var lastTileIconSize: Double
+    /// Symbolgröße und Namen der Aktionsleiste beim letzten Mal (deren Änderung zeigt die Ablage)
+    private var lastActionLook = "\(AppSettings.shared.actionIconSize)|\(AppSettings.shared.showActionLabels)"
 
     /// Zuletzt sichtbar oder benutzt (für stille Updates)
     private(set) var lastActivity = Date()
@@ -1169,8 +1171,16 @@ final class EdgeController: NSObject {
             layoutPanel()
             // Breite oder Länge geändert: die offene Ablage zeigen, damit man die neue
             // Größe sieht. Sonst (Rand, Höhe, Lage) den Griff an der neuen Stelle.
-            if settings.sizeSignature != lastSizeSignature {
+            if settings.sizeSignature != lastSizeSignature,
+               "\(settings.actionIconSize)|\(settings.showActionLabels)" == lastActionLook {
+                // Größe oder Symbolgröße aus Einstellungen → Aussehen: Dort zeigt eine Vorschau
+                // das Ergebnis, die Ablage klappt dafür nicht mehr auf (Nutzertest 07.11.2026)
                 lastSizeSignature = settings.sizeSignature
+                lastTileIconSize = settings.tileIconSize
+                DispatchQueue.main.async { [weak self] in self?.redrawContent() }
+            } else if settings.sizeSignature != lastSizeSignature {
+                lastSizeSignature = settings.sizeSignature
+                lastActionLook = "\(settings.actionIconSize)|\(settings.showActionLabels)"
                 // Symbolgröße der Dateien verstellt: eine Beispieldatei zeigen, damit man
                 // die Wirkung sieht, auch wenn die Ablage leer ist
                 if settings.tileIconSize != lastTileIconSize {

@@ -207,41 +207,57 @@ struct OpeningSettings: View {
 struct AppearanceSettings: View {
     @ObservedObject var settings: AppSettings
 
-    /// Nur die Kacheln; die Ablage behält ihre Größe (wie die Symbolgröße im Finder)
+    private var widthRange: ClosedRange<Double> { EdgeController.widthRange }
+
+    /// Nur die Bilder; die Ablage behält ihre Größe (wie die Symbolgröße im Finder)
     private var itemSize: Binding<Double> {
         Binding(get: { ShelfSizes.nearest(settings.tileIconSize, in: ShelfSizes.items) },
                 set: { settings.tileIconSize = $0 })
     }
 
-    /// „3 Spalten × 4 Reihen“: so viele passen bei der eingestellten Objektgröße hinein
-    private var sizeText: String {
-        let icon = settings.tileIconSize
-        let columns = ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon)
-        let rows = max(1, Int(ShelfRows.rows(forHeight: settings.shelfHeight, iconSize: icon).rounded()))
-        return L("\(columns) × \(rows)", "\(columns) × \(rows)") + " " + L(columns == 1 && rows == 1 ? "item" : "items", "Objekte")
+    private var columnChoices: [Int] {
+        ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: widthRange)
+    }
+
+    /// Spalten: die Breite der Ablage, in der genau so viele Symbole nebeneinander passen
+    private var columns: Binding<Int> {
+        Binding(get: { ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize) },
+                set: { count in
+                    guard let width = ShelfGrid.width(columns: count, iconSize: settings.tileIconSize, range: widthRange) else { return }
+                    settings.shelfWidth = width
+                })
+    }
+
+    private var rowChoices: [Int] { ShelfRows.choices(iconSize: settings.tileIconSize) }
+
+    /// Reihen: die Höhe der Ablage, in die genau so viele Reihen passen
+    private var rows: Binding<Int> {
+        Binding(get: { max(1, Int(ShelfRows.rows(forHeight: settings.shelfHeight, iconSize: settings.tileIconSize).rounded())) },
+                set: { settings.shelfHeight = ShelfRows.height(rows: $0, iconSize: settings.tileIconSize) })
     }
 
     var body: some View {
         SettingsPage {
-            // Neu nach dem Nutzertest (07.11.2026, alle 6 Personen): Die Größe der Ablage stellt man
-            // wie bei einem Fenster durch Ziehen an Kante oder Ecke ein, ohne Taste. Hier nur die
-            // Objektgröße, ein Satz dazu und „Standard“ nur für die Größe (vorher nur alles
-            // zusammen zurücksetzbar). Spalten- und Reihen-Regler entfallen
+            // Nach drei Nutzertests (07.11.2026): Vorschau auf der Seite statt Aufklappen am Rand,
+            // „Symbolgröße“ wie im Finder statt „Objektgröße“, Spalten und Reihen zum Einstellen
+            // statt nur einer Anzeige, „Größe zurücksetzen“ statt „Standard“. Ziehen an der Ablage
+            // geht weiter, die Zahlen laufen mit
             SettingsSection(L("Size", "Größe"),
-                            note: L("To resize the shelf, drag one of its edges or corners.",
-                                    "Die Größe der Ablage änderst du, indem du an einer Kante oder Ecke ziehst.")) {
-                SliderRow(L("Item size", "Objektgröße"),
+                            note: L("You can also drag an edge or corner of the shelf directly.",
+                                    "Du kannst die Ablage auch direkt an einer Kante oder Ecke ziehen.")) {
+                ShelfSizePreview(settings: settings)
+                SliderRow(L("Icon size", "Symbolgröße"),
                           value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
                           range: 0...Double(ShelfSizes.items.count - 1), step: 1,
                           format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
-                // Die Größe als Wert, den man ablesen und weitergeben kann (Nutzertest: ohne
-                // Angabe wirkte „Standard“ wie eine Anzeige)
-                SettingsRow(L("Shelf size", "Größe der Ablage")) {
-                    Text(sizeText)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Button(L("Default", "Standard")) {
+                SettingsRow(L("Columns", "Spalten")) {
+                    CountStepper(value: columns, choices: columnChoices)
+                }
+                SettingsRow(L("Rows", "Reihen")) {
+                    CountStepper(value: rows, choices: rowChoices)
+                }
+                SettingsRow(L("Reset size", "Größe zurücksetzen")) {
+                    Button(L("Reset", "Zurücksetzen")) {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { settings.resetSize() }
                     }
                     .buttonStyle(KlackButtonStyle())
@@ -1227,4 +1243,115 @@ func stepIndex(_ binding: Binding<Double>, in steps: [Double]) -> Binding<Double
 /// Stufen-Regler für ganze Zahlen (Spalten)
 func stepIndex(_ binding: Binding<Int>, in steps: [Double]) -> Binding<Double> {
     stepIndex(Binding(get: { Double(binding.wrappedValue) }, set: { binding.wrappedValue = Int($0) }), in: steps)
+}
+
+
+/// Zahl mit − und + daneben (Spalten, Reihen). Die Knöpfe wie der Pfeil der Menüs.
+struct CountStepper: View {
+    @Binding var value: Int
+    /// Mögliche Zahlen; − und + springen zur nächsten davon
+    let choices: [Int]
+
+    private var lower: Int? { choices.filter { $0 < value }.max() }
+    private var higher: Int? { choices.filter { $0 > value }.min() }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            button("minus", target: lower)
+            Text("\(value)")
+                .font(.system(size: 13.5, weight: .medium))
+                .monospacedDigit()
+                .frame(minWidth: 18)
+                .contentTransition(.numericText())
+            button("plus", target: higher)
+        }
+    }
+
+    private func button(_ symbol: String, target: Int?) -> some View {
+        Button {
+            guard let target else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { value = target }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(Color.primary.opacity(0.75))
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.primary.opacity(0.08)))
+                .overlay(Circle().strokeBorder(SettingsTheme.separator, lineWidth: 1))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(target == nil)
+        .opacity(target == nil ? 0.35 : 1)
+    }
+}
+
+/// Verkleinerte Ablage in den Einstellungen: so breit und hoch wie eingestellt, mit so vielen
+/// Symbolen, wie bei der Symbolgröße hineinpassen. Ändert sich mit, auch beim Ziehen an der Ablage
+private struct ShelfSizePreview: View {
+    @ObservedObject var settings: AppSettings
+
+    var body: some View {
+        let w = settings.shelfWidth, h = settings.shelfHeight, icon = settings.tileIconSize
+        let scale = min(0.42, 176 / h, 300 / w)
+        let columns = ShelfGrid.columns(shelfWidth: w, iconSize: icon)
+        let fraction = ShelfRows.rows(forHeight: h, iconSize: icon)
+        let rows = max(1, Int(fraction.rounded()))
+        let shownRows = max(1, Int(fraction.rounded(.up)))
+        let gridHeight = max(0, (h - ShelfRows.headerHeight - ShelfRows.barHeight) * scale)
+        let box = Double(TileMetrics.box(CGFloat(icon))) * scale
+        let tile = ShelfRows.tileHeight(icon) * scale
+        VStack(spacing: 0) {
+            // Kopfzeile
+            HStack {
+                Capsule().fill(Color.white.opacity(0.55)).frame(width: 44 * scale, height: 6 * scale)
+                Spacer()
+            }
+            .padding(.horizontal, 18 * scale)
+            .frame(height: ShelfRows.headerHeight * scale)
+            // Raster: so hoch wie der Platz zwischen Kopfzeile und Aktionsleiste, eine nicht
+            // ganz passende Reihe angeschnitten wie in der echten Ablage
+            VStack(spacing: ShelfRows.rowSpacing * scale) {
+                ForEach(0..<shownRows, id: \.self) { _ in
+                    HStack(spacing: 0) {
+                        ForEach(0..<columns, id: \.self) { _ in
+                            VStack(spacing: 4 * scale) {
+                                RoundedRectangle(cornerRadius: box * 0.18, style: .continuous)
+                                    .fill(Color.white.opacity(0.2))
+                                    .frame(width: box * 0.8, height: box * 0.8)
+                                Capsule().fill(Color.white.opacity(0.3)).frame(width: box * 0.6, height: 5 * scale)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: tile)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 12 * scale)
+            .padding(.vertical, 6 * scale)
+            .frame(height: gridHeight, alignment: .top)
+            .clipped()
+            // Aktionsleiste
+            HStack(spacing: 14 * scale) {
+                ForEach(0..<4, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
+                        .fill(Color.white.opacity(0.28))
+                        .frame(width: 30 * scale, height: 30 * scale)
+                }
+            }
+            .frame(height: ShelfRows.barHeight * scale)
+        }
+        .frame(width: w * scale, height: h * scale)
+        .background(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous).fill(Color.black))
+        .overlay(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous)
+            .strokeBorder(Color.white.opacity(settings.showOutline ? 0.22 : 0), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .frame(height: 200)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: w)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: h)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: icon)
+        .accessibilityElement()
+        .accessibilityLabel(L("Preview: \(columns) columns, \(rows) rows", "Vorschau: \(columns) Spalten, \(rows) Reihen"))
+    }
 }

@@ -59,8 +59,10 @@ enum Sounds {
         sound.play()
     }
 
-    /// „Toneffekte der Benutzeroberfläche abspielen“ (ohne Eintrag: an, wie bei macOS)
+    /// „Töne“ in den Einstellungen von BarDrop und „Toneffekte der Benutzeroberfläche abspielen“
+    /// von macOS (ohne Eintrag: an, wie bei macOS)
     static var interfaceSoundsEnabled: Bool {
+        guard AppSettings.shared.soundsEnabled else { return false }
         let value = UserDefaults(suiteName: "com.apple.systemsound")?.object(forKey: "com.apple.sound.uiaudio.enabled")
         return (value as? NSNumber)?.boolValue ?? true
     }

@@ -170,7 +170,7 @@ struct ShelfRootView: View {
                     // Während etwas aus der Ablage gezogen wird, nur überblenden: Die Unschärfe
                     // wird in jedem Bild neu berechnet und bremst die App, die das gezogene Bild
                     // bewegt (Ruckeln beim Herausziehen, wenn die Ablage zu- und aufgeht)
-                    .transition(.shelfOpen(ui.ownDragActive ? 0 : settings.animationStyle.blur))
+                    .transition(.shelfOpen(ui.ownDragActive ? 0 : Motion.blur))
             }
         }
         .frame(width: m.width, height: m.height + 2 * m.fillet, alignment: edgeAlignment)
@@ -256,7 +256,7 @@ struct ShelfContent: View {
     @State private var gridGeneration = 0
 
     private var openBlur: CGFloat {
-        sharpened || ui.ownDragActive ? 0 : settings.animationStyle.blur
+        sharpened || ui.ownDragActive ? 0 : Motion.blur
     }
     /// Übergang unter dem Kopf: weiche S-Kurve ins Schwarz
     private var topFade: some View {

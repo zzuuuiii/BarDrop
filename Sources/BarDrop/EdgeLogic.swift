@@ -54,7 +54,6 @@ enum EdgeLogic {
     }
 
     struct Config {
-        var dragReveal: DragReveal = .immediately
         var revealOnHover = true
         var openMode: OpenMode = .automatic
         /// So lange muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht
@@ -117,9 +116,8 @@ enum EdgeLogic {
             } else if s.dx < dragHintDistance && s.dy < dragHintSpan {
                 result.target = .hint
             } else {
-                // „Streifen sofort zeigen“: schmaler Streifen schon beim Start des Ziehens.
-                // Zeigt gerade eine Vorschau den Streifen (Einführung), bleibt er stehen.
-                result.target = c.dragReveal == .immediately || s.preview == .peek ? .peek : .hidden
+                // Schmaler Streifen schon beim Start des Ziehens (fest seit 07.11.2026)
+                result.target = .peek
             }
         } else if state.manualOpen {
             if s.overExpanded { state.manualHovered = true }

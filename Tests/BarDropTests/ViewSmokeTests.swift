@@ -10,7 +10,7 @@ import AppKit
 final class ViewSmokeTests: XCTestCase {
     private var base: URL!
     private var saved: [String: Any] = [:]
-    private let keys = ["language", "pinFromShelf", "excludedApps", "openMode", "pluginsEnabled"]
+    private let keys = ["language", "addDownloads", "excludedApps", "openMode", "pluginsEnabled"]
 
     override func setUp() async throws {
         try await super.setUp()
@@ -24,7 +24,7 @@ final class ViewSmokeTests: XCTestCase {
     override func tearDown() async throws {
         let s = AppSettings.shared
         s.language = (saved["language"] as? String).flatMap(AppLanguage.init(rawValue:)) ?? .english
-        s.pinFromShelf = saved["pinFromShelf"] as? Bool ?? false
+        s.addDownloads = saved["addDownloads"] as? Bool ?? false
         s.excludedApps = saved["excludedApps"] as? [String] ?? []
         s.openMode = (saved["openMode"] as? String).flatMap(OpenMode.init(rawValue:)) ?? .automatic
         s.pluginsEnabled = saved["pluginsEnabled"] as? Bool ?? false
@@ -66,7 +66,7 @@ final class ViewSmokeTests: XCTestCase {
         for language in [AppLanguage.english, .german] {
             settings.language = language
             for variant in [false, true] {
-                settings.pinFromShelf = variant
+                settings.addDownloads = variant
                 settings.openMode = variant ? .click : .automatic
                 settings.excludedApps = variant ? ["com.apple.finder", "example.missing.app"] : []
                 settings.pluginsEnabled = variant

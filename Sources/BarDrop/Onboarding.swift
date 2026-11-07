@@ -1471,7 +1471,7 @@ private struct SampleTile: View {
     /// Ziehen), verschwindet es nicht aus der Übung
     @State private var image: NSImage?
 
-    private var breathes: Bool { !AnimationStyle.reduceMotion && !hovering && !grabbed }
+    private var breathes: Bool { !Motion.reduceMotion && !hovering && !grabbed }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !breathes)) { context in

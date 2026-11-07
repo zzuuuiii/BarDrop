@@ -44,7 +44,7 @@ struct PluginJobTile: View {
             withAnimation(.easeOut(duration: 0.12)) { hovering = inside }
         }
         .help(job.percent.map { "\(job.title): " + Format.percent($0) } ?? job.title)
-        .modifier(Shake(amount: job.failed && !AnimationStyle.reduceMotion ? 1 : 0))
+        .modifier(Shake(amount: job.failed && !Motion.reduceMotion ? 1 : 0))
         .animation(.linear(duration: 0.45), value: job.failed)
         .transition(.opacity)
     }
@@ -105,7 +105,7 @@ private struct PluginPreview: View {
     /// Atmet, solange der Lauf arbeitet: auch mit Fortschritt und auch, wenn schon das
     /// Ergebnis zu sehen ist (vorher stand das Bild dann still, als wäre nichts los)
     private var breathes: Bool {
-        job.isStarted && !job.paused && !AnimationStyle.reduceMotion
+        job.isStarted && !job.paused && !Motion.reduceMotion
     }
 
     /// Grund-Deckkraft: mit dem Fortschritt deckender
@@ -238,7 +238,7 @@ struct PluginProgressBar: View {
         failed ? Color(red: 1, green: 0.35, blue: 0.3) : Color(nsColor: .controlAccentColor).opacity(paused ? 0.5 : 1)
     }
 
-    private var sweeps: Bool { running && progress == nil && !paused && !failed && !AnimationStyle.reduceMotion }
+    private var sweeps: Bool { running && progress == nil && !paused && !failed && !Motion.reduceMotion }
 
     var body: some View {
         GeometryReader { geo in

@@ -14,7 +14,7 @@ enum ConfettiShower {
     private static var windows: [NSWindow] = []
 
     static func play() {
-        guard !AnimationStyle.reduceMotion, windows.isEmpty else { return }
+        guard !Motion.reduceMotion, windows.isEmpty else { return }
         windows = NSScreen.screens.map { screen in
             let window = NSPanel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel],
                                  backing: .buffered, defer: false)

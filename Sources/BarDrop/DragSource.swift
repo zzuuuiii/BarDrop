@@ -307,7 +307,7 @@ final class DragSourceNSView: NSView, NSDraggingSource {
         // außer „Beim Herausziehen immer kopieren“ ist eingestellt. Der Schalter gilt nur mit
         // „Dateien aus dem Finder: Original“ (sonst ist er ausgeblendet, siehe ItemSettings)
         let settings = AppSettings.shared
-        return settings.dragOutCopyOnly && !settings.copyAllFiles ? [.copy] : [.copy, .move]
+        return settings.copyAllFiles ? [.copy, .move] : [.copy]
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {

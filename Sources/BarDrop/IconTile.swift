@@ -1,38 +1,23 @@
 import AppKit
-import Combine
 import SwiftUI
 
-/// Hell oder dunkel für die eigenen Kacheln (Einstellungen → Aussehen → Symbole). Automatisch
-/// folgt dem Erscheinungsbild von macOS, nicht dem der App: Das Fenster der Ablage ist immer
-/// dunkel, die App-Symbole daneben aber hell oder dunkel je nach System.
+/// Hell oder dunkel für die eigenen Kacheln: folgt dem Erscheinungsbild von macOS, nicht dem der
+/// App. Das Fenster der Ablage ist immer dunkel, die App-Symbole daneben aber hell oder dunkel
+/// je nach System.
 final class IconAppearance: ObservableObject {
     static let shared = IconAppearance()
     @Published private(set) var isDark: Bool
     private var observers: [NSObjectProtocol] = []
-    private var styleChange: AnyCancellable?
 
     private init() {
-        isDark = Self.resolve(AppSettings.shared.iconStyle)
-        styleChange = AppSettings.shared.$iconStyle.dropFirst().sink { [weak self] style in
-            self?.update(Self.resolve(style))
-        }
+        isDark = Self.systemIsDark
         // Wechsel des Erscheinungsbilds (auch der automatische am Abend)
         observers.append(DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("AppleInterfaceThemeChangedNotification"), object: nil, queue: .main) { [weak self] _ in
-                self?.update(Self.resolve(AppSettings.shared.iconStyle))
+                guard let self else { return }
+                let dark = Self.systemIsDark
+                if dark != self.isDark { self.isDark = dark }
             })
-    }
-
-    private func update(_ dark: Bool) {
-        if dark != isDark { isDark = dark }
-    }
-
-    static func resolve(_ style: IconStyle) -> Bool {
-        switch style {
-        case .light: return false
-        case .dark: return true
-        case .automatic: return systemIsDark
-        }
     }
 
     /// Erscheinungsbild von macOS, jedes Mal frisch aus den globalen Einstellungen

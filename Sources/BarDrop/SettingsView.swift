@@ -23,7 +23,7 @@ struct GeneralSettings: View {
 
     var body: some View {
         SettingsPage {
-            // Start, Sprache und Impuls in einer Karte: je eine Zeile, eigene Abschnitte lohnen nicht
+            // Start, Sprache, Impuls und Töne in einer Karte: je eine Zeile, eigene Abschnitte lohnen nicht
             SettingsSection(L("App", "App"), note: loginError, noteColor: .red) {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $launchAtLogin)
                 if launchAtLogin && needsApproval {
@@ -36,6 +36,10 @@ struct GeneralSettings: View {
                           options: AppLanguage.allCases.map { ($0, $0.title) })
                 ToggleRow(L("Trackpad haptics", "Haptik am Trackpad"),
                           isOn: $settings.hapticsEnabled)
+                ToggleRow(L("Sounds", "Töne"),
+                          info: L("Sounds when removing items, moving them to the Trash or into a folder. Also follows “Play user interface sound effects” in System Settings → Sound.",
+                                  "Klänge beim Entfernen, beim Legen in den Papierkorb oder in einen Ordner. Folgt außerdem „Toneffekte der Benutzeroberfläche“ in Systemeinstellungen → Ton."),
+                          isOn: $settings.soundsEnabled)
             }
             .onChange(of: launchAtLogin) { _, enabled in
                 do {
@@ -364,8 +368,7 @@ struct AppearanceSettings: View {
                 ToggleRow(L("Glass when pulled off", "Glas beim Abziehen"),
                           info: L("Pulled off the edge, the shelf turns translucent like glass, as set for Liquid Glass in System Settings → Appearance. Off keeps it black.",
                                   "Vom Rand abgezogen wird die Ablage durchscheinend wie Glas, so wie Liquid Glass in Systemeinstellungen → Erscheinungsbild eingestellt ist. Aus lässt sie schwarz."),
-                          isOn: Binding(get: { settings.glassMode != .off },
-                                        set: { settings.glassMode = $0 ? .system : .off }))
+                          isOn: $settings.detachedGlass)
             }
         }
     }
@@ -433,6 +436,21 @@ private enum FinderFiles: String, CaseIterable, Identifiable {
     }
 }
 
+/// Neue Dateien in „Downloads“ (fasst zwei Schalter zusammen, Nutzer 07.11.2026): Nur AirDrop
+/// verschiebt empfangene Dateien in die Ablage, Alle übernimmt jede neue Datei (auch AirDrop)
+/// und lässt sie im Ordner
+private enum DownloadsMode: String, CaseIterable, Identifiable {
+    case off, airDrop, all
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .off: return L("Off", "Aus")
+        case .airDrop: return L("AirDrop only", "Nur AirDrop")
+        case .all: return L("All", "Alle")
+        }
+    }
+}
+
 /// Was nach dem Verwenden mit einem Objekt geschieht (fasst zwei Schalter zusammen). Standard: nach dem Herausziehen
 /// entfernen, nach Aktionen (AirDrop, Mail, Ordner …) behalten.
 private enum AfterUse: String, CaseIterable, Identifiable {
@@ -465,6 +483,14 @@ struct ItemSettings: View {
                 set: { value in
                     settings.stackMultiple = value > 0
                     if value > 0 { settings.stackThreshold = value }
+                })
+    }
+
+    private var downloads: Binding<DownloadsMode> {
+        Binding(get: { settings.addDownloads ? .all : settings.addAirDrop ? .airDrop : .off },
+                set: { mode in
+                    settings.addAirDrop = mode == .airDrop
+                    settings.addDownloads = mode == .all
                 })
     }
 
@@ -550,14 +576,11 @@ struct ItemSettings: View {
             SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {
                 ToggleRow(L("New screenshots", "Neue Bildschirmfotos"),
                           isOn: $settings.addScreenshots)
-                ToggleRow(L("New downloads", "Neue Downloads"),
-                          info: L("Files you download appear in the shelf and also stay in Downloads.",
-                                  "Geladene Dateien erscheinen in der Ablage und bleiben auch in „Downloads“."),
-                          isOn: $settings.addDownloads)
-                ToggleRow(L("Received AirDrop files", "Empfangene AirDrop-Dateien"),
-                          info: L("Received files go straight into the shelf instead of the Downloads folder.",
-                                  "Empfangene Dateien kommen direkt in die Ablage statt in den Ordner „Downloads“."),
-                          isOn: $settings.addAirDrop)
+                PickerRow(L("Downloads", "Downloads"),
+                          info: L("AirDrop only: Received files go straight into the shelf instead of Downloads. All: Every new file in Downloads also appears in the shelf and stays in the folder.",
+                                  "Nur AirDrop: Empfangene Dateien kommen direkt in die Ablage statt in „Downloads“. Alle: Jede neue Datei in „Downloads“ erscheint auch in der Ablage und bleibt im Ordner."),
+                          selection: downloads,
+                          options: DownloadsMode.allCases.map { ($0, $0.title) })
                 // macOS lässt BarDrop den Ordner nicht lesen: sagen, welcher, und wohin
                 ForEach(deniedFolders, id: \.self) { folder in
                     SettingsRow(L("No access to “\(FolderAccess.displayName(folder))”", "Kein Zugriff auf „\(FolderAccess.displayName(folder))“"),

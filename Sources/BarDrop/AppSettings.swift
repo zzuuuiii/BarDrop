@@ -30,104 +30,33 @@ enum AutoRemoveOption: Double, CaseIterable, Identifiable {
     }
 }
 
-/// Glas der vom Rand gelösten Ablage: wie der Regler „Liquid Glass“ von macOS, eigener Wert
-/// oder aus (schwarz). Im Stil der Sprache (Nutzer, 27.10.2026)
-enum GlassMode: String, CaseIterable, Identifiable {
-    case system, manual, off
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .system: return "System"
-        case .manual: return L("Manual", "Manuell")
-        case .off: return L("Off", "Aus")
-        }
-    }
-
-    /// Ohne gespeicherte Wahl gilt die frühere Einstellung „Glas, wenn losgelöst“
-    static func stored(_ raw: String?, detachedGlass: Bool) -> GlassMode {
-        raw.flatMap(GlassMode.init(rawValue:)) ?? (detachedGlass ? .system : .off)
-    }
-}
-
-/// Symbolstil der eigenen Kacheln (Teilen, AirDrop, Cloud, Plugins …): hell wie App-Symbole
-/// im hellen Modus von macOS, dunkel wie im dunklen. Automatisch folgt dem Erscheinungsbild
-/// von macOS (Nutzer, 29.10.2026). Symbole von Apps, Ordnern und dem Papierkorb zeichnet
-/// macOS selbst nach seinem eigenen Symbolstil.
-enum IconStyle: String, CaseIterable, Identifiable {
-    case automatic, light, dark
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .automatic: return L("Automatic", "Automatisch")
-        case .light: return L("Light", "Hell")
-        case .dark: return L("Dark", "Dunkel")
-        }
-    }
-}
-
-/// Stärke der Animationen beim Auf- und Zuklappen.
-enum AnimationStyle: String, CaseIterable, Identifiable {
-    case subtle, standard, lively
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .subtle: return L("Subtle", "Dezent")
-        case .standard: return L("Standard", "Standard")
-        case .lively: return L("Lively", "Lebhaft")
-        }
-    }
-
+/// Bewegungen beim Auf- und Zuklappen (fest, seit 07.11.2026 nicht mehr einstellbar).
+enum Motion {
     /// Bedienungshilfen „Bewegung reduzieren“ (nach perch): dann ohne Federn,
     /// Unschärfe und Skalierung, nur kurzes Überblenden.
     static var reduceMotion: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
 
     /// Der Streifen wölbt sich elastisch aus dem Rand, mit einem kleinen Nachgeben
     /// (wie die Lautstärkeanzeige am iPhone), und sinkt ohne Nachschwingen zurück.
-    var peekIn: Animation {
-        if Self.reduceMotion { return .easeOut(duration: 0.15) }
-        switch self {
-        case .subtle: return .spring(response: 0.34, dampingFraction: 0.85)
-        case .standard: return .spring(response: 0.38, dampingFraction: 0.72)
-        case .lively: return .spring(response: 0.42, dampingFraction: 0.6)
-        }
+    static var peekIn: Animation {
+        reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.72)
     }
 
-    var peekOut: Animation {
-        if Self.reduceMotion { return .easeIn(duration: 0.12) }
-        return .spring(response: 0.28, dampingFraction: 1)
+    static var peekOut: Animation {
+        reduceMotion ? .easeIn(duration: 0.12) : .spring(response: 0.28, dampingFraction: 1)
     }
 
-    /// Feder beim Öffnen: je lebhafter, desto mehr Nachschwingen.
-    var open: Animation {
-        if Self.reduceMotion { return .easeOut(duration: 0.18) }
-        switch self {
-        case .subtle: return .spring(response: 0.34, dampingFraction: 0.95)
-        case .standard: return .spring(response: 0.4, dampingFraction: 0.7)
-        case .lively: return .spring(response: 0.46, dampingFraction: 0.55)
-        }
+    /// Feder beim Öffnen, mit etwas Nachschwingen
+    static var open: Animation {
+        reduceMotion ? .easeOut(duration: 0.18) : .spring(response: 0.4, dampingFraction: 0.7)
     }
 
-    var close: Animation {
-        if Self.reduceMotion { return .easeIn(duration: 0.14) }
-        switch self {
-        case .subtle: return .spring(response: 0.26, dampingFraction: 1)
-        case .standard: return .spring(response: 0.32, dampingFraction: 0.9)
-        case .lively: return .spring(response: 0.36, dampingFraction: 0.82)
-        }
+    static var close: Animation {
+        reduceMotion ? .easeIn(duration: 0.14) : .spring(response: 0.32, dampingFraction: 0.9)
     }
 
     /// Unschärfe beim Einblenden des Inhalts.
-    var blur: CGFloat {
-        if Self.reduceMotion { return 0 }
-        switch self {
-        case .subtle: return 6
-        case .standard: return 14
-        case .lively: return 18
-        }
-    }
+    static var blur: CGFloat { reduceMotion ? 0 : 14 }
 }
 
 /// Wie sich die Ablage öffnet, wenn man mit dem Zeiger an den Rand fährt.
@@ -178,24 +107,6 @@ enum OpenDelay {
         let whole = abs(delay - delay.rounded()) < 0.01
         let number = whole ? "\(Int(delay.rounded()))" : String(format: "%.1f", delay)
         return L(number, number.replacingOccurrences(of: ".", with: ",")) + " s"
-    }
-}
-
-/// Wann die Ablage beim Ziehen von Objekten erscheint.
-enum DragReveal: String, CaseIterable, Identifiable {
-    case immediately, nearEdge, off
-    var id: String { rawValue }
-
-    /// Wählbar: „Nie“ (`off`) nicht mehr, Ablegen ist die Hauptsache. Ältere gespeicherte
-    /// Werte werden beim Start zu „Erst in Randnähe“.
-    static var selectable: [DragReveal] { [.immediately, .nearEdge] }
-
-    var title: String {
-        switch self {
-        case .immediately: return L("Show strip right away", "Streifen sofort zeigen")
-        case .nearEdge: return L("Strip near the edge", "Streifen erst am Rand")
-        case .off: return L("No strip", "Kein Streifen")
-        }
     }
 }
 
@@ -293,29 +204,21 @@ final class AppSettings: ObservableObject {
         static let displayMode = "displayMode"
         static let shelfWidth = "shelfWidth"
         static let shelfHeight = "shelfHeight"
-        static let showOnDrag = "showOnDrag"
-        static let dragReveal = "dragReveal"
-        static let peekThickness = "peekThickness"
-        static let peekLength = "peekLength"
         static let removeAfterDragOut = "removeAfterDragOut"
         static let stackMultiple = "stackMultiple"
         static let stackThreshold = "stackThreshold"
         /// Anteil des Rands, in dem die Ablage am Zeiger erscheint (0,1 bis 1 = ganzer Rand)
         static let adaptiveZone = "adaptiveZone"
         static let keepAfterAction = "keepAfterAction"
-        static let animationStyle = "animationStyle"
-        static let iconStyle = "iconStyle"
         static let openMode = "openMode"
         static let autoRemoveAfter = "autoRemoveAfter"
         static let convertWebImages = "convertWebImages"
         static let copyAllFiles = "copyAllFiles"
-        static let dragOutCopyOnly = "dragOutCopyOnly"
         static let hapticsEnabled = "hapticsEnabled"
+        static let soundsEnabled = "soundsEnabled"
         static let quickActions = "quickActions"
         static let showOutline = "showOutline"
         static let detachedGlass = "detachedGlass"
-        static let glassMode = "glassMode"
-        static let glassTint = "glassTint"
         static let openDelay = "openDelay"
         static let language = "language"
         static let generousHitArea = "generousHitArea"
@@ -323,7 +226,6 @@ final class AppSettings: ObservableObject {
         static let exactPointer = "exactPointer"
         static let diagnosticsEnabled = "diagnosticsEnabled"
         static let actionRowSplit = "actionRowSplit"
-        static let pinFromShelf = "pinFromShelf"
         static let clipboardHistory = "clipboardHistory"
         static let addScreenshots = "addScreenshots"
         static let addAirDrop = "addAirDrop"
@@ -370,14 +272,9 @@ final class AppSettings: ObservableObject {
     @Published var shelfHeight: Double { didSet { defaults.set(shelfHeight, forKey: Key.shelfHeight) } }
 
     // Verhalten
-    /// Beim Ziehen: sofort einen Streifen zeigen, erst in Randnähe oder gar nicht.
-    @Published var dragReveal: DragReveal { didSet { defaults.set(dragReveal.rawValue, forKey: Key.dragReveal) } }
-    /// Form des ersten Streifens am Rand
-    @Published var peekThickness: Double { didSet { defaults.set(peekThickness, forKey: Key.peekThickness) } }
-    @Published var peekLength: Double { didSet { defaults.set(peekLength, forKey: Key.peekLength) } }
     @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Key.hapticsEnabled) } }
-    @Published var animationStyle: AnimationStyle { didSet { defaults.set(animationStyle.rawValue, forKey: Key.animationStyle) } }
-    @Published var iconStyle: IconStyle { didSet { defaults.set(iconStyle.rawValue, forKey: Key.iconStyle) } }
+    /// Klänge beim Entfernen, Papierkorb und Ablegen in Ordner (Nutzer, 07.11.2026)
+    @Published var soundsEnabled: Bool { didSet { defaults.set(soundsEnabled, forKey: Key.soundsEnabled) } }
     /// Automatisch ganz öffnen oder erst nach einem Klick auf die mittlere Stufe.
     @Published var openMode: OpenMode { didSet { defaults.set(openMode.rawValue, forKey: Key.openMode) } }
 
@@ -395,8 +292,6 @@ final class AppSettings: ObservableObject {
     @Published var copyAllFiles: Bool { didSet { defaults.set(copyAllFiles, forKey: Key.copyAllFiles) } }
     /// Bilder aus dem Web (WebP, AVIF, HEIC …) in PNG/JPEG umwandeln.
     @Published var convertWebImages: Bool { didSet { defaults.set(convertWebImages, forKey: Key.convertWebImages) } }
-    /// Beim Herausziehen nur Kopieren anbieten (sonst dürfen Ziele wie der Finder auch verschieben).
-    @Published var dragOutCopyOnly: Bool { didSet { defaults.set(dragOutCopyOnly, forKey: Key.dragOutCopyOnly) } }
     /// Globaler Kurzbefehl (virtueller Tastencode und Carbon-Sondertasten).
     @Published var hotKeyCode: Int { didSet { defaults.set(hotKeyCode, forKey: Key.hotKeyCode) } }
     @Published var hotKeyModifiers: Int { didSet { defaults.set(hotKeyModifiers, forKey: Key.hotKeyModifiers) } }
@@ -426,17 +321,6 @@ final class AppSettings: ObservableObject {
     @Published var showOutline: Bool { didSet { defaults.set(showOutline, forKey: Key.showOutline) } }
     /// Vom Rand gelöste Ablage aus Glas statt tiefschwarz (nur die losgelöste)
     @Published var detachedGlass: Bool { didSet { defaults.set(detachedGlass, forKey: Key.detachedGlass) } }
-    /// Glas: System, Manuell oder Aus. „Aus“ ist detachedGlass = false (bleibt für ältere
-    /// Versionen und alle bisherigen Abfragen gleichbedeutend)
-    @Published var glassMode: GlassMode {
-        didSet {
-            defaults.set(glassMode.rawValue, forKey: Key.glassMode)
-            if detachedGlass != (glassMode != .off) { detachedGlass = glassMode != .off }
-        }
-    }
-    /// Eigene Stellung bei „Manuell“: dieselbe Skala wie der Regler „Liquid Glass“ von macOS
-    /// (0 klar … 1 getönt)
-    @Published var glassTint: Double { didSet { defaults.set(glassTint, forKey: Key.glassTint) } }
     /// So lange (Sekunden) muss der Zeiger am Streifen bleiben, bis die Ablage aufgeht.
     @Published var openDelay: Double { didSet { defaults.set(openDelay, forKey: Key.openDelay) } }
 
@@ -456,9 +340,6 @@ final class AppSettings: ObservableObject {
     @Published var reopenWhereLeft: Bool { didSet { defaults.set(reopenWhereLeft, forKey: Key.reopenWhereLeft) } }
     /// Zwei Reihen: so viele Aktionen (vorne in `quickActions`) stehen in der oberen Reihe
     @Published var actionRowSplit: Int { didSet { defaults.set(actionRowSplit, forKey: Key.actionRowSplit) } }
-    /// Ordner und Apps auf die Aktionsleiste der Ablage ziehen heftet sie an,
-    /// eine Aktion aus der Ablage herausziehen entfernt sie
-    @Published var pinFromShelf: Bool { didSet { defaults.set(pinFromShelf, forKey: Key.pinFromShelf) } }
     /// Verlauf der Zwischenablage (ClipboardHistory). Aus, bis man ihn einschaltet: Erst dann
     /// liest BarDrop die Zwischenablage und macOS fragt nach der Erlaubnis
     @Published var clipboardHistory: Bool { didSet { defaults.set(clipboardHistory, forKey: Key.clipboardHistory) } }
@@ -516,8 +397,7 @@ final class AppSettings: ObservableObject {
 
     /// Lässt sich dieser Ordner bzw. diese App gerade in der Ablage anheften?
     func canPin(_ url: URL) -> Bool {
-        pinFromShelf
-            && quickActions.count < QuickAction.limit
+        quickActions.count < QuickAction.limit
             && QuickAction.pinnableKind(url) != nil
             && !quickActions.contains { $0.path == url.path }
     }
@@ -622,29 +502,23 @@ final class AppSettings: ObservableObject {
             Key.displayMode: ShelfDefaults.displayMode.rawValue,
             Key.shelfWidth: ShelfDefaults.width,
             Key.shelfHeight: ShelfDefaults.height,
-            Key.showOnDrag: true,
-            Key.peekThickness: PeekDefaults.thickness,
-            Key.peekLength: PeekDefaults.length,
             Key.hapticsEnabled: true,
+            Key.soundsEnabled: true,
             Key.removeAfterDragOut: true,
             Key.stackMultiple: true,
             Key.stackThreshold: 2,
             // Standard „Nach dem Herausziehen entfernen“: Nach Aktionen bleibt das Objekt
             Key.keepAfterAction: true,
-            Key.animationStyle: AnimationStyle.standard.rawValue,
-            Key.iconStyle: IconStyle.automatic.rawValue,
             Key.openMode: OpenMode.automatic.rawValue,
             Key.autoRemoveAfter: AutoRemoveOption.never.rawValue,
             Key.convertWebImages: true,
             Key.copyAllFiles: false,
-            Key.dragOutCopyOnly: false,
             Key.showOutline: true,
             Key.detachedGlass: false,
             Key.openDelay: OpenDelay.quick,
             Key.language: AppLanguage.system.rawValue,
             Key.reopenWhereLeft: false,
             Key.diagnosticsEnabled: false,
-            Key.pinFromShelf: true,
             Key.clipboardHistory: false,
             Key.addScreenshots: false,
             Key.addAirDrop: false,
@@ -686,29 +560,8 @@ final class AppSettings: ObservableObject {
         displayMode = DisplayMode(rawValue: defaults.string(forKey: Key.displayMode) ?? "") ?? ShelfDefaults.displayMode
         shelfWidth = defaults.double(forKey: Key.shelfWidth)
         shelfHeight = defaults.double(forKey: Key.shelfHeight)
-        // Ältere Versionen hatten nur „Beim Ziehen einblenden“ an/aus
-        // „Nie“ gibt es nicht mehr (Ablegen ist die Hauptsache): wird zu „Erst in Randnähe“
-        let storedReveal = DragReveal(rawValue: defaults.string(forKey: Key.dragReveal) ?? "")
-            ?? (defaults.bool(forKey: Key.showOnDrag) ? .immediately : .nearEdge)
-        _ = storedReveal
-        // Fest: Beim Ziehen von Dateien zeigt sich der Streifen sofort (Nutzer, 07.11.2026:
-        // Einstellung weg, immer so)
-        dragReveal = .immediately
-        // Ab 1.8 ist der Streifen flacher: alte Standardwerte (16 / 84 / 0,62) einmalig übernehmen,
-        // selbst gewählte Werte bleiben
-        // (nur einmal: sonst verlöre, wer 16 / 84 später selbst wählt, das bei jedem Start)
-        if !defaults.bool(forKey: "peekDefaults18Migrated") {
-            if defaults.object(forKey: Key.peekThickness) as? Double == 16,
-               defaults.object(forKey: Key.peekLength) as? Double ?? 84 == 84 {
-                defaults.removeObject(forKey: Key.peekThickness)
-                defaults.removeObject(forKey: Key.peekLength)
-            }
-            defaults.set(true, forKey: "peekDefaults18Migrated")
-        }
-        // Dicke und Länge des Streifens sind fest (Nutzer, 07.11.2026)
-        peekThickness = PeekDefaults.thickness
-        peekLength = PeekDefaults.length
         hapticsEnabled = defaults.bool(forKey: Key.hapticsEnabled)
+        soundsEnabled = defaults.bool(forKey: Key.soundsEnabled)
         removeAfterDragOut = defaults.bool(forKey: Key.removeAfterDragOut)
         stackMultiple = defaults.bool(forKey: Key.stackMultiple)
         stackThreshold = min(max(defaults.integer(forKey: Key.stackThreshold), 2), 10)
@@ -718,15 +571,9 @@ final class AppSettings: ObservableObject {
         let storedRemove = defaults.bool(forKey: Key.removeAfterDragOut)
         let storedKeep = defaults.bool(forKey: Key.keepAfterAction)
         keepAfterAction = storedKeep || !storedRemove
-        // Fest (Nutzer, 07.11.2026: Einstellung weg); „Bewegung reduzieren“ gilt weiterhin
-        animationStyle = .standard
-        // Symbole folgen immer dem Erscheinungsbild von macOS (Nutzer, 07.11.2026: Einstellung weg)
-        iconStyle = .automatic
         openMode = OpenMode(rawValue: defaults.string(forKey: Key.openMode) ?? "") ?? .automatic
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
-        // Herausziehen kopiert immer (Nutzer, 07.11.2026: Einstellung weg)
-        dragOutCopyOnly = true
         // 1.25 hatte „ohne Rahmen“ als Standard. Wer BarDrop schon benutzt und den Rahmen
         // nie selbst umgestellt hat, behält den Zustand, den er gerade sieht; neue
         // Installationen beginnen mit Rahmen.
@@ -740,10 +587,6 @@ final class AppSettings: ObservableObject {
         }
         showOutline = defaults.bool(forKey: Key.showOutline)
         detachedGlass = defaults.bool(forKey: Key.detachedGlass)
-        // „Manuell“ gibt es nicht mehr (Nutzer, 07.11.2026): wird zu „System“
-        let storedGlass = GlassMode.stored(defaults.string(forKey: Key.glassMode), detachedGlass: defaults.bool(forKey: Key.detachedGlass))
-        glassMode = storedGlass == .manual ? .system : storedGlass
-        glassTint = defaults.object(forKey: Key.glassTint) as? Double ?? -1
         // Auf eine der wählbaren Wartezeiten runden (ältere Versionen hatten andere)
         let storedDelay = defaults.double(forKey: Key.openDelay)
         openDelay = OpenDelay.choices.min { abs($0 - storedDelay) < abs($1 - storedDelay) } ?? OpenDelay.quick
@@ -759,11 +602,10 @@ final class AppSettings: ObservableObject {
         diagnosticsEnabled = defaults.bool(forKey: Key.diagnosticsEnabled)
         // Ohne gespeicherten Wert: alles in die obere Reihe
         actionRowSplit = defaults.object(forKey: Key.actionRowSplit) as? Int ?? QuickAction.perRow
-        // Anheften per Ziehen immer an (Nutzer, 07.11.2026: Einstellung weg)
-        pinFromShelf = true
         clipboardHistory = defaults.bool(forKey: Key.clipboardHistory)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
-        addAirDrop = defaults.bool(forKey: Key.addAirDrop)
+        // Eine Wahl statt zwei Schaltern (Nutzer, 07.11.2026): „Alle“ schließt AirDrop ein
+        addAirDrop = defaults.bool(forKey: Key.addAirDrop) && !defaults.bool(forKey: Key.addDownloads)
         addDownloads = defaults.bool(forKey: Key.addDownloads)
         excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
         openInFullScreen = defaults.bool(forKey: Key.openInFullScreen)
@@ -792,6 +634,13 @@ final class AppSettings: ObservableObject {
         defaults.removeObject(forKey: "clickToOpenEarly")
         // Versionen überspringen gibt es nicht mehr: Updates kommen still im Hintergrund
         defaults.removeObject(forKey: "skippedUpdateVersion")
+        // Seit 07.11.2026 fest statt einstellbar: Streifen beim Ziehen sofort, Dicke und Länge
+        // des Streifens, Animation, Symbolstil, Herausziehen kopiert, Anheften per Ziehen, Glas
+        // nur an oder aus (detachedGlass). Alte Werte aufräumen
+        for key in ["showOnDrag", "dragReveal", "peekThickness", "peekLength", "peekDefaults18Migrated",
+                    "animationStyle", "iconStyle", "dragOutCopyOnly", "pinFromShelf", "glassMode", "glassTint"] {
+            defaults.removeObject(forKey: key)
+        }
 
         // Einzeln lesen: Eine unbekannte Aktion (etwa nach dem Zurückgehen auf eine ältere
         // Version) kostete sonst alle anderen, die Leiste stand wieder auf Standard
@@ -820,14 +669,12 @@ final class AppSettings: ObservableObject {
         displayMode = ShelfDefaults.displayMode
     }
 
-    /// „Aussehen“: Größe und Streifen
+    /// „Aussehen“: Größe
     func resetLook() {
         shelfWidth = ShelfDefaults.width
         shelfHeight = ShelfDefaults.height
         tileIconSize = ShelfDefaults.iconSize
         actionIconSize = ShelfDefaults.actionIconSize
-        peekThickness = PeekDefaults.thickness
-        peekLength = PeekDefaults.length
     }
 
     /// Alle Einstellungen auf den Auslieferungszustand. Inhalt der Ablage,
@@ -837,16 +684,13 @@ final class AppSettings: ObservableObject {
         language = .system
         betaUpdates = false
         labelsOnlyFolders = false
-        dragReveal = .immediately
         hapticsEnabled = true
-        animationStyle = .standard
-        iconStyle = .automatic
+        soundsEnabled = true
         openMode = .automatic
         openDelay = OpenDelay.quick
         reopenWhereLeft = false
         diagnosticsEnabled = false
         actionRowSplit = QuickAction.perRow
-        pinFromShelf = true
         clipboardHistory = false
         addScreenshots = false
         addAirDrop = false
@@ -856,8 +700,6 @@ final class AppSettings: ObservableObject {
         showActionLabels = true
         showOutline = true
         detachedGlass = false
-        glassMode = .off
-        glassTint = -1
         removeAfterDragOut = true
         stackMultiple = true
         stackThreshold = 2
@@ -865,7 +707,6 @@ final class AppSettings: ObservableObject {
         autoRemoveAfter = AutoRemoveOption.never.rawValue
         convertWebImages = true
         copyAllFiles = false
-        dragOutCopyOnly = true
         quickActions = QuickAction.defaults
         autoUpdateCheck = true
         // Plugins bleiben installiert, sind aber aus und haben keine Rechte mehr
@@ -874,9 +715,6 @@ final class AppSettings: ObservableObject {
         PluginManager.shared.resetAll()
         resetHotKey()
     }
-
-    /// Form des ersten Streifens
-    var peekSignature: String { "\(peekThickness)|\(peekLength)" }
 
     /// Größe der offenen Ablage
     var sizeSignature: String { "\(shelfWidth)|\(shelfHeight)|\(tileIconSize)|\(actionIconSize)|\(showActionLabels)" }

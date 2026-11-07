@@ -41,7 +41,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         folder.onVanished = { [weak self] in
             guard let self, self.ui.openStack == FolderBrowser.entryID else { return }
             self.ui.memberSelection = []
-            withAnimation(self.settings.animationStyle.close) { self.ui.openStack = nil }
+            withAnimation(Motion.close) { self.ui.openStack = nil }
         }
         store.onUserDrop = { [weak self] files in
             guard let self, self.settings.pluginsEnabled else { return }
@@ -1013,20 +1013,20 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.memberSelection = []
         ui.memberAnchor = nil
         folder.open(url)
-        withAnimation(settings.animationStyle.close) { ui.openStack = FolderBrowser.entryID }
+        withAnimation(Motion.close) { ui.openStack = FolderBrowser.entryID }
     }
 
     /// In einen Unterordner hineingehen
     func enterFolder(_ url: URL) {
         ui.memberSelection = []
         ui.memberAnchor = nil
-        withAnimation(settings.animationStyle.close) { folder.enter(url) }
+        withAnimation(Motion.close) { folder.enter(url) }
     }
 
     /// Zurück zur Ablage, aus jeder Tiefe
     func closeFolder() {
         ui.memberSelection = []
-        withAnimation(settings.animationStyle.close) { ui.openStack = nil }
+        withAnimation(Motion.close) { ui.openStack = nil }
         if let source = folderSourceEntry, store.entries.contains(where: { $0.id == source }) {
             ui.selection = [source]
             ui.selectionAnchor = source
@@ -1045,7 +1045,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.selection = []
         ui.memberSelection = []
         ui.memberAnchor = nil
-        withAnimation(settings.animationStyle.close) { ui.openStack = entry.id }
+        withAnimation(Motion.close) { ui.openStack = entry.id }
     }
 
     /// Zurück zur gesamten Ablage.
@@ -1056,7 +1056,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             let left = folder.folder
             ui.memberSelection = []
             if folder.isOpen, folder.isNested {
-                withAnimation(settings.animationStyle.close) { _ = folder.goUp() }
+                withAnimation(Motion.close) { _ = folder.goUp() }
                 if let left {
                     let id = FolderBrowser.id(for: left)
                     ui.memberSelection = [id]
@@ -1069,7 +1069,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         }
         let previous = ui.openStack
         ui.memberSelection = []
-        withAnimation(settings.animationStyle.close) { ui.openStack = nil }
+        withAnimation(Motion.close) { ui.openStack = nil }
         if let previous {
             ui.selection = [previous]
             // Sonst reichte ein folgender ⇧-Klick vom alten Anker statt vom Stapel

@@ -10,8 +10,10 @@ enum EdgeTear {
     /// Platz im Fenster links und rechts der Ablage, solange sie gezogen wird: für den
     /// Schatten und die Verbindung zum Rand
     static let reach: CGFloat = 140
-    /// So weit (pt) muss man vom Rand weg ziehen, bis sich die Ablage löst
-    static let tearDistance: CGFloat = 85
+    /// So weit (pt) muss man vom Rand weg ziehen, bis sich die Ablage löst. Bei 85 pt war das
+    /// Ablösen zu schwergängig, und der Zeiger lag beim Lösen fast 70 pt vor der Ablage, die
+    /// dann ruckartig hinterhersprang (Nutzer, 07.11.2026)
+    static let tearDistance: CGFloat = 50
     /// Zusätzliche dunkle Tönung über dem Glas der losgelösten Ablage (dunkles Erscheinungsbild;
     /// hell gilt ein eigener Wert in TearGoo): nur so viel, dass weiße Schrift lesbar bleibt.
     /// Wie klar oder getönt das Glas ist, bestimmt der Regler „Liquid Glass“ der
@@ -40,11 +42,15 @@ enum EdgeTear {
     /// so geht das Schwarz direkt in Weiß über (beim Andocken umgekehrt)
     static func lightCover(_ glass: Double) -> Double { max(0, min(1, glass * 2.5)) }
     /// Bis zu diesem Abstand zum Rand zieht er die Ablage wieder an
-    static let attachZone: CGFloat = 70
+    static let attachZone: CGFloat = 60
     /// Dehnen bis zum Lösen: höchstens so weit (pt) folgt die Ablage, und so schnell wird es
     /// zäh (anfangs folgt sie gut, kurz vor dem Reißen kaum noch)
-    static let stretchMax: CGFloat = 18
-    static let stretchSoftness: CGFloat = 32
+    static let stretchMax: CGFloat = 30
+    static let stretchSoftness: CGFloat = 40
+    /// Beim Dehnen folgt die Ablage dem Zeiger senkrecht zu diesem Anteil
+    static let stretchVertical: CGFloat = 0.3
+    /// Nach dem Lösen holt die Ablage den Zeiger in dieser Zeit (s) ein
+    static let catchUpDuration: TimeInterval = 0.2
     /// Griff oben in der Mitte und die Fläche um ihn herum, an der man ziehen kann
     static let grabWidth: CGFloat = 120
     static let grabHeight: CGFloat = 26

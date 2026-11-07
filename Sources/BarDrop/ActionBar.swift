@@ -620,11 +620,11 @@ struct QuickActionButton: View {
                 ?? NSImage()
         }
         let id = action.id
-        let remove: (() -> Void)? = AppSettings.shared.pinFromShelf ? {
+        let remove: (() -> Void)? = {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                 AppSettings.shared.removeQuickAction(id)
             }
-        } : nil
+        }
         return (image: image, remove: remove)
     }
 
@@ -777,7 +777,7 @@ struct QuickActionBar: View {
         let all = shelfDemo ? QuickAction.demo
             : settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
         // Der Platz zum Anheften kommt dorthin, wo die Aktion danach stünde: ans Ende
-        let pin = ui.pinCandidate.flatMap { settings.pinFromShelf ? $0 : nil }
+        let pin = ui.pinCandidate
         let slots = all.map(Slot.action) + (pin.map { [Slot.pin($0)] } ?? [])
         Group {
             // Zwei Reihen, wie in den Einstellungen verteilt

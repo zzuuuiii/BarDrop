@@ -288,13 +288,13 @@ final class DemoShelf: ObservableObject {
                 self.still()
                 let level = self.ui.level
                 self.set(level: .hidden, animation: nil)
-                self.set(level: level, animation: self.settings.animationStyle.open)
+                self.set(level: level, animation: Motion.open)
             }
         }
     }
 
     func start() {
-        guard !running, scene != .overview, !AnimationStyle.reduceMotion else { return }
+        guard !running, scene != .overview, !Motion.reduceMotion else { return }
         running = true
         loop()
     }
@@ -318,7 +318,6 @@ final class DemoShelf: ObservableObject {
         guard running else { return }
         generation += 1
         let l = layout
-        let style = settings.animationStyle
         let period: Double
 
         ui.isDropTargeted = false
@@ -339,7 +338,7 @@ final class DemoShelf: ObservableObject {
             fill(withSample: true)
             set(level: .hidden, animation: nil)
             pointer = l.away(l.full.width + 220, y: l.size.height * 0.7)
-            after(0.3) { self.set(level: .expanded, animation: style.open) }
+            after(0.3) { self.set(level: .expanded, animation: Motion.open) }
             after(0.9) { self.move(to: self.grip(0), duration: 0.7) }
             after(1.8) {
                 self.click()
@@ -349,7 +348,7 @@ final class DemoShelf: ObservableObject {
             after(2.0) { self.animatePull(from: 0, to: Self.detachDistance, duration: 1.5) }
             after(3.6) { withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) { self.ui.grabbing = false } }
             after(4.0) { self.move(to: self.grip(Self.detachDistance + 60), duration: 0.5) }
-            after(5.4) { self.set(level: .hidden, animation: style.close) }
+            after(5.4) { self.set(level: .hidden, animation: Motion.close) }
             after(6.0) { self.resetTear() }
 
         case .drop:
@@ -360,9 +359,9 @@ final class DemoShelf: ObservableObject {
             pointer = l.sample
             after(0.5) { self.click(); self.iconSelected = true; self.dragging = true }
             after(0.7) { self.move(to: l.away(14, y: l.size.height * 0.5), duration: 1.1) }
-            after(1.6) { self.set(level: .peek, animation: style.peekIn) }
+            after(1.6) { self.set(level: .peek, animation: Motion.peekIn) }
             after(2.0) {
-                self.set(level: .expanded, animation: style.open)
+                self.set(level: .expanded, animation: Motion.open)
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) { self.ui.isDropTargeted = true }
             }
             after(2.1) { self.move(to: self.freeSlot, duration: 0.5) }
@@ -373,7 +372,7 @@ final class DemoShelf: ObservableObject {
                 if let url = self.sampleURL { self.store.add([ShelfFile(url: url, owned: false)]) }
             }
             after(4.5) { self.move(to: l.away(l.full.width + 150, y: l.size.height * 0.62), duration: 0.6) }
-            after(4.8) { self.set(level: .hidden, animation: style.close) }
+            after(4.8) { self.set(level: .hidden, animation: Motion.close) }
 
         case .takeOut:
             // Zeiger an den Rand, Ablage öffnet sich, Foto heraus auf den Schreibtisch ziehen
@@ -383,9 +382,9 @@ final class DemoShelf: ObservableObject {
             pointer = l.away(l.full.width + 250, y: l.size.height * 0.64)
             after(0.4) { self.move(to: l.away(4, y: l.size.height * 0.5), duration: 0.8) }
             let click = settings.openMode == .click
-            after(1.2) { self.set(level: click ? .hint : .peek, animation: style.peekIn) }
+            after(1.2) { self.set(level: click ? .hint : .peek, animation: Motion.peekIn) }
             if click { after(1.6) { self.click() } }
-            after(click ? 1.75 : 1.6) { self.set(level: .expanded, animation: style.open) }
+            after(click ? 1.75 : 1.6) { self.set(level: .expanded, animation: Motion.open) }
             after(2.0) { self.move(to: self.sampleTile, duration: 0.6) }
             after(2.8) { self.click(); self.dragging = true }
             after(2.9) { self.move(to: l.sample, duration: 0.9) }
@@ -400,7 +399,7 @@ final class DemoShelf: ObservableObject {
                 }
             }
             after(4.6) { self.move(to: CGPoint(x: l.sample.x + 40, y: l.sample.y + 70), duration: 0.5) }
-            after(5.0) { self.set(level: .hidden, animation: style.close) }
+            after(5.0) { self.set(level: .hidden, animation: Motion.close) }
 
         case .dragOut:
             // Zeiger an den Rand, Ablage öffnet sich, Foto auf den Papierkorb der Leiste ziehen
@@ -410,9 +409,9 @@ final class DemoShelf: ObservableObject {
             pointer = l.away(l.full.width + 250, y: l.size.height * 0.64)
             after(0.4) { self.move(to: l.away(4, y: l.size.height * 0.5), duration: 0.8) }
             let click = settings.openMode == .click
-            after(1.2) { self.set(level: click ? .hint : .peek, animation: style.peekIn) }
+            after(1.2) { self.set(level: click ? .hint : .peek, animation: Motion.peekIn) }
             if click { after(1.6) { self.click() } }
-            after(click ? 1.75 : 1.6) { self.set(level: .expanded, animation: style.open) }
+            after(click ? 1.75 : 1.6) { self.set(level: .expanded, animation: Motion.open) }
             after(2.0) { self.move(to: self.sampleTile, duration: 0.6) }
             after(2.8) { self.click(); self.dragging = true }
             after(2.9) { self.move(to: self.trashAction, duration: 0.9) }
@@ -423,7 +422,7 @@ final class DemoShelf: ObservableObject {
                 self.store.discard(ids)
             }
             after(5.0) { self.move(to: l.away(l.full.width + 250, y: l.size.height * 0.64), duration: 0.6) }
-            after(5.3) { self.set(level: .hidden, animation: style.close) }
+            after(5.3) { self.set(level: .hidden, animation: Motion.close) }
 
         case .hover:
             // Ohne Datei: Zeiger an den Rand, Streifen, kurz darauf die Ablage; wieder weg
@@ -433,12 +432,12 @@ final class DemoShelf: ObservableObject {
             pointer = l.away(l.full.width + 250, y: l.size.height * 0.62)
             after(0.4) { self.move(to: l.away(4, y: l.size.height * 0.5), duration: 0.8) }
             let click = settings.openMode == .click
-            after(1.2) { self.set(level: .peek, animation: style.peekIn) }
-            after(1.4) { self.set(level: .hint, animation: style.peekIn) }
+            after(1.2) { self.set(level: .peek, animation: Motion.peekIn) }
+            after(1.4) { self.set(level: .hint, animation: Motion.peekIn) }
             if click { after(1.9) { self.click() } }
-            after(click ? 2.05 : 1.9) { self.set(level: .expanded, animation: style.open) }
+            after(click ? 2.05 : 1.9) { self.set(level: .expanded, animation: Motion.open) }
             after(3.6) { self.move(to: l.away(l.full.width + 250, y: l.size.height * 0.62), duration: 0.6) }
-            after(3.9) { self.set(level: .hidden, animation: style.close) }
+            after(3.9) { self.set(level: .hidden, animation: Motion.close) }
 
         case .shortcut:
             // Kurzbefehl öffnet die Ablage, noch einmal schließt sie. Zu nur kurz: Vorher stand
@@ -448,10 +447,10 @@ final class DemoShelf: ObservableObject {
             set(level: .hidden, animation: nil)
             pointer = l.away(l.full.width + 170, y: l.size.height * 0.7)
             after(0.4) { self.show(self.hotKeys) }
-            after(0.5) { self.set(level: .expanded, animation: style.open) }
+            after(0.5) { self.set(level: .expanded, animation: Motion.open) }
             after(1.2) { self.show(nil) }
             after(3.0) { self.show(self.hotKeys) }
-            after(3.1) { self.set(level: .hidden, animation: style.close) }
+            after(3.1) { self.set(level: .hidden, animation: Motion.close) }
             after(3.8) { self.show(nil) }
         }
         after(period) { self.loop() }

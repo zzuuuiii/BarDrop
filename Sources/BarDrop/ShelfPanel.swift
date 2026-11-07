@@ -285,8 +285,7 @@ final class ShelfDropHandler {
     /// Nur beim Hineinziehen gelesen, nicht bei jeder Bewegung.
     static func pinCandidate(_ pasteboard: NSPasteboard) -> URL? {
         let settings = AppSettings.shared
-        guard settings.pinFromShelf,
-              let urls = pasteboard.readObjects(forClasses: [NSURL.self],
+        guard let urls = pasteboard.readObjects(forClasses: [NSURL.self],
                                                 options: [.urlReadingFileURLsOnly: true]) as? [URL],
               urls.count == 1, let url = urls.first,
               ContentImporter.isUserFile(url), QuickAction.pinnableKind(url) != nil else { return nil }

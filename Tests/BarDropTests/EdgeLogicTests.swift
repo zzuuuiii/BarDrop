@@ -77,7 +77,7 @@ final class EdgeLogicTests: XCTestCase {
     /// weg vom Rand gezogen wird; nahe am Rand öffnet die Ablage wie immer.
     func testGuideStripStaysWhileDragging() {
         var s = state(.peek)
-        let config = EdgeLogic.Config(dragReveal: .nearEdge)
+        let config = EdgeLogic.Config()
         var far = sample(dx: 600, dragging: true, level: .peek)
         far.preview = .peek
         XCTAssertEqual(EdgeLogic.decide(&s, far, config).target, .peek)
@@ -172,13 +172,6 @@ final class EdgeLogicTests: XCTestCase {
         s.level = .expanded
         let again = EdgeLogic.decide(&s, sample(dx: 30, dragging: true, level: .expanded), .init())
         XCTAssertFalse(again.haptic, "Nicht bei jeder weiteren Bewegung")
-    }
-
-    func testDragNearEdgeModeStaysHiddenFarAway() {
-        var s = state(.hidden)
-        let config = EdgeLogic.Config(dragReveal: .nearEdge)
-        XCTAssertEqual(EdgeLogic.decide(&s, sample(dx: 800, dragging: true), config).target, .hidden)
-        XCTAssertEqual(EdgeLogic.decide(&s, sample(dx: 200, dragging: true), config).target, .hint)
     }
 
     func testOwnDragKeepsShelfOnlyWhilePointerIsOverIt() {

@@ -12,7 +12,7 @@ import SwiftUI
 /// (Diagnose 27.10.2026, Aussetzer bis 160 ms); beides fällt jetzt weg (siehe EdgeController
 /// prepareGlassWindow, syncGlassWindow). Der Blur (blurView) dient vor macOS 26.
 final class ShelfGlassWindow: NSPanel {
-    /// Blur: vor macOS 26 (ab macOS 26 nur noch für die Tönung „Manuell“, siehe setManualTint)
+    /// Blur: vor macOS 26
     private let blurView = NSVisualEffectView()
     /// Liquid Glass, erst bei Bedarf angelegt
     private var glassView: NSView?
@@ -42,25 +42,6 @@ final class ShelfGlassWindow: NSPanel {
         content.addSubview(blurView)
         contentView = content
         alphaValue = 0
-    }
-
-    /// „Manuell“ (Einstellungen → Aussehen): eigene Stellung statt des Reglers von macOS. Liquid
-    /// Glass dann im Stil „klar“, der dem Systemregler nicht folgt (Annahme laut Apple-Doku), und
-    /// darüber der Blur so stark, wie getönt eingestellt ist: 0 klar, 1 ganz diffus. nil: System
-    func setManualTint(_ value: Double?) {
-        guard #available(macOS 26.0, *), let glass = glassView as? NSGlassEffectView,
-              let content = contentView else { return }
-        if let value {
-            if glass.style != .clear { glass.style = .clear }
-            if content.subviews.last !== blurView { content.addSubview(blurView, positioned: .above, relativeTo: glass) }
-            blurView.alphaValue = CGFloat(max(0, min(1, value)))
-            blurView.isHidden = value < 0.01
-        } else {
-            if glass.style != .regular { glass.style = .regular }
-            if content.subviews.first !== blurView { content.addSubview(blurView, positioned: .below, relativeTo: glass) }
-            blurView.alphaValue = 0
-            blurView.isHidden = false
-        }
     }
 
     /// Liquid Glass einsetzen (ab macOS 26; davor bleibt der Blur). Früher wechselte das

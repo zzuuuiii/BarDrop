@@ -51,7 +51,6 @@ final class EdgeController: NSObject {
     /// mit der Mitte, während sie sichtbar woanders stand: Im Schritt „Vom Rand abziehen“ ging
     /// nach dem Öffnen per Kurzbefehl kein Greifen mehr (Protokoll des Nutzers, 31.10.2026)
     private var guideHeldY: CGFloat?
-    private var lastPeekSignature = ""
     private var lastSizeSignature = ""
     /// Adaptive Höhe: Zeigerhöhe, an der die Ablage erscheinen soll.
     private var adaptiveY: CGFloat?
@@ -198,7 +197,6 @@ final class EdgeController: NSObject {
         screen = screenUnderMouse() ?? allowedScreens().first
         lastLayoutSignature = settings.layoutSignature
         lastEdge = settings.edge
-        lastPeekSignature = settings.peekSignature
         lastSizeSignature = settings.sizeSignature
         layoutPanel()
         panel.orderFrontRegardless()
@@ -721,12 +719,11 @@ final class EdgeController: NSObject {
             // gilt nicht mehr (er ließ die offene Ablage kurz verschwinden und ohne Fokus zurück)
             pendingResignFocus = false
         }
-        let style = settings.animationStyle
-        // Kleine Stufen haben ihre eigene, elastische Bewegung; die Ablage selbst die gewählte
+        // Kleine Stufen haben ihre eigene, elastische Bewegung, die Ablage selbst eine Feder
         let animation: Animation
-        if new == .expanded { animation = style.open }
-        else if old == .expanded { animation = style.close }
-        else { animation = new > old ? style.peekIn : style.peekOut }
+        if new == .expanded { animation = Motion.open }
+        else if old == .expanded { animation = Motion.close }
+        else { animation = new > old ? Motion.peekIn : Motion.peekOut }
         withAnimation(animation) { ui.level = new }
         // Nächstes Öffnen zeigt wieder die ganze Ablage, außer „An letzter Stelle öffnen“ ist
         // an. Erst wenn sie ganz zu ist: Sonst sah man beim Schließen, wie der Stapel oder
@@ -1175,12 +1172,6 @@ final class EdgeController: NSObject {
                 previewLevel = .hint
             }
         }
-        // Form des ersten Streifens geändert: genau diesen kurz zeigen
-        if layoutDirty, settings.peekSignature != lastPeekSignature {
-            lastPeekSignature = settings.peekSignature
-            previewUntil = now.addingTimeInterval(1.5)
-            previewLevel = .peek
-        }
         layoutDirty = false
 
         // Zeiger auf einem anderen Bildschirm, während dort nur Streifen oder Griff zu sehen
@@ -1292,7 +1283,7 @@ final class EdgeController: NSObject {
             preview: previewUntil != nil ? previewLevel : nil,
             width: m.width, height: m.height, fillet: m.fillet
         )
-        let config = EdgeLogic.Config(dragReveal: settings.dragReveal,
+        let config = EdgeLogic.Config(
                                       // In ausgenommenen Apps und (auf Wunsch) im Vollbild öffnet nur das Hinfahren nicht;
                                       // Dateien hineinziehen und der Kurzbefehl gehen weiter
                                       revealOnHover: !frontmostExcluded
@@ -2054,7 +2045,7 @@ extension EdgeController {
             let gap = EdgeTear.stretchMax * (1 - exp(-pull / EdgeTear.stretchSoftness))
             var body = drag.bodyStart
             body.origin.x += drag.origin == .right ? -gap : gap
-            body.origin.y += (p.y - drag.start.y) * 0.12
+            body.origin.y += (p.y - drag.start.y) * EdgeTear.stretchVertical
             drag.body = body
             // Auf den ersten Punkten geht die Form der angedockten Ablage in die verschmelzende über
             setTear(gap: gap, attach: 1 - 0.8 * pow(pull / EdgeTear.tearDistance, 1.4), side: drag.origin,
@@ -2083,7 +2074,7 @@ extension EdgeController {
                 // zog ruckelnd nach.)
                 let offset = drag.catchUp ?? CGVector(dx: body.minX - target.minX, dy: body.minY - target.minY)
                 drag.catchUp = offset
-                let t = min(1, Date().timeIntervalSince(drag.detachStarted) / 0.14)
+                let t = min(1, Date().timeIntervalSince(drag.detachStarted) / EdgeTear.catchUpDuration)
                 let k = CGFloat(pow(1 - t, 3))
                 body.origin = NSPoint(x: target.minX + offset.dx * k, y: target.minY + offset.dy * k)
                 if t >= 1 {
@@ -2121,7 +2112,7 @@ extension EdgeController {
             // Gleich nach dem Lösen: Die Verbindung zum alten Rand zieht sich schnell zurück
             let screen = liveOrigin(drag).frame
             let gap = drag.origin == .right ? screen.maxX - body.maxX : body.minX - screen.minX
-            let t = min(1, Date().timeIntervalSince(drag.detachStarted) / 0.14)
+            let t = min(1, Date().timeIntervalSince(drag.detachStarted) / EdgeTear.catchUpDuration)
             let fade = CGFloat(1 - (1 - t) * (1 - t))
             setTear(gap: gap, attach: drag.detachAttach * (1 - fade), side: drag.origin)
         }
@@ -2172,9 +2163,8 @@ extension EdgeController {
 
     /// Begleitfenster anlegen und unsichtbar unter die Ablage hängen (siehe beginTear)
     private func prepareGlassWindow() {
-        // Regler „Liquid Glass“ von macOS oder die eigene Stellung (siehe EdgeTear.systemGlassTint)
-        let manual = settings.glassMode == .manual && settings.glassTint >= 0
-        EdgeTear.systemGlassTint = manual ? settings.glassTint : EdgeTear.readSystemGlassTint()
+        // Stellung des Reglers „Liquid Glass“ von macOS (siehe EdgeTear.systemGlassTint)
+        EdgeTear.systemGlassTint = EdgeTear.readSystemGlassTint()
         let window = glassWindow ?? ShelfGlassWindow()
         glassWindow = window
         let m = ShelfMetrics.for(.expanded, settings: settings)
@@ -2186,7 +2176,6 @@ extension EdgeController {
         // Liquid Glass von Anfang an bis zum Andocken, ohne Wechsel (Nutzer, 27.10.2026). Flüssig
         // bleibt es, weil das Fenster schon hier eingehängt und nie überblendet wird
         window.useGlass()
-        window.setManualTint(manual ? settings.glassTint : nil)
         window.show(0)
     }
 
@@ -2241,7 +2230,7 @@ extension EdgeController {
         case .stretching:
             dock(drag, side: drag.origin, screen: liveOrigin(drag))
         case .free:
-            // Noch im kurzen Nachlauf nach dem Lösen (0,14 s): Entscheiden, wo der Zeiger ist, nicht
+            // Noch im kurzen Nachlauf nach dem Lösen (EdgeTear.catchUpDuration): Entscheiden, wo der Zeiger ist, nicht
             // wo die Ablage gerade nachläuft. Sonst dockte sie nach einem schnellen Wurf vom Rand
             // weg wieder an, oder blieb auf halbem Weg zum Zeiger liegen
             if !drag.springDone {
@@ -2482,9 +2471,8 @@ extension EdgeController {
         let sizeChanged = settings.layoutSignature != lastLayoutSignature
         lastLayoutSignature = settings.layoutSignature
         lastSizeSignature = settings.sizeSignature
-        lastPeekSignature = settings.peekSignature
         lastTileIconSize = settings.tileIconSize
-        // Glas ein- oder ausgeschaltet, System oder Manuell, eigene Stellung verstellt. Nicht
+        // Glas ein- oder ausgeschaltet. Nicht
         // beim Ziehen an der Größe (`live`): Da ändert sich am Glas nichts, und es wurde bei jeder
         // Mausbewegung aus- und eingeblendet und die Systemeinstellung neu gelesen (ruckelte).
         // Die neue Größe bekommt es unten über syncGlassWindow

@@ -359,11 +359,12 @@ struct AppearanceSettings: View {
                           isOn: $settings.showOutline)
                 // Glas mit in „Stil“: Ohne „Manuell“ und Animation blieben sonst zwei Karten mit je
                 // einer Zeile (Nutzer, 07.11.2026)
-                PickerRow(L("Glass when pulled off", "Glas beim Abziehen"),
-                          info: L("Pulled off the edge, the shelf turns translucent like glass. System follows Liquid Glass in System Settings → Appearance, Off keeps it black.",
-                                  "Vom Rand abgezogen wird die Ablage durchscheinend wie Glas. System folgt Liquid Glass in Systemeinstellungen → Erscheinungsbild, Aus lässt sie schwarz."),
-                          selection: $settings.glassMode,
-                          options: [GlassMode.system, .off].map { ($0, $0.title) })
+                // Ein Schalter statt „System / Aus“ (Nutzer, 07.11.2026): an folgt Liquid Glass von macOS
+                ToggleRow(L("Glass when pulled off", "Glas beim Abziehen"),
+                          info: L("Pulled off the edge, the shelf turns translucent like glass, as set for Liquid Glass in System Settings → Appearance. Off keeps it black.",
+                                  "Vom Rand abgezogen wird die Ablage durchscheinend wie Glas, so wie Liquid Glass in Systemeinstellungen → Erscheinungsbild eingestellt ist. Aus lässt sie schwarz."),
+                          isOn: Binding(get: { settings.glassMode != .off },
+                                        set: { settings.glassMode = $0 ? .system : .off }))
             }
         }
     }

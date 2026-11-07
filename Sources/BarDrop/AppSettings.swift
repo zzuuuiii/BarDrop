@@ -714,13 +714,15 @@ final class AppSettings: ObservableObject {
         let storedRemove = defaults.bool(forKey: Key.removeAfterDragOut)
         let storedKeep = defaults.bool(forKey: Key.keepAfterAction)
         keepAfterAction = storedKeep || !storedRemove
-        animationStyle = AnimationStyle(rawValue: defaults.string(forKey: Key.animationStyle) ?? "") ?? .standard
+        // Fest (Nutzer, 07.11.2026: Einstellung weg); „Bewegung reduzieren“ gilt weiterhin
+        animationStyle = .standard
         // Symbole folgen immer dem Erscheinungsbild von macOS (Nutzer, 07.11.2026: Einstellung weg)
         iconStyle = .automatic
         openMode = OpenMode(rawValue: defaults.string(forKey: Key.openMode) ?? "") ?? .automatic
         convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
-        dragOutCopyOnly = defaults.bool(forKey: Key.dragOutCopyOnly)
+        // Herausziehen kopiert immer (Nutzer, 07.11.2026: Einstellung weg)
+        dragOutCopyOnly = true
         // 1.25 hatte „ohne Rahmen“ als Standard. Wer BarDrop schon benutzt und den Rahmen
         // nie selbst umgestellt hat, behält den Zustand, den er gerade sieht; neue
         // Installationen beginnen mit Rahmen.
@@ -734,7 +736,9 @@ final class AppSettings: ObservableObject {
         }
         showOutline = defaults.bool(forKey: Key.showOutline)
         detachedGlass = defaults.bool(forKey: Key.detachedGlass)
-        glassMode = GlassMode.stored(defaults.string(forKey: Key.glassMode), detachedGlass: defaults.bool(forKey: Key.detachedGlass))
+        // „Manuell“ gibt es nicht mehr (Nutzer, 07.11.2026): wird zu „System“
+        let storedGlass = GlassMode.stored(defaults.string(forKey: Key.glassMode), detachedGlass: defaults.bool(forKey: Key.detachedGlass))
+        glassMode = storedGlass == .manual ? .system : storedGlass
         glassTint = defaults.object(forKey: Key.glassTint) as? Double ?? -1
         // Auf eine der wählbaren Wartezeiten runden (ältere Versionen hatten andere)
         let storedDelay = defaults.double(forKey: Key.openDelay)
@@ -751,7 +755,8 @@ final class AppSettings: ObservableObject {
         diagnosticsEnabled = defaults.bool(forKey: Key.diagnosticsEnabled)
         // Ohne gespeicherten Wert: alles in die obere Reihe
         actionRowSplit = defaults.object(forKey: Key.actionRowSplit) as? Int ?? QuickAction.perRow
-        pinFromShelf = defaults.bool(forKey: Key.pinFromShelf)
+        // Anheften per Ziehen immer an (Nutzer, 07.11.2026: Einstellung weg)
+        pinFromShelf = true
         clipboardHistory = defaults.bool(forKey: Key.clipboardHistory)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         addAirDrop = defaults.bool(forKey: Key.addAirDrop)
@@ -854,7 +859,7 @@ final class AppSettings: ObservableObject {
         autoRemoveAfter = AutoRemoveOption.never.rawValue
         convertWebImages = true
         copyAllFiles = false
-        dragOutCopyOnly = false
+        dragOutCopyOnly = true
         quickActions = QuickAction.defaults
         autoUpdateCheck = true
         // Plugins bleiben installiert, sind aber aus und haben keine Rechte mehr

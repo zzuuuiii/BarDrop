@@ -357,43 +357,18 @@ struct AppearanceSettings: View {
             SettingsSection(L("Style", "Stil")) {
                 ToggleRow(L("Light outline", "Heller Rahmen"),
                           isOn: $settings.showOutline)
-                PickerRow(L("Animation", "Animation"),
-                          // Nur wenn die Auswahl gesperrt ist, braucht es eine Erklärung
-                          info: AnimationStyle.reduceMotion
-                              ? L("“Reduce motion” is on in Accessibility, so BarDrop only uses fades.",
-                                  "„Bewegung reduzieren“ ist in den Bedienungshilfen aktiv, daher blendet BarDrop nur weich über.")
-                              : nil,
-                          selection: $settings.animationStyle,
-                          options: AnimationStyle.allCases.map { ($0, $0.title) })
-                    .disabled(AnimationStyle.reduceMotion)
-            }
-
-            // Glas eigene Karte, damit „Stil“ nicht fünf Zeilen lang wird (Nutzer, 30.10.2026)
-            SettingsSection(L("Glass", "Glas")) {
-                PickerRow(L("When pulled off the edge", "Vom Rand abgezogen"),
-                          info: L("Pulled away from the edge, the shelf turns translucent like glass. System follows Liquid Glass in System Settings → Appearance, Manual uses your own setting, Off keeps it black.",
-                                  "Vom Rand abgezogen wird die Ablage durchscheinend wie Glas. System folgt Liquid Glass in Systemeinstellungen → Erscheinungsbild, Manuell nutzt deine eigene Einstellung, Aus lässt sie schwarz."),
-                          selection: glassMode,
-                          options: GlassMode.allCases.map { ($0, $0.title) })
-                if settings.glassMode == .manual {
-                    SliderRow(L("Liquid Glass", "Liquid Glass"), value: $settings.glassTint, range: 0...1, step: 0.05,
-                              format: { $0 < 0.03 ? L("Clear", "Klar") : $0 > 0.97 ? L("Tinted", "Getönt") : "\(Int(($0 * 100).rounded())) %" })
-                }
+                // Glas mit in „Stil“: Ohne „Manuell“ und Animation blieben sonst zwei Karten mit je
+                // einer Zeile (Nutzer, 07.11.2026)
+                PickerRow(L("Glass when pulled off", "Glas beim Abziehen"),
+                          info: L("Pulled off the edge, the shelf turns translucent like glass. System follows Liquid Glass in System Settings → Appearance, Off keeps it black.",
+                                  "Vom Rand abgezogen wird die Ablage durchscheinend wie Glas. System folgt Liquid Glass in Systemeinstellungen → Erscheinungsbild, Aus lässt sie schwarz."),
+                          selection: $settings.glassMode,
+                          options: [GlassMode.system, .off].map { ($0, $0.title) })
             }
         }
     }
 }
 
-extension AppearanceSettings {
-    /// Beim ersten Wechsel auf „Manuell“ beginnt der eigene Regler dort, wo der von macOS steht
-    var glassMode: Binding<GlassMode> {
-        Binding(get: { settings.glassMode },
-                set: { mode in
-                    if mode == .manual, settings.glassTint < 0 { settings.glassTint = EdgeTear.readSystemGlassTint() }
-                    settings.glassMode = mode
-                })
-    }
-}
 
 /// Kleine Bildschirmvorschau mit der Ablage an der gewählten Stelle.
 private struct ScreenPreview: View {
@@ -564,14 +539,6 @@ struct ItemSettings: View {
                                   "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
                           selection: finderFiles,
                           options: FinderFiles.allCases.map { ($0, $0.title) })
-                // Nur bei „Original“: Mit „Kopie“ gehören alle Dateien BarDrop, Verschieben kann
-                // keine Datei des Nutzers wegnehmen (Nutzer, 27.10.2026)
-                if !settings.copyAllFiles {
-                    ToggleRow(L("Always copy when dragging out", "Beim Herausziehen immer kopieren"),
-                              info: L("When off, the Finder may move files you drag out.",
-                                      "Aus: Der Finder darf herausgezogene Dateien verschieben."),
-                              isOn: $settings.dragOutCopyOnly)
-                }
                 ToggleRow(L("Web images as PNG or JPEG", "Bilder aus dem Web als PNG/JPEG"),
                           info: L("WebP, AVIF and HEIC become PNG or JPEG, so any app can open them.",
                                   "WebP, AVIF und HEIC werden zu PNG oder JPEG, damit jede App sie öffnen kann."),
@@ -672,10 +639,6 @@ struct ActionSettings: View {
             }
 
             SettingsSection(L("In the shelf", "In der Ablage")) {
-                ToggleRow(L("Pin folders and apps", "Ordner und Apps anheften"),
-                          info: L("Drop a folder or app on “Pin” at the end of the action bar. To remove an action, hold ⌘ and drag it out.",
-                                  "Ordner oder App auf „Anheften“ am Ende der Aktionsleiste ziehen. Zum Entfernen ⌘ halten und die Aktion herausziehen."),
-                          isOn: $settings.pinFromShelf)
                 ToggleRow(L("Clipboard history", "Verlauf der Zwischenablage"),
                           info: L("Keeps the last \(ClipboardHistory.limit) things you copied. Click the Clipboard action to see them in the shelf; click one to copy it again. Only when on does BarDrop read the clipboard, and macOS may ask for permission.",
                                   "Hebt die letzten \(ClipboardHistory.limit) Dinge auf, die du kopiert hast. Ein Klick auf die Aktion „Zwischenablage“ zeigt sie in der Ablage, ein Klick auf eines kopiert es wieder. Nur wenn es an ist, liest BarDrop die Zwischenablage, und macOS fragt eventuell nach der Erlaubnis."),

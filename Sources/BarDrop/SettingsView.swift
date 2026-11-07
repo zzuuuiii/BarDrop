@@ -239,30 +239,38 @@ struct AppearanceSettings: View {
         })
     }
 
-    private var height: Binding<Double> {
-        Binding(get: { ShelfSizes.nearest(settings.shelfHeight, in: ShelfSizes.heights) },
-                set: { settings.shelfHeight = $0 })
+    /// Reihen, die bei der Objektgröße auf den Bildschirm passen
+    private var rowChoices: [Int] { ShelfRows.choices(iconSize: settings.tileIconSize) }
+
+    private var rowChoice: Binding<Int> {
+        Binding(get: {
+            let rows = settings.shelfRows
+            return rowChoices.min { abs($0 - rows) < abs($1 - rows) } ?? rows
+        }, set: { settings.shelfRows = $0 })
     }
 
     var body: some View {
         SettingsPage {
-            // Alles in festen Stufen statt Reglern in pt: Spalten, Objektgröße, Höhe (Nutzer,
-            // 07.11.2026). Die Symbole der Aktionsleiste passen sich der Objektgröße an
-            SettingsSection(L("Size", "Größe")) {
-                // Regler wie überall, aber in festen Stufen (Nutzer, 07.11.2026)
+            // Wie ein Raster aus Spalten und Reihen (Launchpad, Home-Bildschirm), die Objektgröße
+            // zuerst, weil beides davon abhängt (Nutzer, 07.11.2026). Ändert sich die
+            // Objektgröße, bleiben Spalten und Reihen, die Ablage wächst oder schrumpft mit
+            SettingsSection(L("Size", "Größe"),
+                            info: L("You can also resize the open shelf directly: hold ⌘ and drag a corner or an edge. With ⌥ it grows from the center.",
+                                    "Auch direkt an der offenen Ablage: ⌘ gedrückt halten und an einer Ecke oder Kante ziehen. Mit ⌥ wächst sie von der Mitte aus.")) {
+                SliderRow(L("Item size", "Objektgröße"),
+                          value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
+                          range: 0...Double(ShelfSizes.items.count - 1), step: 1,
+                          format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
                 let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
                 SliderRow(L("Columns", "Spalten"),
                           value: stepIndex(columnChoice, in: choices.map(Double.init)),
                           range: 0...Double(max(1, choices.count - 1)), step: 1,
                           format: { Self.columnsText(choices[min(max(Int($0.rounded()), 0), choices.count - 1)]) })
-                SliderRow(L("Item size", "Objektgröße"),
-                          value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
-                          range: 0...Double(ShelfSizes.items.count - 1), step: 1,
-                          format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
-                SliderRow(L("Height", "Höhe"),
-                          value: stepIndex(height, in: ShelfSizes.heights.map(\.0)),
-                          range: 0...Double(ShelfSizes.heights.count - 1), step: 1,
-                          format: { ShelfSizes.heights[min(max(Int($0.rounded()), 0), ShelfSizes.heights.count - 1)].1 })
+                let rows = rowChoices
+                SliderRow(L("Rows", "Reihen"),
+                          value: stepIndex(rowChoice, in: rows.map(Double.init)),
+                          range: 0...Double(max(1, rows.count - 1)), step: 1,
+                          format: { ShelfRows.text(rows[min(max(Int($0.rounded()), 0), rows.count - 1)]) })
             }
 
             SettingsSection(L("Style", "Stil")) {

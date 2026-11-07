@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import BarDrop
 
 /// Größe mit ⌘ an Ecke oder Kante: frei ziehen, beim Loslassen auf die Stufen der Einstellungen
@@ -20,25 +21,56 @@ final class ShelfResizeTests: XCTestCase {
         for icon in ShelfSizes.items.map(\.0) {
             let choices = ShelfGrid.columnChoices(iconSize: icon, range: ShelfResize.widthRange)
                 .compactMap { ShelfGrid.width(columns: $0, iconSize: icon, range: ShelfResize.widthRange) }
-            for width in stride(from: 180.0, through: 430, by: 7) {
+            for width in stride(from: 140.0, through: 680, by: 7) {
                 XCTAssertTrue(choices.contains(ShelfResize.settledWidth(width, iconSize: icon)), "\(icon) \(width)")
             }
         }
         XCTAssertEqual(ShelfResize.settledWidth(300, iconSize: 64), 322, "näher an 3 Spalten als an 2")
     }
 
-    /// Losgelassen liegt die Höhe auf einer Stufe, die auf den Bildschirm passt
-    func testSettledHeightUsesStepsThatFit() {
-        XCTAssertEqual(ShelfResize.settledHeight(395, maxHeight: 2000), 410)
-        XCTAssertEqual(ShelfResize.settledHeight(700, maxHeight: 2000), 680)
-        XCTAssertEqual(ShelfResize.settledHeight(700, maxHeight: 600), 580)
-        XCTAssertEqual(ShelfResize.heightRange, 280...680)
+    /// Losgelassen liegt die Höhe auf einer ganzen Reihenzahl, die auf den Bildschirm passt
+    func testSettledRowsFitTheScreen() {
+        let icon = 64.0, bar = ShelfRows.barHeight
+        let three = ShelfRows.height(rows: 3, iconSize: icon, barHeight: bar)
+        XCTAssertEqual(ShelfResize.settledRows(three + 20, iconSize: icon, maxHeight: 5000), 3)
+        XCTAssertEqual(ShelfResize.settledRows(three + 100, iconSize: icon, maxHeight: 5000), 4)
+        XCTAssertEqual(ShelfResize.settledRows(5000, iconSize: icon, maxHeight: 5000), 6)
+        XCTAssertEqual(ShelfResize.settledRows(5000, iconSize: icon, maxHeight: three + 10), 3)
+        XCTAssertEqual(ShelfResize.settledRows(0, iconSize: icon, maxHeight: 5000), 2)
     }
 
-    func testCrossingAHeightStep() {
-        XCTAssertTrue(ShelfResize.crossesStep(from: 400, to: 415))
-        XCTAssertTrue(ShelfResize.crossesStep(from: 415, to: 400))
-        XCTAssertFalse(ShelfResize.crossesStep(from: 412, to: 480))
+    func testCrossingARow() {
+        let three = ShelfRows.height(rows: 3, iconSize: 64)
+        XCTAssertTrue(ShelfResize.crossesRow(from: three - 5, to: three + 5, iconSize: 64))
+        XCTAssertTrue(ShelfResize.crossesRow(from: three + 5, to: three - 5, iconSize: 64))
+        XCTAssertFalse(ShelfResize.crossesRow(from: three + 5, to: three + 50, iconSize: 64))
+    }
+
+    /// Höhe und Reihen rechnen sich genau ineinander um
+    func testRowsAndHeightMatch() {
+        for icon in ShelfSizes.items.map(\.0) {
+            for rows in ShelfRows.range {
+                let h = ShelfRows.height(rows: rows, iconSize: icon)
+                XCTAssertEqual(ShelfRows.rows(forHeight: h, iconSize: icon), Double(rows), accuracy: 0.02)
+            }
+        }
+    }
+
+    /// Die Formel für eine Kachelreihe stimmt mit der gezeichneten Kachel überein (zweizeiliger Name)
+    func testTileHeightMatchesTheTile() {
+        for icon in ShelfSizes.items.map(\.0) {
+            let tile = NSHostingView(rootView: TileLabel(title: "Ein langer Dateiname, der in zwei Zeilen umbricht.pdf",
+                                                         isSelected: false, isKey: false, iconSize: CGFloat(icon)) { Color.clear }
+                .frame(width: CGFloat(icon + 30)))
+            XCTAssertEqual(Double(tile.fittingSize.height), ShelfRows.tileHeight(icon), accuracy: 1, "\(icon)")
+        }
+    }
+
+    /// 1 bis 5 Spalten bei jeder Objektgröße
+    func testOneToFiveColumnsAtEverySize() {
+        for icon in ShelfSizes.items.map(\.0) {
+            XCTAssertEqual(ShelfGrid.columnChoices(iconSize: icon, range: ShelfResize.widthRange), [1, 2, 3, 4, 5], "\(icon)")
+        }
     }
 
     /// Ohne ⌥ bleibt die gegenüberliegende Kante stehen, mit ⌥ (0) die Mitte

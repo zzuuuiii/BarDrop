@@ -52,6 +52,8 @@ final class EdgeController: NSObject {
     /// nach dem Öffnen per Kurzbefehl kein Greifen mehr (Protokoll des Nutzers, 31.10.2026)
     private var guideHeldY: CGFloat?
     private var lastSizeSignature = ""
+    /// Reihenzahl, auf die die Ablage nach dem Ziehen mit ⌘ gleitet
+    private var settledRows: Int?
     /// Adaptive Höhe: Zeigerhöhe, an der die Ablage erscheinen soll.
     private var adaptiveY: CGFloat?
     private var lastLayoutSignature = ""
@@ -929,6 +931,20 @@ final class EdgeController: NSObject {
         pendingResignFocus = false
         let before = focusBefore
         focusBefore = nil
+        // War BarDrop vor dem Öffnen nicht aktiv, gibt die Ablage den Fokus beim Schließen ab.
+        // Nicht aber, wenn aus ihr gerade die Einstellungen (⌘, oder Menü) bzw. die Einführung
+        // geöffnet wurden und den Fokus haben: Sonst verloren sie ihn 50 ms später wieder
+        // (Protokoll: „key+ Einstellungen“, dann „key- Einstellungen“, alles grau).
+        // Geprüft, bevor die Ablage den Fokus abgibt: Danach machte macOS die Einstellungen
+        // selbst zum Schlüsselfenster, das zählte als „bewusst geöffnet“, BarDrop blieb aktiv
+        // und die Einstellungen standen vorn (Protokoll 07.11.2026: Teilen aus der Ablage,
+        // beim Schließen „key+ Einstellungen appActive=true“; Nutzer: „öffnen sich random“)
+        let ownWindowKey = NSApp.keyWindow.map { $0 !== panel && !($0 is NSPanel) } ?? false
+        let keep = keepAppActive() && ((before?.appActive ?? true) || ownWindowKey)
+        let deactivate = NSApp.isActive && !keep && !actions.isQuickLookVisible
+        // Zuerst abgeben: Ist BarDrop nicht mehr aktiv, bekommt kein anderes eigenes Fenster
+        // den Fokus, wenn die Ablage ihn abgibt
+        if deactivate { NSApp.deactivate() }
         if panel.isKeyWindow {
             if let window = before?.window, before?.appActive == true, window.isVisible, window.canBecomeKey {
                 window.makeKey()
@@ -936,15 +952,6 @@ final class EdgeController: NSObject {
                 panel.orderOut(nil)
                 panel.orderFrontRegardless()
             }
-        }
-        // War BarDrop vor dem Öffnen nicht aktiv, gibt die Ablage den Fokus beim Schließen ab.
-        // Nicht aber, wenn aus ihr gerade die Einstellungen (⌘, oder Menü) bzw. die Einführung
-        // geöffnet wurden und den Fokus haben: Sonst verloren sie ihn 50 ms später wieder
-        // (Protokoll: „key+ Einstellungen“, dann „key- Einstellungen“, alles grau)
-        let ownWindowKey = NSApp.keyWindow.map { $0 !== panel && !($0 is NSPanel) } ?? false
-        let keep = keepAppActive() && ((before?.appActive ?? true) || ownWindowKey)
-        if NSApp.isActive && !keep && !actions.isQuickLookVisible {
-            NSApp.deactivate()
         }
     }
 
@@ -1518,6 +1525,7 @@ extension EdgeController {
                                         height: settings.shelfHeight, handle: handle, floating: floating,
                                         centerY: center, body: floating ? tearDrag?.body ?? .zero : .zero,
                                         symmetric: event.modifierFlags.contains(.option))
+            ShelfRows.resizing = true
             // Volle Bildrate, solange gezogen wird (siehe FrameRateBoost)
             FrameRateBoost.shared.hold(on: panel)
             Diagnostics.shared.record("resize", "start x=\(handle.x) y=\(handle.y)")
@@ -1617,7 +1625,7 @@ extension EdgeController {
     }
 
     /// Während des Ziehens: frei und flüssig, an den Grenzen wie ein Gummiband. Ein leichter
-    /// Impuls, wenn eine Spalte dazukommt oder wegfällt oder eine Höhenstufe überschritten wird:
+    /// Impuls, wenn eine Spalte oder Reihe dazukommt oder wegfällt:
     /// so spürt man die Stufen, ohne dass die Ablage springt
     private func applyResize(_ r: CornerResize, at p: NSPoint) {
         let dx = Double(p.x - r.start.x), dy = Double(p.y - r.start.y)
@@ -1634,18 +1642,20 @@ extension EdgeController {
         guard settings.shelfWidth != width || settings.shelfHeight != height else { return }
         let icon = settings.tileIconSize
         if ShelfGrid.columns(shelfWidth: width, iconSize: icon) != ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon)
-            || ShelfResize.crossesStep(from: settings.shelfHeight, to: height) {
+            || ShelfResize.crossesRow(from: settings.shelfHeight, to: height, iconSize: icon) {
             Haptics.tap()
         }
         setResizeSize(r, width: width, height: height)
     }
 
     /// Nach dem Loslassen gleitet die Ablage weich auf die nächste ganze Spaltenzahl und die
-    /// nächste Höhenstufe (dieselben Werte wie die Regler), dann endet das Ändern der Größe
+    /// nächste Reihenzahl (dieselben Werte wie die Regler), dann endet das Ändern der Größe
     private func settleResize(_ r: CornerResize) {
         let fromW = settings.shelfWidth, fromH = settings.shelfHeight
         let toW = ShelfResize.settledWidth(fromW, iconSize: settings.tileIconSize, range: Self.widthRange)
-        let toH = ShelfResize.settledHeight(fromH, maxHeight: resizeMaxHeight(r))
+        let rows = ShelfResize.settledRows(fromH, iconSize: settings.tileIconSize, maxHeight: resizeMaxHeight(r))
+        let toH = ShelfRows.height(rows: rows, iconSize: settings.tileIconSize)
+        settledRows = rows
         let begin = CACurrentMediaTime()
         let duration = Motion.reduceMotion ? 0 : ShelfResize.settleDuration
         guard duration > 0, fromW != toW || fromH != toH else {
@@ -1671,6 +1681,12 @@ extension EdgeController {
 
     private func finishResize(_ r: CornerResize) {
         cornerResize = nil
+        ShelfRows.resizing = false
+        // Die Reihenzahl gilt jetzt auch für die Einstellungen (rechnet dieselbe Höhe)
+        if let rows = settledRows {
+            settledRows = nil
+            if settings.shelfRows != rows { settings.shelfRows = rows } else { settings.applyRows() }
+        }
         // Angedockt: Die neue Lage gilt auch für das nächste Öffnen. Feste Höhe: die Position am
         // Rand rückt mit (der Streifen sitzt in der Mitte der Ablage), am Zeiger die zuletzt
         // gezeigte Höhe

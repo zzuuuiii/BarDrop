@@ -160,6 +160,7 @@ enum ShelfDefaults {
     static let adaptivePosition = true
     static let displayMode = DisplayMode.all
     static let width = 240.0
+    /// Nur Startwert, bis die Reihen die Höhe bestimmen (ShelfRows)
     static let height = 340.0
     static let iconSize = 64.0
     static let actionIconSize = 34.0
@@ -174,11 +175,6 @@ enum ShelfSizes {
     static var items: [(Double, String)] { [
         (44, L("Extra small", "Sehr klein")), (52, L("Small", "Klein")), (64, L("Medium", "Mittel")),
         (76, L("Large", "Groß")), (88, L("Extra large", "Sehr groß")),
-    ] }
-    static var heights: [(Double, String)] { [
-        // Je Stufe rund ein Fünftel höher (gleich große Sprünge fürs Auge), bis 680 wie beim Ziehen
-        (280, L("Very low", "Sehr niedrig")), (340, L("Low", "Niedrig")), (410, L("Medium", "Mittel")),
-        (490, L("Tall", "Hoch")), (580, L("Very tall", "Sehr hoch")), (680, L("Maximum", "Maximal")),
     ] }
     /// Symbole der Aktionsleiste, eigene Einstellung (Nutzer: getrennt von den Objekten)
     static var actions: [(Double, String)] { [
@@ -205,6 +201,7 @@ final class AppSettings: ObservableObject {
         static let displayMode = "displayMode"
         static let shelfWidth = "shelfWidth"
         static let shelfHeight = "shelfHeight"
+        static let shelfRows = "shelfRows"
         static let removeAfterDragOut = "removeAfterDragOut"
         static let stackMultiple = "stackMultiple"
         static let stackThreshold = "stackThreshold"
@@ -270,7 +267,17 @@ final class AppSettings: ObservableObject {
     }
     @Published var displayMode: DisplayMode { didSet { defaults.set(displayMode.rawValue, forKey: Key.displayMode) } }
     @Published var shelfWidth: Double { didSet { defaults.set(shelfWidth, forKey: Key.shelfWidth) } }
+    /// Höhe in pt: folgt aus der Reihenzahl (applyRows), beim Ziehen mit ⌘ auch dazwischen
     @Published var shelfHeight: Double { didSet { defaults.set(shelfHeight, forKey: Key.shelfHeight) } }
+    /// Sichtbare Reihen der Ablage (Einstellungen → Aussehen → Größe)
+    @Published var shelfRows: Int { didSet { defaults.set(shelfRows, forKey: Key.shelfRows); applyRows() } }
+
+    /// Höhe aus der Reihenzahl, höchstens so viele Reihen, wie auf den Bildschirm passen
+    func applyRows() {
+        let fitting = ShelfRows.choices(iconSize: tileIconSize).max() ?? ShelfRows.range.lowerBound
+        let height = ShelfRows.height(rows: min(shelfRows, fitting), iconSize: tileIconSize)
+        if shelfHeight != height { shelfHeight = height }
+    }
 
     // Verhalten
     @Published var hapticsEnabled: Bool { didSet { defaults.set(hapticsEnabled, forKey: Key.hapticsEnabled) } }
@@ -371,7 +378,8 @@ final class AppSettings: ObservableObject {
         }
     }
     /// Größe der Symbole und Vorschauen in der Ablage (pt)
-    @Published var tileIconSize: Double { didSet { defaults.set(tileIconSize, forKey: Key.tileIconSize) } }
+    /// Ändert sich die Objektgröße, bleibt die Reihenzahl und die Höhe wächst oder schrumpft mit
+    @Published var tileIconSize: Double { didSet { defaults.set(tileIconSize, forKey: Key.tileIconSize); applyRows() } }
     /// Plugins verwenden (Einstellungen → Plugins). Standardmäßig aus; erst beim
     /// Einschalten lädt BarDrop die Standard-Plugins aus dem Katalog.
     @Published var pluginsEnabled: Bool { didSet { defaults.set(pluginsEnabled, forKey: Key.pluginsEnabled) } }
@@ -614,6 +622,17 @@ final class AppSettings: ObservableObject {
         labelsOnlyFolders = defaults.bool(forKey: Key.labelsOnlyFolders)
         betaUpdates = defaults.bool(forKey: Key.betaUpdates)
         tileIconSize = min(max(defaults.double(forKey: Key.tileIconSize), 40), 96)
+        // Reihen statt Höhenstufen (07.11.2026): Wer schon eine Höhe hatte, bekommt die
+        // nächstliegende Reihenzahl. Im eigenen Bereich nachsehen, nicht im registrierten Standard
+        if let rows = ownValues[Key.shelfRows] as? Int {
+            shelfRows = min(max(rows, ShelfRows.range.lowerBound), ShelfRows.range.upperBound)
+        } else if ownValues[Key.shelfHeight] != nil {
+            let rows = Int(ShelfRows.rows(forHeight: defaults.double(forKey: Key.shelfHeight),
+                                           iconSize: min(max(defaults.double(forKey: Key.tileIconSize), 40), 96)).rounded())
+            shelfRows = min(max(rows, ShelfRows.range.lowerBound), ShelfRows.range.upperBound)
+        } else {
+            shelfRows = ShelfRows.defaultRows
+        }
         actionIconSize = min(max(defaults.double(forKey: Key.actionIconSize), 24), 54)
         autoUpdateCheck = defaults.bool(forKey: Key.autoUpdateCheck)
         pluginsEnabled = defaults.bool(forKey: Key.pluginsEnabled)
@@ -653,6 +672,8 @@ final class AppSettings: ObservableObject {
         } else {
             quickActions = QuickAction.defaults
         }
+        // Höhe aus den Reihen (auch nach dem Übernehmen einer alten Höhe)
+        applyRows()
     }
 
     /// Lage und Größe der Ablage auf den Standard setzen.
@@ -673,8 +694,9 @@ final class AppSettings: ObservableObject {
     /// „Aussehen“: Größe
     func resetLook() {
         shelfWidth = ShelfDefaults.width
-        shelfHeight = ShelfDefaults.height
         tileIconSize = ShelfDefaults.iconSize
+        shelfRows = ShelfRows.defaultRows
+        applyRows()
         actionIconSize = ShelfDefaults.actionIconSize
     }
 

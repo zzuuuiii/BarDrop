@@ -439,6 +439,15 @@ struct ShelfContent: View {
                     .padding(.horizontal, 10)
                     .padding(.bottom, 8)
                     .padding(.top, 2)
+                    // Höhe der Leiste für die Reihen (ShelfRows): Die Ablage ist so hoch, dass
+                    // die eingestellten Reihen genau darüber passen
+                    .background(GeometryReader { g in
+                        Color.clear
+                            .onAppear { if !shelfDemo { ShelfRows.barMeasured(Double(g.size.height)) } }
+                            .onChange(of: g.size.height) { _, h in
+                                if !shelfDemo { ShelfRows.barMeasured(Double(h)) }
+                            }
+                    })
                     // Beim Öffnen genauso unscharf wie Kopf und Kacheln. Ohne eigenes Schwarz
                     // dahinter: Die Kacheln enden über der Leiste, und eine deckende Fläche
                     // (eigene AppKit-Ansicht) lag über dem hellen Rahmen und verdeckte ihn an
@@ -1449,7 +1458,8 @@ struct RenameField: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onEnd: onEnd) }
 
     func makeNSView(context: Context) -> NSTextField {
-        let field = NSTextField(string: text)
+        let field = StartEditingField(string: text)
+        field.selectsBaseName = selectsBaseName
         field.font = .systemFont(ofSize: 11, weight: .medium)
         field.alignment = .center
         field.usesSingleLineMode = true
@@ -1464,19 +1474,31 @@ struct RenameField: NSViewRepresentable {
         field.layer?.cornerRadius = 3
         field.focusRingType = .exterior
         field.delegate = context.coordinator
-        DispatchQueue.main.async {
-            guard let window = field.window else { return }
-            window.makeKey()
-            window.makeFirstResponder(field)
-            let name = field.stringValue as NSString
-            let ext = (name as String as NSString).pathExtension
+        return field
+    }
+
+    /// Beginnt die Eingabe, sobald das Feld im Fenster ist, noch vor dem ersten Zeichnen.
+    /// Vorher geschah das einen Durchlauf später: Kurz stand der Name als gekürzter Text
+    /// ohne Markierung und Fokusring da, dann sprang er ins Eingabefeld (Nutzer, 07.11.2026:
+    /// „flackert kurz“)
+    final class StartEditingField: NSTextField {
+        var selectsBaseName = false
+        private var started = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard !started, let window else { return }
+            started = true
+            if !window.isKeyWindow { window.makeKey() }
+            window.makeFirstResponder(self)
+            let name = stringValue as NSString
+            let ext = name.pathExtension
             if selectsBaseName, !ext.isEmpty, name.length > ext.count + 1 {
-                field.currentEditor()?.selectedRange = NSRange(location: 0, length: name.length - ext.count - 1)
+                currentEditor()?.selectedRange = NSRange(location: 0, length: name.length - ext.count - 1)
             } else {
-                field.currentEditor()?.selectAll(nil)
+                currentEditor()?.selectAll(nil)
             }
         }
-        return field
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {}

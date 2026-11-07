@@ -34,7 +34,8 @@ enum ShelfGrid {
 
     /// Spaltenzahlen, die bei dieser Objektgröße möglich sind
     static func columnChoices(iconSize: Double, range: ClosedRange<Double>) -> [Int] {
-        (1...8).filter { width(columns: $0, iconSize: iconSize, range: range) != nil }
+        // 1 bis 5 bei jeder Objektgröße (Nutzer, 07.11.2026)
+        (1...5).filter { width(columns: $0, iconSize: iconSize, range: range) != nil }
     }
 
     /// Breiten der Ablage, bei denen es genau `count` Spalten sind

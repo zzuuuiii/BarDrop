@@ -327,6 +327,7 @@ final class AppSettings: ObservableObject {
         static let clipboardHistory = "clipboardHistory"
         static let addScreenshots = "addScreenshots"
         static let addAirDrop = "addAirDrop"
+        static let addDownloads = "addDownloads"
         static let excludedApps = "excludedApps"
         static let openInFullScreen = "openInFullScreen"
         static let showActionLabels = "showActionLabels"
@@ -465,6 +466,8 @@ final class AppSettings: ObservableObject {
     @Published var addScreenshots: Bool { didSet { defaults.set(addScreenshots, forKey: Key.addScreenshots) } }
     /// Mit AirDrop empfangene Dateien (landen in Downloads) gleich in die Ablage legen
     @Published var addAirDrop: Bool { didSet { defaults.set(addAirDrop, forKey: Key.addAirDrop) } }
+    /// Neue Downloads automatisch in die Ablage (Nutzer, 07.11.2026)
+    @Published var addDownloads: Bool { didSet { defaults.set(addDownloads, forKey: Key.addDownloads) } }
     /// Apps (Bundle-IDs), in denen der Rand die Ablage nicht öffnet, solange sie vorn sind
     @Published var excludedApps: [String] { didSet { defaults.set(excludedApps, forKey: Key.excludedApps) } }
     /// Der Rand öffnet die Ablage auch, wenn die App vorn im Vollbild ist
@@ -645,6 +648,7 @@ final class AppSettings: ObservableObject {
             Key.clipboardHistory: false,
             Key.addScreenshots: false,
             Key.addAirDrop: false,
+            Key.addDownloads: false,
             Key.openInFullScreen: false,
             Key.showActionLabels: true,
             Key.labelsOnlyFolders: false,
@@ -760,6 +764,7 @@ final class AppSettings: ObservableObject {
         clipboardHistory = defaults.bool(forKey: Key.clipboardHistory)
         addScreenshots = defaults.bool(forKey: Key.addScreenshots)
         addAirDrop = defaults.bool(forKey: Key.addAirDrop)
+        addDownloads = defaults.bool(forKey: Key.addDownloads)
         excludedApps = defaults.stringArray(forKey: Key.excludedApps) ?? []
         openInFullScreen = defaults.bool(forKey: Key.openInFullScreen)
         showActionLabels = defaults.bool(forKey: Key.showActionLabels)
@@ -845,6 +850,7 @@ final class AppSettings: ObservableObject {
         clipboardHistory = false
         addScreenshots = false
         addAirDrop = false
+        addDownloads = false
         excludedApps = []
         openInFullScreen = false
         showActionLabels = true

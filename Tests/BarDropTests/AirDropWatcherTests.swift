@@ -31,4 +31,12 @@ final class AirDropWatcherTests: XCTestCase {
         try Data(count: 50).write(to: folder.appendingPathComponent("sub/b.bin"))
         XCTAssertEqual(AirDropWatcher.folderSize(folder), 150)
     }
+
+    /// „Neue Downloads“: Zeitpunkt des Ladens aus der Quarantäne (Hexzahl im zweiten Feld)
+    func testQuarantineDate() {
+        let date = AirDropWatcher.quarantineDate("0083;672c8a00;Safari;1A2B")
+        XCTAssertEqual(date?.timeIntervalSince1970, TimeInterval(0x672c8a00))
+        XCTAssertNil(AirDropWatcher.quarantineDate("0083"))
+        XCTAssertNil(AirDropWatcher.quarantineDate("0083;zz;Safari;"))
+    }
 }

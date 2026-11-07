@@ -58,7 +58,7 @@ final class FolderAccess: ObservableObject {
         let home = fm.homeDirectoryForCurrentUser
         var paths = settings.quickActions.compactMap(\.path)
         if settings.addScreenshots { paths.append(ScreenshotWatcher.screenshotFolder().path) }
-        if settings.addAirDrop, let downloads = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first {
+        if settings.addAirDrop || settings.addDownloads, let downloads = fm.urls(for: .downloadsDirectory, in: .userDomainMask).first {
             paths.append(downloads.path)
         }
         // Die Liste der Ablage nur als Text durchsuchen (JSON schreibt „/“ teils als „\/“)

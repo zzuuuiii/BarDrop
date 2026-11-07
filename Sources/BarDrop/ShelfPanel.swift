@@ -107,8 +107,8 @@ final class ShelfPanel: NSPanel {
             } else {
                 onEscape()
             }
-        case 36, 76: // Return
-            actions.openCurrentSelection()
+        case 36, 76: // Return: umbenennen wie im Finder (Nutzer, 07.11.2026); öffnen mit ⌘O
+            if !event.isARepeat { actions.renameCurrentSelection() }
         case 123, 124, 125, 126: // Pfeiltasten (bei offener Übersicht blättert sie mit)
             if actions.quickLookArrow(event.keyCode) { return }
             let step: Int

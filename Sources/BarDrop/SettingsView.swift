@@ -113,7 +113,8 @@ struct KeyboardSettings: View {
                 if showShortcuts {
                     // Geordnet wie in Menüs: ansehen, auswählen, bearbeiten, bewegen
                     ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
-                    ShortcutRow(L("Open", "Öffnen"), ["↩"])
+                    ShortcutRow(L("Open", "Öffnen"), ["⌘", "O"])
+                    ShortcutRow(L("Rename", "Umbenennen"), ["↩"])
                     ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
                     ShortcutRow(L("Get Info", "Informationen"), ["⌘", "I"])
                     ShortcutRow(L("Select All", "Alles auswählen"), ["⌘", "A"])
@@ -549,6 +550,10 @@ struct ItemSettings: View {
             SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {
                 ToggleRow(L("New screenshots", "Neue Bildschirmfotos"),
                           isOn: $settings.addScreenshots)
+                ToggleRow(L("New downloads", "Neue Downloads"),
+                          info: L("Files you download appear in the shelf and also stay in Downloads.",
+                                  "Geladene Dateien erscheinen in der Ablage und bleiben auch in „Downloads“."),
+                          isOn: $settings.addDownloads)
                 ToggleRow(L("Received AirDrop files", "Empfangene AirDrop-Dateien"),
                           info: L("Received files go straight into the shelf instead of the Downloads folder.",
                                   "Empfangene Dateien kommen direkt in die Ablage statt in den Ordner „Downloads“."),
@@ -572,7 +577,7 @@ extension ItemSettings {
     fileprivate var deniedFolders: [URL] {
         var folders: [URL] = []
         if settings.addScreenshots { folders.append(ScreenshotWatcher.screenshotFolder()) }
-        if settings.addAirDrop { folders.append(AirDropWatcher.downloadsFolder) }
+        if settings.addAirDrop || settings.addDownloads { folders.append(AirDropWatcher.downloadsFolder) }
         return Array(Set(folders.map(\.standardizedFileURL))).filter { folderAccess.isDenied($0) }
             .sorted { $0.path < $1.path }
     }

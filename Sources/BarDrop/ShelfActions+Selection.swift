@@ -276,6 +276,19 @@ extension ShelfActions {
         return ids[..<last].last(where: { !removed.contains($0) })
     }
 
+    /// ↩ wie im Finder: genau ein ausgewähltes Objekt umbenennen. Sonst (mehrere, nichts, im
+    /// angehefteten Ordner) ein kurzer Ton
+    func renameCurrentSelection() {
+        if isInStack {
+            let members = selectedMembers
+            guard !isFolderOpen, members.count == 1, let file = members.first else { return NSSound.beep() }
+            return beginRename(member: file)
+        }
+        let selected = selectedEntries
+        guard selected.count == 1, let entry = selected.first, canRename(entry) else { return NSSound.beep() }
+        beginRename(entry)
+    }
+
     func openCurrentSelection() {
         if isInStack { return openMembers(selectedMembers) }
         // ↩ bzw. ⌘O auf einem einzelnen Ordner: wie der Doppelklick in der Ablage zeigen

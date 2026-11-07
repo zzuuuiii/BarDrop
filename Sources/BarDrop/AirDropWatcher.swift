@@ -6,6 +6,11 @@ import Combine
 /// sie wie jeden Download mit der Quarantäne von macOS; als Absender steht dort der Dienst
 /// von AirDrop („sharingd“). Nur so erkannte Dateien kommen in die Ablage, andere Downloads
 /// nicht. Läuft nur, solange die Einstellung an ist.
+///
+/// Seit 07.11.2026 auch „Neue Downloads“ (Nutzer): Fertig geladene Dateien aus dem Browser
+/// kommen als Verweis in die Ablage und bleiben in „Downloads“. Erkannt am Zeitstempel der
+/// Quarantäne: nur, was gerade erst geladen wurde. So kommt nichts zurück, was BarDrop selbst
+/// in „Downloads“ legt (Aktion „Downloads“), auch wenn es früher einmal geladen wurde.
 final class AirDropWatcher {
     private let store: ShelfStore
     private let onAdded: () -> Void
@@ -18,11 +23,14 @@ final class AirDropWatcher {
     /// Größe und Zeitpunkt beim ersten Nachsehen mit dieser Größe: übernommen wird erst, wenn
     /// sie eine Weile gleich bleibt
     private var sizes: [String: (size: Int64, since: Date)] = [:]
+    private let pasteboard = NSPasteboard(name: NSPasteboard.Name("io.github.zzuuuiii.bardrop.downloads"))
 
     init(store: ShelfStore, onAdded: @escaping () -> Void) {
         self.store = store
         self.onAdded = onAdded
         settingObserver = AppSettings.shared.$addAirDrop
+            .combineLatest(AppSettings.shared.$addDownloads)
+            .map { $0 || $1 }
             .removeDuplicates()
             .sink { [weak self] on in
                 DispatchQueue.main.async { on ? self?.start() : self?.stop() }
@@ -83,8 +91,12 @@ final class AirDropWatcher {
             guard arrived >= startedAt.addingTimeInterval(-1) else { continue }
             // Halb geladene Downloads aus dem Browser übergehen; die Quarantäne entscheidet
             if PluginRuntime.partialExtensions.contains(url.pathExtension.lowercased()) { continue }
-            guard let agent = Self.quarantineAgent(url) else { continue }
-            guard Self.isAirDrop(agent: agent) else {
+            guard let quarantine = Self.quarantine(url), let agent = Self.agent(fromQuarantine: quarantine) else { continue }
+            let airDrop = Self.isAirDrop(agent: agent) && AppSettings.shared.addAirDrop
+            // Andere Downloads nur, wenn „Neue Downloads“ an ist und sie eben erst geladen wurden
+            let download = !airDrop && AppSettings.shared.addDownloads
+                && (Self.quarantineDate(quarantine).map { $0 >= startedAt.addingTimeInterval(-5) && Date().timeIntervalSince($0) < 600 } ?? false)
+            guard airDrop || download else {
                 seen.insert(url.path)
                 continue
             }
@@ -99,12 +111,26 @@ final class AirDropWatcher {
         }
         guard !ready.isEmpty else { return }
         ready.forEach { seen.insert($0.path); sizes[$0.path] = nil }
-        guard AppSettings.shared.addAirDrop else { return }
-        Diagnostics.shared.record("airdrop", "übernehme \(ready.count)")
+        // Downloads bleiben in „Downloads“: wie aus dem Finder abgelegt (Original oder Kopie
+        // nach Einstellung)
+        let downloads = ready.filter { url in
+            !(Self.quarantineAgent(url).map(Self.isAirDrop) ?? false) || !AppSettings.shared.addAirDrop
+        }
+        if !downloads.isEmpty, AppSettings.shared.addDownloads {
+            Diagnostics.shared.record("downloads", "übernehme \(downloads.count)")
+            pasteboard.clearContents()
+            pasteboard.writeObjects(downloads as [NSURL])
+            store.ingest(from: pasteboard) { [weak self] files in
+                if !files.isEmpty { self?.onAdded() }
+            }
+        }
+        let received = ready.filter { !downloads.contains($0) }
+        guard !received.isEmpty, AppSettings.shared.addAirDrop else { return }
+        Diagnostics.shared.record("airdrop", "übernehme \(received.count)")
         // Nur in die Ablage, nicht auch in „Downloads“: BarDrop nimmt die Dateien heraus und
         // behält sie selbst (wie Ergebnisse von Plugins). Herausziehen legt sie dann ab, wo
         // man will; Entfernen löscht sie wie andere eigene Objekte erst nach dem Widerrufen.
-        let adopted = store.adoptResults(ready)
+        let adopted = store.adoptResults(received)
         guard !adopted.isEmpty else { return }
         store.add(adopted)
         onAdded()
@@ -123,13 +149,25 @@ final class AirDropWatcher {
 
     /// Absender aus der Quarantäne von macOS („0083;65f1…;sharingd;“ → „sharingd“)
     static func quarantineAgent(_ url: URL) -> String? {
+        quarantine(url).flatMap(agent(fromQuarantine:))
+    }
+
+    /// Zeitpunkt des Ladens aus der Quarantäne (zweites Feld, Sekunden seit 1970 als Hexzahl)
+    static func quarantineDate(_ text: String) -> Date? {
+        let parts = text.split(separator: ";", omittingEmptySubsequences: false)
+        guard parts.count >= 2, let seconds = UInt64(parts[1], radix: 16) else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(seconds))
+    }
+
+    /// Inhalt der Quarantäne von macOS
+    static func quarantine(_ url: URL) -> String? {
         let name = "com.apple.quarantine"
         let length = getxattr(url.path, name, nil, 0, 0, 0)
         guard length > 0 else { return nil }
         var data = Data(count: length)
         let read = data.withUnsafeMutableBytes { getxattr(url.path, name, $0.baseAddress, length, 0, 0) }
         guard read > 0, let text = String(data: data.prefix(read), encoding: .utf8) else { return nil }
-        return agent(fromQuarantine: text)
+        return text
     }
 
     static func agent(fromQuarantine text: String) -> String? {

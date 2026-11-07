@@ -553,13 +553,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             }
         case .clipboard:
             // Verlauf der Zwischenablage in der Ablage, wie ein angehefteter Ordner (Nutzer,
-            // 31.10.2026). Ausgeschaltet: zu seinem Schalter in den Einstellungen
-            if settings.clipboardHistory {
-                showPinnedFolder(ClipboardHistory.shared.folder)
-            } else {
-                SettingsNavigation.shared.pane = .actions
-                openSettings()
-            }
+            // 31.10.2026). Immer, ohne Schalter (07.11.2026); läuft das Aufnehmen noch nicht
+            // (Aktion eben erst hinzugefügt), startet es hier
+            ClipboardHistory.shared.start()
+            showPinnedFolder(ClipboardHistory.shared.folder)
         default:
             // AirDrop, Papierkorb, Mail, Kurzbefehle, Plugins: arbeiten mit Objekten, die man
             // darauf zieht. Vorher geschah beim Klick gar nichts, das wirkte kaputt

@@ -45,9 +45,10 @@ final class ClipboardHistory {
     }
 
 
-    /// Folgt dem Schalter in den Einstellungen
+    /// Läuft, solange die Aktion „Zwischenablage“ in der Aktionsleiste liegt (Nutzer, 07.11.2026:
+    /// kein eigener Schalter mehr, ein Klick auf die Aktion zeigt den Verlauf immer)
     func follow(_ settings: AppSettings) {
-        subscription = settings.$clipboardHistory.removeDuplicates()
+        subscription = settings.$quickActions.map { $0.contains { $0.kind == .clipboard } }.removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] on in on ? self?.start() : self?.stop() }
     }

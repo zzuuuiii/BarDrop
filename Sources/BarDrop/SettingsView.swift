@@ -639,12 +639,6 @@ struct ActionSettings: View {
                           options: ActionLabelMode.allCases.map { ($0, $0.title) })
             }
 
-            SettingsSection(L("In the shelf", "In der Ablage")) {
-                ToggleRow(L("Clipboard history", "Verlauf der Zwischenablage"),
-                          info: L("Keeps the last \(ClipboardHistory.limit) things you copied. Click the Clipboard action to see them in the shelf; click one to copy it again. Only when on does BarDrop read the clipboard, and macOS may ask for permission.",
-                                  "Hebt die letzten \(ClipboardHistory.limit) Dinge auf, die du kopiert hast. Ein Klick auf die Aktion „Zwischenablage“ zeigt sie in der Ablage, ein Klick auf eines kopiert es wieder. Nur wenn es an ist, liest BarDrop die Zwischenablage, und macOS fragt eventuell nach der Erlaubnis."),
-                          isOn: $settings.clipboardHistory)
-            }
         }
     }
 

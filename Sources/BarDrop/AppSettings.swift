@@ -672,7 +672,9 @@ final class AppSettings: ObservableObject {
         } else {
             quickActions = QuickAction.defaults
         }
-        // Höhe aus den Reihen (auch nach dem Übernehmen einer alten Höhe)
+        // Höhe aus den Reihen (auch nach dem Übernehmen einer alten Höhe). Im init gilt didSet
+        // nicht: die Reihen selbst speichern
+        defaults.set(shelfRows, forKey: Key.shelfRows)
         applyRows()
     }
 

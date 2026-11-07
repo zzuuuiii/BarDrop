@@ -125,9 +125,7 @@ struct OpeningSettings: View {
 
     var body: some View {
         SettingsPage {
-            SettingsSection(L("Preview", "Vorschau")) {
-                ScreenPreview(settings: settings)
-            }
+            ScreenPreview(settings: settings)
 
             SettingsSection(L("Where", "Wo")) {
                 PickerRow(L("Screen edge", "Bildschirmrand"), selection: $settings.edge,
@@ -207,6 +205,19 @@ struct AppearanceSettings: View {
 
     private var widthRange: ClosedRange<Double> { EdgeController.widthRange }
 
+    private var labelMode: Binding<ActionLabelMode> {
+        Binding(
+            get: {
+                guard settings.showActionLabels else { return .none }
+                return settings.labelsOnlyFolders ? .folders : .all
+            },
+            set: { mode in
+                settings.showActionLabels = mode != .none
+                settings.labelsOnlyFolders = mode == .folders
+            }
+        )
+    }
+
     /// Nur die Bilder; die Ablage behält ihre Größe (wie die Symbolgröße im Finder)
     private var itemSize: Binding<Double> {
         Binding(get: { ShelfSizes.nearest(settings.tileIconSize, in: ShelfSizes.items) },
@@ -248,21 +259,16 @@ struct AppearanceSettings: View {
             // Nach drei Nutzertests (07.11.2026): Vorschau auf der Seite statt Aufklappen am Rand,
             // „Symbolgröße“ wie im Finder statt „Objektgröße“, Spalten und Reihen zum Einstellen
             // statt nur einer Anzeige, „Größe zurücksetzen“ statt „Standard“. Ziehen an der Ablage
-            // geht weiter, die Zahlen laufen mit
+            // geht weiter, die Zahlen laufen mit. Vorschau ohne Karte drumherum (Nutzer, 08.11.2026)
+            ShelfSizePreview(settings: settings)
+
             SettingsSection(L("Size", "Größe"),
                             note: L("You can also drag an edge or corner of the shelf directly.",
                                     "Du kannst die Ablage auch direkt an einer Kante oder Ecke ziehen.")) {
-                ShelfSizePreview(settings: settings)
                 SliderRow(L("Icon size", "Symbolgröße"),
                           value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
                           range: 0...Double(ShelfSizes.items.count - 1), step: 1,
                           format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
-                // Symbole der Aktionsleiste auch hier (Nutzer, 07.11.2026), dieselbe Einstellung
-                // wie unter Aktionen → Darstellung
-                SliderRow(L("Action bar", "Aktionsleiste"),
-                          value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
-                          range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
-                          format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
                 SettingsRow(L("Columns", "Spalten")) {
                     CountStepper(value: columns, exact: exactColumns, choices: columnChoices)
                 }
@@ -277,6 +283,16 @@ struct AppearanceSettings: View {
                     .buttonStyle(KlackButtonStyle())
                     .disabled(settings.sizeIsDefault)
                 }
+            }
+
+            // Aussehen der Aktionsleiste, vorher unter Aktionen → Darstellung (Nutzer, 08.11.2026)
+            SettingsSection(L("Action bar", "Aktionsleiste")) {
+                SliderRow(L("Icon size", "Symbolgröße"),
+                          value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
+                          range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
+                          format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
+                PickerRow(L("Show names", "Namen anzeigen"), selection: labelMode,
+                          options: ActionLabelMode.allCases.map { ($0, $0.title) })
             }
 
             SettingsSection(L("Style", "Stil")) {
@@ -503,25 +519,11 @@ struct ActionSettings: View {
 
     private var limit: Int { QuickAction.limit }
 
-    private var labelMode: Binding<ActionLabelMode> {
-        Binding(
-            get: {
-                guard settings.showActionLabels else { return .none }
-                return settings.labelsOnlyFolders ? .folders : .all
-            },
-            set: { mode in
-                settings.showActionLabels = mode != .none
-                settings.labelsOnlyFolders = mode == .folders
-            }
-        )
-    }
 
     var body: some View {
         SettingsPage {
             // Vorschau wie unter Öffnen und Aussehen: die Aktionsleiste so, wie sie in der Ablage steht
-            SettingsSection(L("Preview", "Vorschau")) {
-                ActionBarPreview(settings: settings)
-            }
+            ActionBarPreview(settings: settings)
 
             VStack(alignment: .leading, spacing: 8) {
                 // Nur eine Überschriftenebene wie auf den anderen Seiten: „Obere Reihe“ und
@@ -537,15 +539,6 @@ struct ActionSettings: View {
             }
             .zIndex(1)
 
-            SettingsSection(L("Layout", "Darstellung")) {
-                // Eigene Größe, getrennt von den Objekten, in Stufen wie unter Aussehen
-                SliderRow(L("Icon size", "Symbolgröße"),
-                          value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
-                          range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
-                          format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
-                PickerRow(L("Show names", "Namen anzeigen"), selection: labelMode,
-                          options: ActionLabelMode.allCases.map { ($0, $0.title) })
-            }
 
         }
     }

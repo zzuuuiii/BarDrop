@@ -8,32 +8,28 @@ import AppKit
 /// sehen gleich aus und unterscheiden sich nur im Ausschnitt (Nutzer, 07.11.2026: „die sollen
 /// alle designtechnisch passen“)
 struct PreviewScreen<Content: View>: View {
-    let height: CGFloat
-    var width: CGFloat? = nil
-    /// Höhe der Menüleiste oben (0: Ausschnitt ohne Menüleiste)
-    var menuBar: CGFloat = 0
+    /// Seitenverhältnis (Bildschirm) oder feste Höhe (Ausschnitt)
+    var aspect: CGFloat? = nil
+    var height: CGFloat = 200
     @ViewBuilder let content: (CGSize) -> Content
 
     var body: some View {
-        GeometryReader { geo in
+        // Ohne Karte drumherum, so breit wie die Karten darunter (Nutzer, 08.11.2026: „der
+        // Rahmen um das Ganze soll weg, das Fenster alleine auf die passende Größe“)
+        let shape = RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+        let view = GeometryReader { geo in
             ZStack(alignment: .topLeading) {
                 PreviewBackground()
-                if menuBar > 0 {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.35))
-                        .frame(height: menuBar)
-                }
                 content(geo.size)
             }
         }
-        .frame(width: width, height: height)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
-        )
-        .frame(maxWidth: .infinity)
-        .padding(14)
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(SettingsTheme.cardBorder, lineWidth: 1))
+        if let aspect {
+            view.aspectRatio(aspect, contentMode: .fit).frame(maxWidth: .infinity)
+        } else {
+            view.frame(maxWidth: .infinity).frame(height: height)
+        }
     }
 }
 
@@ -126,6 +122,9 @@ private struct MiniShelfContent: View {
 struct MiniActionBar: View {
     @ObservedObject var settings: AppSettings
     let scale: CGFloat
+    /// Echte Symbole (Vorschau unter Aktionen); verkleinert schlichte Kästchen wie die Kacheln
+    /// (Nutzer, 08.11.2026: die echten Symbole wirkten in der kleinen Ablage komisch)
+    var realIcons = false
 
     var body: some View {
         let all = settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
@@ -137,7 +136,14 @@ struct MiniActionBar: View {
                 HStack(spacing: 2 * scale) {
                     ForEach(row) { action in
                         VStack(spacing: 4 * scale) {
-                            QuickActionIcon(action: action, size: size * scale)
+                            if realIcons {
+                                QuickActionIcon(action: action, size: size * scale)
+                            } else {
+                                RoundedRectangle(cornerRadius: size * scale * 0.24, style: .continuous)
+                                    .fill(Color.white.opacity(0.28))
+                                    .frame(width: size * scale * 0.82, height: size * scale * 0.82)
+                                    .frame(width: size * scale, height: size * scale)
+                            }
                             if settings.showActionLabels {
                                 let named = !settings.labelsOnlyFolders || action.kind == .folder
                                 label(action.title).opacity(named ? 1 : 0)
@@ -184,37 +190,40 @@ struct ScreenPreview: View {
         let screen = NSScreen.main ?? NSScreen.screens.first
         let frame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1470, height: 956)
         let visible = screen?.visibleFrame ?? frame
-        let width: CGFloat = 300
-        let scale = width / frame.width
-        let height = frame.height * scale
-        let menu = max(0, frame.maxY - visible.maxY) * scale
-        PreviewScreen(height: height, width: width, menuBar: menu) { size in
-            let shelfH = MiniShelf.outerHeight(settings) * scale
-            let shelfW = CGFloat(settings.shelfWidth) * scale
+        PreviewScreen(aspect: frame.width / frame.height) { size in
+            let scale = size.width / frame.width
+            let menu = max(0, frame.maxY - visible.maxY) * scale
             let usable = size.height - menu
-            let center: CGFloat = {
-                if settings.adaptivePosition { return menu + usable / 2 }
-                let y = menu + usable * (1 - CGFloat(settings.verticalPosition))
-                return min(max(y, menu + shelfH / 2), size.height - shelfH / 2)
-            }()
-            let x = settings.edge == .right ? size.width - shelfW : 0
             ZStack(alignment: .topLeading) {
+                // Menüleiste
+                Rectangle().fill(Color.white.opacity(0.35)).frame(width: size.width, height: menu)
                 if settings.adaptivePosition {
-                    // Bereich am Rand, in dem die Ablage am Zeiger erscheint
+                    // Am Zeiger: nur der Bereich am Rand, in dem sie erscheint (die Ablage selbst
+                    // darüber wirkte komisch, Nutzer 08.11.2026)
                     let zone = CGFloat(settings.adaptiveZoneFraction ?? 1)
                     Capsule()
-                        .fill(Color.black.opacity(0.45))
-                        .frame(width: 4, height: usable * zone)
-                        .offset(x: settings.edge == .right ? size.width - 4 : 0, y: menu + usable * (1 - zone) / 2)
+                        .fill(Color.black.opacity(0.75))
+                        .frame(width: 5, height: usable * zone)
+                        .offset(x: settings.edge == .right ? size.width - 5 : 0, y: menu + usable * (1 - zone) / 2)
+                } else {
+                    let shelfH = MiniShelf.outerHeight(settings) * scale
+                    let shelfW = CGFloat(settings.shelfWidth) * scale
+                    let y = menu + usable * (1 - CGFloat(settings.verticalPosition))
+                    let center = min(max(y, menu + shelfH / 2), size.height - shelfH / 2)
+                    MiniShelf(settings: settings, scale: scale)
+                        .offset(x: settings.edge == .right ? size.width - shelfW : 0, y: center - shelfH / 2)
                 }
-                MiniShelf(settings: settings, scale: scale)
-                    .offset(x: x, y: center - shelfH / 2)
             }
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.edge)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.verticalPosition)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.adaptivePosition)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.adaptiveZone)
         }
+        // Ganzer Bildschirm: nicht breiter als nötig, mittig (in voller Breite war er zu hoch)
+        .frame(maxWidth: 320)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement()
+        .accessibilityLabel(L("Preview of the screen", "Vorschau des Bildschirms"))
     }
 }
 
@@ -251,7 +260,7 @@ struct ActionBarPreview: View {
             let fillet = MiniShelf.fillet * scale
             HStack(spacing: 0) {
                 if settings.edge == .right { Spacer(minLength: 0) }
-                MiniActionBar(settings: settings, scale: scale)
+                MiniActionBar(settings: settings, scale: scale, realIcons: true)
                     .padding(.top, 34 * scale)
                     .padding(.bottom, 10 * scale + fillet)
                     .frame(width: CGFloat(settings.shelfWidth) * scale)
@@ -268,9 +277,9 @@ struct ActionBarPreview: View {
             .background(PreviewBackground())
         }
         .frame(height: barHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.primary.opacity(0.15), lineWidth: 1))
-        .padding(14)
+        .clipShape(RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
+            .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1))
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.quickActions)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.actionIconSize)
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.showActionLabels)

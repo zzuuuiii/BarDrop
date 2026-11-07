@@ -44,10 +44,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             withAnimation(Motion.close) { self.ui.openStack = nil }
         }
         // Mehrere Dateien auf einmal werden ein Stapel: Das überraschte im Nutzertest alle
-        // (07.11.2026, „ich wollte fünf einzelne Fotos“). Kurz sagen, was passiert ist, mit
-        // einem Klick zurück zu einzelnen Objekten
-        store.onStackCreated = { [weak self] id in
-            self?.announce(L("Stack added", "Stapel abgelegt"), unstack: id)
+        // (07.11.2026, „ich wollte fünf einzelne Fotos“). Kurz sagen, was passiert ist
+        // (ohne Knopf „Einzeln“, Nutzer 07.11.2026)
+        store.onStackCreated = { [weak self] _ in
+            self?.announce(L("Stack added", "Stapel abgelegt"))
         }
         store.onUserDrop = { [weak self] files in
             guard let self, self.settings.pluginsEnabled else { return }
@@ -234,19 +234,13 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// Zeigt kurz eine Rückmeldung oben in der Ablage an Stelle der Anzahl.
     /// `duration`: wie lange (Standard: 2 s, mit Widerrufen 5 s, Zeit zum Klick auf „Rückgängig“)
-    func announce(_ text: String, canUndo: Bool = false, unstack: UUID? = nil, duration: TimeInterval? = nil) {
-        let notice = ShelfUIModel.Notice(text: text, canUndo: canUndo, unstack: unstack)
+    func announce(_ text: String, canUndo: Bool = false, duration: TimeInterval? = nil) {
+        let notice = ShelfUIModel.Notice(text: text, canUndo: canUndo)
         withAnimation(.easeOut(duration: 0.18)) { ui.notice = notice }
-        DispatchQueue.main.asyncAfter(deadline: .now() + (duration ?? (canUndo || unstack != nil ? 5 : 2))) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + (duration ?? (canUndo ? 5 : 2))) { [weak self] in
             guard let self, self.ui.notice?.id == notice.id else { return }
             withAnimation(.easeIn(duration: 0.25)) { self.ui.notice = nil }
         }
-    }
-
-    /// „Einzeln“ im Hinweis nach dem Ablegen: den eben entstandenen Stapel auflösen
-    func unstackFromNotice(_ id: UUID) {
-        withAnimation(.easeIn(duration: 0.2)) { ui.notice = nil }
-        store.unstack(id)
     }
 
     func announceRemoval(_ count: Int) {

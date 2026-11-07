@@ -340,17 +340,15 @@ final class ViewSmokeTests: XCTestCase {
         ui.level = .expanded
         render(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
                size: CGSize(width: 420, height: 720), "Ablage")
-        // Hinweise mit Knopf (Rückgängig, Einzeln) und die schwebende Ablage mit Schließen-Knopf
+        // Hinweis mit „Rückgängig“ und Griff
         ui.notice = ShelfUIModel.Notice(text: L("Removed", "Entfernt"), canUndo: true)
-        ui.floatingShelf = true
         ui.grabberHover = true
         render(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
                size: CGSize(width: 420, height: 720), "Ablage Hinweis")
-        ui.notice = ShelfUIModel.Notice(text: L("Stack added", "Stapel abgelegt"), unstack: UUID())
+        ui.notice = ShelfUIModel.Notice(text: L("Stack added", "Stapel abgelegt"))
         render(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
                size: CGSize(width: 420, height: 720), "Ablage Stapel-Hinweis")
         ui.notice = nil
-        ui.floatingShelf = false
         ui.grabberHover = false
         // Geöffneter Stapel
         if let stack = store.entries.first(where: \.isStack) {

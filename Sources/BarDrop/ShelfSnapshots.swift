@@ -192,6 +192,8 @@ final class DiagnosticCommands {
         case "intro-shot":
             // Fenster der Einführung (nur BarDrops eigenes Fenster, keine Bildschirmaufnahme)
             ShelfSnapshots.capture(NSApp.windows.first { $0 is IntroWindow }, argument.isEmpty ? "intro" : argument, after: [0])
+        case "resize-probe":
+            controller.probeResize()
         case "edge":
             if let edge = ScreenEdge(rawValue: argument) { controller.settings.edge = edge }
         case "intro":

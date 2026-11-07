@@ -111,9 +111,7 @@ final class ShelfUIModel: ObservableObject {
     @Published private(set) var isTorn = false
     /// Der Zeiger ist in der Kopfzeile: Der Griff oben erscheint
     @Published var grabberHover = false
-    /// Die Ablage schwebt frei: oben links ein Knopf „Zurück an den Rand“ (Nutzertest
-    /// 07.11.2026: ohne ihn fand man nur das Rechtsklickmenü)
-    @Published var floatingShelf = false
+
     /// Die Ablage wird gerade am Griff gezogen: Er ist hell und etwas länger
     @Published var grabbing = false
     /// Rahmen der Ablage am Rand: nach dem Andocken kurz ausgeblendet, dann weich eingeblendet
@@ -171,8 +169,6 @@ final class ShelfUIModel: ObservableObject {
         var text: String
         /// Lässt sich mit ⌘Z widerrufen: dann bleibt der Hinweis etwas länger stehen
         var canUndo = false
-        /// Gerade entstandener Stapel: daneben „Einzeln“ zum Auflösen
-        var unstack: UUID? = nil
     }
     @Published var notice: Notice?
 

@@ -1104,7 +1104,6 @@ final class EdgeController: NSObject {
         let now = Date()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
-        syncFloatingFlag()
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         let dragCount = dragPasteboard.changeCount
         if !mouseDown { dragBaseline = dragCount }
@@ -1461,12 +1460,23 @@ extension EdgeController {
     /// Schwebt die Ablage gerade frei?
     var isFloating: Bool { tearDrag?.phase == .floating }
 
-    /// Für den Knopf „Zurück an den Rand“ in der schwebenden Ablage
-    private func syncFloatingFlag() {
-        let floating = isFloating
-        if ui.floatingShelf != floating { ui.floatingShelf = floating }
+    /// Diagnose (Befehl „resize-probe“): Wo an der offenen Ablage würde Ziehen die Größe ändern?
+    func probeResize() {
+        let body = ui.expandedBody
+        let fillet = ShelfMetrics.for(.expanded, settings: settings).fillet
+        Diagnostics.shared.record("resize", "probe level=\(ui.level) tear=\(tearDrag.map { "\($0.phase)" } ?? "–") blocked=\(gestureBlocked) settle=\(resizeSettle != nil) ignores=\(panel.ignoresMouseEvents) body=\(body) fillet=\(fillet) panel=\(panel.frame)")
+        let inner = body.insetBy(dx: 0, dy: fillet)
+        let points: [(String, NSPoint)] = [
+            ("rechts", NSPoint(x: inner.maxX - 4, y: inner.midY)), ("links", NSPoint(x: inner.minX + 4, y: inner.midY)),
+            ("oben", NSPoint(x: inner.midX - 60, y: inner.maxY - 4)), ("unten", NSPoint(x: inner.midX, y: inner.minY + 4)),
+            ("ecke-or", NSPoint(x: inner.maxX - 6, y: inner.maxY - 6)), ("ecke-ur", NSPoint(x: inner.maxX - 6, y: inner.minY + 6)),
+            ("ecke-ol", NSPoint(x: inner.minX + 6, y: inner.maxY - 6)), ("mitte", NSPoint(x: inner.midX, y: inner.midY)),
+        ]
+        for (name, p) in points {
+            let h = resizeHandle(at: p)
+            Diagnostics.shared.record("resize", "probe \(name) \(Int(p.x)),\(Int(p.y)) → \(h.map { "x=\($0.x) y=\($0.y)" } ?? "nil")")
+        }
     }
-
     /// Einstellungen vorn: Die schwebende Ablage liegt sonst darüber (sie schwebt auf der Ebene
     /// der Menüleiste über allen Fenstern), und die Einstellungen öffneten sich dahinter (Nutzer,
     /// 01.11.2026). Solange sie das aktive Fenster sind, rückt die Ablage auf die normale Ebene;
@@ -1527,8 +1537,13 @@ extension EdgeController {
         switch event.type {
         case .leftMouseDown:
             // Ohne Taste wie an einem Fenster (Nutzertest 07.11.2026: ⌘ fand niemand)
+            let downAt = NSEvent.mouseLocation
+            if event.window === panel, ui.expandedBody.insetBy(dx: 30, dy: 30).contains(downAt) == false {
+                // Diagnose: Klick nahe am Rand, warum (nicht) Größe ändern
+                Diagnostics.shared.record("resize", "down \(Int(downAt.x)),\(Int(downAt.y)) handle=\(resizeHandle(at: downAt).map { "\($0.x),\($0.y)" } ?? "nil") blocked=\(gestureBlocked) settle=\(resizeSettle != nil) tear=\(tearDrag.map { "\($0.phase)" } ?? "–") body=\(ui.expandedBody)")
+            }
             guard event.window === panel, !gestureBlocked,
-                  resizeSettle == nil, let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
+                  resizeSettle == nil, let handle = resizeHandle(at: downAt) else { return event }
             let floating = tearDrag?.phase == .floating
             let center = screen.map { panelCenterY(on: $0) } ?? panel.frame.midY
             cornerResize = CornerResize(start: NSEvent.mouseLocation, width: settings.shelfWidth,
@@ -2637,7 +2652,6 @@ extension EdgeController {
         releaseStaleHolds()
         let loc = NSEvent.mouseLocation
         updateResizeCursor(at: loc)
-        syncFloatingFlag()
         let mouseDown = (NSEvent.pressedMouseButtons & 1) == 1
         if !mouseDown { dragBaseline = dragPasteboard.changeCount }
         // Wo die Ablage wirklich liegt, aus dem Fenster selbst: Hat macOS oder SwiftUI das

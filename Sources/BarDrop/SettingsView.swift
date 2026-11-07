@@ -127,8 +127,6 @@ struct OpeningSettings: View {
         SettingsPage {
             SettingsSection(L("Preview", "Vorschau")) {
                 ScreenPreview(settings: settings)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
             }
 
             SettingsSection(L("Where", "Wo")) {
@@ -228,6 +226,15 @@ struct AppearanceSettings: View {
                 })
     }
 
+    /// Spalten mit Bruchteil: Liegt die Breite zwischen zwei Spaltenzahlen (gezogen, ältere
+    /// Version), gehen − und + auf die nächste ganze darunter bzw. darüber
+    private var exactColumns: Double {
+        let icon = settings.tileIconSize
+        let count = ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon)
+        guard let base = ShelfGrid.width(columns: count, iconSize: icon, range: widthRange) else { return Double(count) }
+        return Double(count) + (settings.shelfWidth - base) / (icon + 30 + Double(ShelfGrid.spacing))
+    }
+
     private var rowChoices: [Int] { ShelfRows.choices(iconSize: settings.tileIconSize) }
 
     /// Reihen: die Höhe der Ablage, in die genau so viele Reihen passen
@@ -250,11 +257,18 @@ struct AppearanceSettings: View {
                           value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
                           range: 0...Double(ShelfSizes.items.count - 1), step: 1,
                           format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
+                // Symbole der Aktionsleiste auch hier (Nutzer, 07.11.2026), dieselbe Einstellung
+                // wie unter Aktionen → Darstellung
+                SliderRow(L("Action bar", "Aktionsleiste"),
+                          value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
+                          range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
+                          format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
                 SettingsRow(L("Columns", "Spalten")) {
-                    CountStepper(value: columns, choices: columnChoices)
+                    CountStepper(value: columns, exact: exactColumns, choices: columnChoices)
                 }
                 SettingsRow(L("Rows", "Reihen")) {
-                    CountStepper(value: rows, choices: rowChoices)
+                    CountStepper(value: rows, exact: ShelfRows.rows(forHeight: settings.shelfHeight, iconSize: settings.tileIconSize),
+                                 choices: rowChoices)
                 }
                 SettingsRow(L("Reset size", "Größe zurücksetzen")) {
                     Button(L("Reset", "Zurücksetzen")) {
@@ -280,53 +294,6 @@ struct AppearanceSettings: View {
     }
 }
 
-
-/// Kleine Bildschirmvorschau mit der Ablage an der gewählten Stelle.
-private struct ScreenPreview: View {
-    @ObservedObject var settings: AppSettings
-
-    var body: some View {
-        let w: CGFloat = 220, h: CGFloat = 132
-        let nubH: CGFloat = 34, nubW: CGFloat = 4
-        let usable = h - 12 - nubH - 8
-        let y = 12 + 4 + usable * (1 - CGFloat(settings.verticalPosition))
-
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(LinearGradient(colors: [Color(nsColor: .controlAccentColor).opacity(0.55),
-                                              Color(nsColor: .controlAccentColor).opacity(0.25)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-            Rectangle()
-                .fill(Color.white.opacity(0.35))
-                .frame(width: w, height: 8)
-            if settings.adaptivePosition {
-                // Bereich, in dem die adaptive Ablage reagiert
-                let zone = settings.adaptiveZoneFraction ?? 1
-                let top: CGFloat = 8 + (h - 8) * (1 - zone) / 2
-                let len: CGFloat = (h - 8) * zone
-                Capsule()
-                    .fill(Color.black.opacity(0.55))
-                    .frame(width: 4, height: len)
-                    .offset(x: settings.edge == .right ? w - 4 : 0, y: top)
-                    .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.adaptiveZone)
-            }
-            EdgeBlobShape(edge: settings.edge, cornerRadius: 2, fillet: 4, filletStretch: 1.4)
-                .fill(Color.black)
-                .opacity(settings.adaptivePosition ? 0 : 1)
-                .frame(width: nubW, height: nubH)
-                .offset(x: settings.edge == .right ? w - nubW : 0, y: y)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.edge)
-                .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.verticalPosition)
-        }
-        .frame(width: w, height: h)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.15), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-    }
-}
 
 // MARK: Objekte
 
@@ -551,6 +518,11 @@ struct ActionSettings: View {
 
     var body: some View {
         SettingsPage {
+            // Vorschau wie unter Öffnen und Aussehen: die Aktionsleiste so, wie sie in der Ablage steht
+            SettingsSection(L("Preview", "Vorschau")) {
+                ActionBarPreview(settings: settings)
+            }
+
             VStack(alignment: .leading, spacing: 8) {
                 // Nur eine Überschriftenebene wie auf den anderen Seiten: „Obere Reihe“ und
                 // „Untere Reihe“ stehen selbst als Überschrift über ihrer Karte
@@ -1249,11 +1221,15 @@ func stepIndex(_ binding: Binding<Int>, in steps: [Double]) -> Binding<Double> {
 /// Zahl mit − und + daneben (Spalten, Reihen). Die Knöpfe wie der Pfeil der Menüs.
 struct CountStepper: View {
     @Binding var value: Int
+    /// Genauer Wert mit Bruchteil (z. B. 2,5 Reihen): − und + gehen auf die nächste ganze Zahl
+    /// darunter bzw. darüber. Vorher war bei 2,5 Reihen „−“ aus, weil 2 angezeigt wurde
+    var exact: Double? = nil
     /// Mögliche Zahlen; − und + springen zur nächsten davon
     let choices: [Int]
 
-    private var lower: Int? { choices.filter { $0 < value }.max() }
-    private var higher: Int? { choices.filter { $0 > value }.min() }
+    private var current: Double { exact ?? Double(value) }
+    private var lower: Int? { choices.filter { Double($0) < current - 0.01 }.max() }
+    private var higher: Int? { choices.filter { Double($0) > current + 0.01 }.min() }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -1283,75 +1259,5 @@ struct CountStepper: View {
         .buttonStyle(.plain)
         .disabled(target == nil)
         .opacity(target == nil ? 0.35 : 1)
-    }
-}
-
-/// Verkleinerte Ablage in den Einstellungen: so breit und hoch wie eingestellt, mit so vielen
-/// Symbolen, wie bei der Symbolgröße hineinpassen. Ändert sich mit, auch beim Ziehen an der Ablage
-private struct ShelfSizePreview: View {
-    @ObservedObject var settings: AppSettings
-
-    var body: some View {
-        let w = settings.shelfWidth, h = settings.shelfHeight, icon = settings.tileIconSize
-        let scale = min(0.42, 176 / h, 300 / w)
-        let columns = ShelfGrid.columns(shelfWidth: w, iconSize: icon)
-        let fraction = ShelfRows.rows(forHeight: h, iconSize: icon)
-        let rows = max(1, Int(fraction.rounded()))
-        let shownRows = max(1, Int(fraction.rounded(.up)))
-        let gridHeight = max(0, (h - ShelfRows.headerHeight - ShelfRows.barHeight) * scale)
-        let box = Double(TileMetrics.box(CGFloat(icon))) * scale
-        let tile = ShelfRows.tileHeight(icon) * scale
-        VStack(spacing: 0) {
-            // Kopfzeile
-            HStack {
-                Capsule().fill(Color.white.opacity(0.55)).frame(width: 44 * scale, height: 6 * scale)
-                Spacer()
-            }
-            .padding(.horizontal, 18 * scale)
-            .frame(height: ShelfRows.headerHeight * scale)
-            // Raster: so hoch wie der Platz zwischen Kopfzeile und Aktionsleiste, eine nicht
-            // ganz passende Reihe angeschnitten wie in der echten Ablage
-            VStack(spacing: ShelfRows.rowSpacing * scale) {
-                ForEach(0..<shownRows, id: \.self) { _ in
-                    HStack(spacing: 0) {
-                        ForEach(0..<columns, id: \.self) { _ in
-                            VStack(spacing: 4 * scale) {
-                                RoundedRectangle(cornerRadius: box * 0.18, style: .continuous)
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(width: box * 0.8, height: box * 0.8)
-                                Capsule().fill(Color.white.opacity(0.3)).frame(width: box * 0.6, height: 5 * scale)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: tile)
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, 12 * scale)
-            .padding(.vertical, 6 * scale)
-            .frame(height: gridHeight, alignment: .top)
-            .clipped()
-            // Aktionsleiste
-            HStack(spacing: 14 * scale) {
-                ForEach(0..<4, id: \.self) { _ in
-                    RoundedRectangle(cornerRadius: 8 * scale, style: .continuous)
-                        .fill(Color.white.opacity(0.28))
-                        .frame(width: 30 * scale, height: 30 * scale)
-                }
-            }
-            .frame(height: ShelfRows.barHeight * scale)
-        }
-        .frame(width: w * scale, height: h * scale)
-        .background(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous).fill(Color.black))
-        .overlay(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous)
-            .strokeBorder(Color.white.opacity(settings.showOutline ? 0.22 : 0), lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 28 * scale, style: .continuous))
-        .frame(maxWidth: .infinity)
-        .frame(height: 200)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: w)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: h)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: icon)
-        .accessibilityElement()
-        .accessibilityLabel(L("Preview: \(columns) columns, \(rows) rows", "Vorschau: \(columns) Spalten, \(rows) Reihen"))
     }
 }

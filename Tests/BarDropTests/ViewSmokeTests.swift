@@ -78,7 +78,6 @@ final class ViewSmokeTests: XCTestCase {
                     render(page(AppearanceSettings(settings: settings)), size: size, "Aussehen \(tag)", appearance: appearance)
                     render(page(ItemSettings(settings: settings, store: store)), size: size, "Objekte \(tag)", appearance: appearance)
                     render(page(ActionSettings(settings: settings)), size: size, "Aktionen \(tag)", appearance: appearance)
-                    render(page(KeyboardSettings(settings: settings)), size: size, "Tastatur \(tag)", appearance: appearance)
                     render(page(PluginSettings(settings: settings)), size: size, "Plugins \(tag)", appearance: appearance)
                     render(page(AboutSettings(settings: settings, showOnboarding: {})), size: size, "Über \(tag)", appearance: appearance)
                 }
@@ -536,8 +535,7 @@ final class ViewSmokeTests: XCTestCase {
                 (AnyView(OpeningSettings(settings: settings)), "Oeffnen"),
                 (AnyView(AppearanceSettings(settings: settings)), "Aussehen"),
                 (AnyView(ItemSettings(settings: settings, store: store)), "Objekte"),
-                (AnyView(ActionSettings(settings: settings)), "Aktionen"),
-                (AnyView(KeyboardSettings(settings: settings)), "Tastatur")
+                (AnyView(ActionSettings(settings: settings)), "Aktionen")
             ]
             for (pane, name) in panes {
                 for (appearance, look) in [(NSAppearance.Name.darkAqua, "dunkel"), (.aqua, "hell")] {
@@ -672,6 +670,6 @@ final class ViewSmokeTests: XCTestCase {
         for _ in 0..<20 { navigation.move(by: 1) }
         XCTAssertEqual(navigation.pane, .about)
         navigation.move(by: -1)
-        XCTAssertEqual(navigation.pane, .keyboard)
+        XCTAssertEqual(navigation.pane, .cloud)
     }
 }

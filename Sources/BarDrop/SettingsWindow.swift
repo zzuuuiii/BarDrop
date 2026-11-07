@@ -231,7 +231,7 @@ final class SettingsNavigation: ObservableObject {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, opening, appearance, items, actions, plugins, cloud, keyboard, about
+    case general, opening, appearance, items, actions, plugins, cloud, about
     var id: String { rawValue }
 
     var title: String {
@@ -243,7 +243,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .actions: return L("Actions", "Aktionen")
         case .plugins: return L("Plugins", "Plugins")
         case .cloud: return "Cloud"
-        case .keyboard: return L("Keyboard", "Tastatur")
         case .about: return L("About BarDrop", "Über BarDrop")
         }
     }
@@ -257,7 +256,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .actions: return "square.grid.2x2.fill"
         case .plugins: return "puzzlepiece.extension.fill"
         case .cloud: return "cloud.fill"
-        case .keyboard: return "command"
         case .about: return "info"
         }
     }
@@ -271,7 +269,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .actions: return Color(red: 0.2, green: 0.78, blue: 0.4)
         case .plugins: return Color(red: 0.0, green: 0.68, blue: 0.82)
         case .cloud: return Color(red: 0.25, green: 0.6, blue: 1)
-        case .keyboard: return Color(red: 0.55, green: 0.35, blue: 0.95)
         case .about: return Color(white: 0.55)
         }
     }
@@ -360,7 +357,6 @@ struct SettingsRoot: View {
                 row(.actions)
                 row(.plugins)
                 row(.cloud)
-                row(.keyboard)
                 Spacer(minLength: 12)
                 row(.about)
             }
@@ -452,7 +448,6 @@ struct SettingsRoot: View {
         case .actions: ActionSettings(settings: settings)
         case .plugins: PluginSettings(settings: settings)
         case .cloud: CloudSettingsPane()
-        case .keyboard: KeyboardSettings(settings: settings)
         case .about: AboutSettings(settings: settings, store: store, showOnboarding: showOnboarding)
         }
     }

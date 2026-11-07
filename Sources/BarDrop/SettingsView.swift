@@ -20,6 +20,7 @@ struct GeneralSettings: View {
     @State private var launchAtLogin = LoginItem.isOn
     @State private var needsApproval = LoginItem.needsApproval
     @State private var loginError: String?
+    @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
 
     var body: some View {
         SettingsPage {
@@ -55,6 +56,21 @@ struct GeneralSettings: View {
                 needsApproval = LoginItem.needsApproval
             }
 
+            // Eigener Bereich „Tastatur“ entfernt (Nutzer, 07.11.2026): Der Kurzbefehl steht hier,
+            // statt der langen Liste der Kürzel in der Ablage nur der Hinweis auf den Finder
+            SettingsSection(L("Show or hide shelf", "Ablage ein- und ausblenden"),
+                            info: L("Click ⌃, ⌥, ⇧ or ⌘ to add or remove a modifier key. To change the key, click it on the right and press a new one.",
+                                    "Klick auf ⌃, ⌥, ⇧ oder ⌘, um eine Sondertaste hinzuzufügen oder wegzunehmen. Für eine andere Taste klick rechts auf die Taste und drück die neue."),
+                            note: hotKeyStatus.available
+                                ? L("In the open shelf, the keyboard shortcuts are the same as in the Finder.",
+                                    "In der offenen Ablage gelten dieselben Tastenkürzel wie im Finder.")
+                                : L("Another app already uses this keyboard shortcut. Choose a different combination.",
+                                    "Dieser Tastaturkurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination."),
+                            noteColor: hotKeyStatus.available ? .secondary : .red) {
+                HotKeyEditor(settings: settings)
+                    .padding(8)
+            }
+
             // Ohne Überschrift: Zeile und Knopf sagen schon, worum es geht
             SettingsSection {
                 SettingsRow(L("Reset all settings", "Alle Einstellungen zurücksetzen")) {
@@ -78,116 +94,6 @@ struct GeneralSettings: View {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         settings.resetAll()
         if !launchAtLogin { launchAtLogin = true }   // Standard: angemeldet (über onChange)
-    }
-}
-
-// MARK: Tastatur
-
-struct KeyboardSettings: View {
-    @ObservedObject var settings: AppSettings
-    @ObservedObject private var hotKeyStatus = HotKeyStatus.shared
-    @State private var showShortcuts = false
-
-    var body: some View {
-        SettingsPage {
-            SettingsSection(L("Show or hide shelf", "Ablage ein- und ausblenden"),
-                            info: L("Click ⌃, ⌥, ⇧ or ⌘ to add or remove a modifier key. To change the key, click it on the right and press a new one.",
-                                    "Klick auf ⌃, ⌥, ⇧ oder ⌘, um eine Sondertaste hinzuzufügen oder wegzunehmen. Für eine andere Taste klick rechts auf die Taste und drück die neue."),
-                            note: hotKeyStatus.available ? nil : L("Another app already uses this keyboard shortcut. Choose a different combination.",
-                                                                   "Dieser Tastaturkurzbefehl ist schon von einer anderen App belegt. Wähl eine andere Kombination."),
-                            noteColor: .red) {
-                HotKeyEditor(settings: settings)
-                    .padding(8)
-            }
-
-            // Die Kürzel in der Ablage sind eingeklappt: Wer sie sucht, klappt sie auf
-            SettingsSection(L("In the open shelf", "In der offenen Ablage")) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showShortcuts.toggle() }
-                } label: {
-                    SettingsRow(L("Keyboard shortcuts", "Tastenkürzel")) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(showShortcuts ? 90 : 0))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                if showShortcuts {
-                    // Geordnet wie in Menüs: ansehen, auswählen, bearbeiten, bewegen
-                    ShortcutRow(L("Quick Look", "Übersicht"), [L("Space", "Leertaste")])
-                    ShortcutRow(L("Open", "Öffnen"), ["⌘", "O"])
-                    ShortcutRow(L("Rename", "Umbenennen"), ["↩"])
-                    ShortcutRow(L("Show in Finder", "Im Finder zeigen"), ["⌘", "R"])
-                    ShortcutRow(L("Get Info", "Informationen"), ["⌘", "I"])
-                    ShortcutRow(L("Select All", "Alles auswählen"), ["⌘", "A"])
-                    ShortcutRow(L("Move selection", "Auswahl bewegen"), ["←", "→", "↑", "↓"])
-                    ShortcutRow(L("Extend selection", "Auswahl erweitern"), ["⇧", "←"])
-                    ShortcutRow(L("Copy", "Kopieren"), ["⌘", "C"])
-                    ShortcutRow(L("Cut", "Ausschneiden"), ["⌘", "X"])
-                    ShortcutRow(L("Paste", "Einsetzen"), ["⌘", "V"])
-                    ShortcutRow(L("Copy path", "Pfad kopieren"), ["⌥", "⌘", "C"])
-                ShortcutRow(L("Duplicate", "Duplizieren"), ["⌘", "D"])
-                ShortcutRow(L("New Folder", "Neuer Ordner"), ["⇧", "⌘", "N"])
-                    ShortcutRow(L("Undo", "Widerrufen"), ["⌘", "Z"])
-                    ShortcutRow(L("Redo", "Wiederholen"), ["⇧", "⌘", "Z"])
-                    ShortcutRow(L("Remove", "Entfernen"), ["⌫"])
-                    ShortcutRow(L("Move to Trash", "In den Papierkorb legen"), ["⌘", "⌫"])
-                    ShortcutRow(L("Leave stack or folder", "Stapel oder Ordner verlassen"), ["⌘", "↑"])
-                    ShortcutRow(L("Move or remove an action", "Aktion verschieben oder entfernen"), ["⌘", L("Drag", "Ziehen")])
-                    ShortcutRow(L("Settings", "Einstellungen"), ["⌘", ","])
-                    ShortcutRow(L("Go back or close", "Zurück oder schließen"), ["esc"])
-                }
-            }
-        }
-    }
-}
-
-/// Eine Zeile mit Tasten als kleine Kappen, wie die Tasten oben beim Kurzbefehl
-struct ShortcutRow: View {
-    let title: String
-    let keys: [String]
-    init(_ title: String, _ keys: [String]) {
-        self.title = title
-        self.keys = keys
-    }
-    /// Wie Kürzel in macOS-Menüs: die Zeichen zusammen in einer ruhigen Kapsel, so wie die Werte
-    /// der Regler. Vorher stand jede Taste in einer eigenen dunklen Kappe; in der langen Liste
-    /// wirkte das unruhig (Nutzer, 24.10.2026)
-    var body: some View {
-        SettingsRow(title) {
-            HStack(spacing: 4) {
-                ForEach(Array(keys.enumerated()), id: \.offset) { _, key in
-                    label(key)
-                }
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 9)
-            .frame(minWidth: 34, minHeight: 22)
-            .background(Capsule().fill(Color.primary.opacity(0.03)))
-            .overlay(Capsule().strokeBorder(SettingsTheme.separator, lineWidth: 1))
-        }
-    }
-
-    /// Sondertasten als Systemsymbol: Die Zeichen ⌘, ⌫ usw. sitzen in der Schrift nicht in
-    /// der Mitte ihrer Zeile und standen deshalb schief in der Taste. Symbole werden nach
-    /// ihrer Form mittig gesetzt. Buchstaben und Wörter bleiben Text.
-    private static let symbols: [String: String] = [
-        "⌘": "command", "⇧": "shift", "⌥": "option", "⌃": "control",
-        "⌫": "delete.left", "↩": "return",
-        "←": "arrow.left", "→": "arrow.right", "↑": "arrow.up", "↓": "arrow.down",
-    ]
-
-    @ViewBuilder
-    private func label(_ key: String) -> some View {
-        if let name = Self.symbols[key] {
-            Image(systemName: name)
-                .font(.system(size: 10.5, weight: .medium))
-        } else {
-            Text(key)
-                .font(.system(size: 11.5, weight: .medium, design: .rounded))
-        }
     }
 }
 

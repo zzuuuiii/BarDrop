@@ -1374,7 +1374,7 @@ private struct FeaturesPage: View {
 
     private var features: [Feature] {
         [
-            Feature(id: "keys", pane: .keyboard,
+            Feature(id: "keys", pane: .general,
                     title: L("Keys like in the Finder", "Tasten wie im Finder"),
                     text: L("Space, ⌘⌫ and ⌘Z work as you know them", "Leertaste, ⌘⌫ und ⌘Z wie gewohnt")),
             Feature(id: "pin", pane: .actions,

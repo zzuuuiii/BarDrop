@@ -34,7 +34,7 @@ final class ShelfResizeTests: XCTestCase {
         let three = ShelfRows.height(rows: 3, iconSize: icon, barHeight: bar)
         XCTAssertEqual(ShelfResize.settledRows(three + 20, iconSize: icon, maxHeight: 5000), 3)
         XCTAssertEqual(ShelfResize.settledRows(three + 100, iconSize: icon, maxHeight: 5000), 4)
-        XCTAssertEqual(ShelfResize.settledRows(5000, iconSize: icon, maxHeight: 5000), 6)
+        XCTAssertEqual(ShelfResize.settledRows(5000, iconSize: icon, maxHeight: 5000), ShelfRows.range.upperBound)
         XCTAssertEqual(ShelfResize.settledRows(5000, iconSize: icon, maxHeight: three + 10), 3)
         XCTAssertEqual(ShelfResize.settledRows(0, iconSize: icon, maxHeight: 5000), 2)
     }
@@ -66,11 +66,17 @@ final class ShelfResizeTests: XCTestCase {
         }
     }
 
-    /// 1 bis 5 Spalten bei jeder Objektgröße
-    func testOneToFiveColumnsAtEverySize() {
-        for icon in ShelfSizes.items.map(\.0) {
-            XCTAssertEqual(ShelfGrid.columnChoices(iconSize: icon, range: ShelfResize.widthRange), [1, 2, 3, 4, 5], "\(icon)")
-        }
+    /// Die Objektgröße ändert nur die Kacheln, nicht die Größe der Ablage (wie im Finder)
+    func testItemSizeKeepsShelfSize() {
+        let settings = AppSettings.shared
+        let saved = (settings.shelfWidth, settings.shelfHeight, settings.tileIconSize)
+        defer { settings.shelfWidth = saved.0; settings.shelfHeight = saved.1; settings.tileIconSize = saved.2 }
+        settings.shelfWidth = 300; settings.shelfHeight = 420; settings.tileIconSize = 64
+        settings.tileIconSize = 88
+        XCTAssertEqual(settings.shelfWidth, 300)
+        XCTAssertEqual(settings.shelfHeight, 420)
+        settings.resetSize()
+        XCTAssertTrue(settings.sizeIsDefault)
     }
 
     /// Ohne ⌥ bleibt die gegenüberliegende Kante stehen, mit ⌥ (0) die Mitte

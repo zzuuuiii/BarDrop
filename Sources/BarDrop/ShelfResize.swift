@@ -11,9 +11,9 @@ import AppKit
 /// nur größere Lücken. Über die Grenzen hinaus gibt sie wie ein Gummiband etwas nach und
 /// federt zurück.
 enum ShelfResize {
-    /// Breite: 1 bis 5 Spalten bei jeder Objektgröße (Nutzer, 07.11.2026). Schmaler als 160 pt
-    /// passt die Kopfzeile nicht mehr, 650 pt fassen 5 sehr große Spalten
-    static let widthRange = 160.0...650.0
+    /// Breite: schmaler als 210 pt wird die Aktionsleiste unlesbar (Nutzertest 07.11.2026),
+    /// 650 pt fassen 5 sehr große Spalten
+    static let widthRange = 210.0...650.0
     /// Höhe: von der kleinsten bis zur größten Reihenzahl bei der eingestellten Objektgröße
     static var heightRange: ClosedRange<Double> {
         let icon = AppSettings.shared.tileIconSize
@@ -69,12 +69,10 @@ enum ShelfResize {
     }
 }
 
-/// Höhe der Ablage in ganzen Reihen (Nutzer, 07.11.2026: wie Spalten, statt „Niedrig“ bis
-/// „Maximal“). Die Ablage ist genau so hoch, dass die Reihen ganz hineinpassen: Kopfzeile,
-/// Raster und Aktionsleiste. Ändert sich die Objektgröße oder die Aktionsleiste, bleibt die
-/// Reihenzahl und die Höhe rechnet sich neu.
+/// Höhe der Ablage in ganzen Reihen: Beim Loslassen nach dem Ziehen gleitet sie auf eine Höhe,
+/// in die die Reihen genau passen (Kopfzeile, Raster, Aktionsleiste). Auch der Standard.
 enum ShelfRows {
-    static let range = 2...6
+    static let range = 2...12
     static let defaultRows = 3
 
     /// Kopfzeile: 12 pt oben, 30 pt Zeile, 4 pt darunter (ShelfContent)
@@ -89,23 +87,18 @@ enum ShelfRows {
     }
 
     /// Höhe der Aktionsleiste samt Rändern, in der Ablage gemessen (hängt von Zahl, Größe und
-    /// Namen der Aktionen ab). Gemerkt, damit die Höhe schon vor dem ersten Öffnen stimmt
+    /// Namen der Aktionen ab). Gemerkt, damit das Einrasten schon vor dem ersten Öffnen stimmt
     private static let barKey = "shelfActionBarHeight"
     static var barHeight: Double {
         let stored = UserDefaults.standard.double(forKey: barKey)
         return stored > 0 ? stored : 62
     }
 
-    /// Neue Höhe der Aktionsleiste gemessen: Weicht sie ab, rechnet sich die Ablage neu
+    /// Neue Höhe der Aktionsleiste gemessen
     static func barMeasured(_ height: Double) {
         guard height > 10, abs(height - barHeight) > 0.5 else { return }
         UserDefaults.standard.set(height, forKey: barKey)
-        // Beim Ziehen mit ⌘ nicht dazwischenfunken: Danach rechnet finishResize die Höhe neu
-        if !resizing { AppSettings.shared.applyRows() }
     }
-
-    /// Gerade wird die Größe mit ⌘ geändert (EdgeController)
-    static var resizing = false
 
     static func height(rows: Int, iconSize: Double, barHeight: Double = barHeight) -> Double {
         let n = Double(rows)
@@ -127,9 +120,5 @@ enum ShelfRows {
     static func choices(iconSize: Double, maxHeight: Double = screenMaxHeight) -> [Int] {
         let fitting = range.filter { height(rows: $0, iconSize: iconSize) <= maxHeight }
         return fitting.isEmpty ? [range.lowerBound] : fitting
-    }
-
-    static func text(_ count: Int) -> String {
-        L("\(count) rows", "\(count) Reihen")
     }
 }

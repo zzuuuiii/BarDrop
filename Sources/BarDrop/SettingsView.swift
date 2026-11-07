@@ -206,71 +206,32 @@ struct OpeningSettings: View {
 struct AppearanceSettings: View {
     @ObservedObject var settings: AppSettings
 
-    static func columnsText(_ count: Int) -> String {
-        count == 1 ? L("1 column", "1 Spalte") : L("\(count) columns", "\(count) Spalten")
-    }
-
-    private var range: ClosedRange<Double> { EdgeController.widthRange }
-
-    private var columns: Int { ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: settings.tileIconSize) }
-
-    /// Spalten: die Breite ergibt sich daraus, ohne leeren Rand
-    private var columnChoice: Binding<Int> {
-        Binding(get: {
-            let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
-            return choices.min { abs($0 - columns) < abs($1 - columns) } ?? columns
-        }, set: { count in
-            if let width = ShelfGrid.width(columns: count, iconSize: settings.tileIconSize, range: range) {
-                settings.shelfWidth = width
-            }
-        })
-    }
-
-    /// Objektgröße ändern behält die Spalten, die Ablage wird mitbreiter oder schmaler. Passen
-    /// sie nicht mehr, die nächstmögliche Zahl
+    /// Nur die Kacheln; die Ablage behält ihre Größe (wie die Symbolgröße im Finder)
     private var itemSize: Binding<Double> {
-        Binding(get: { ShelfSizes.nearest(settings.tileIconSize, in: ShelfSizes.items) }, set: { size in
-            let count = columns
-            settings.tileIconSize = size
-            let choices = ShelfGrid.columnChoices(iconSize: size, range: range)
-            guard let best = choices.min(by: { abs($0 - count) < abs($1 - count) }),
-                  let width = ShelfGrid.width(columns: best, iconSize: size, range: range) else { return }
-            settings.shelfWidth = width
-        })
-    }
-
-    /// Reihen, die bei der Objektgröße auf den Bildschirm passen
-    private var rowChoices: [Int] { ShelfRows.choices(iconSize: settings.tileIconSize) }
-
-    private var rowChoice: Binding<Int> {
-        Binding(get: {
-            let rows = settings.shelfRows
-            return rowChoices.min { abs($0 - rows) < abs($1 - rows) } ?? rows
-        }, set: { settings.shelfRows = $0 })
+        Binding(get: { ShelfSizes.nearest(settings.tileIconSize, in: ShelfSizes.items) },
+                set: { settings.tileIconSize = $0 })
     }
 
     var body: some View {
         SettingsPage {
-            // Wie ein Raster aus Spalten und Reihen (Launchpad, Home-Bildschirm), die Objektgröße
-            // zuerst, weil beides davon abhängt (Nutzer, 07.11.2026). Ändert sich die
-            // Objektgröße, bleiben Spalten und Reihen, die Ablage wächst oder schrumpft mit
+            // Neu nach dem Nutzertest (07.11.2026, alle 6 Personen): Die Größe der Ablage stellt man
+            // wie bei einem Fenster durch Ziehen an Kante oder Ecke ein, ohne Taste. Hier nur die
+            // Objektgröße, ein Satz dazu und „Standard“ nur für die Größe (vorher nur alles
+            // zusammen zurücksetzbar). Spalten- und Reihen-Regler entfallen
             SettingsSection(L("Size", "Größe"),
-                            info: L("You can also resize the open shelf directly: hold ⌘ and drag a corner or an edge. With ⌥ it grows from the center.",
-                                    "Auch direkt an der offenen Ablage: ⌘ gedrückt halten und an einer Ecke oder Kante ziehen. Mit ⌥ wächst sie von der Mitte aus.")) {
+                            note: L("To resize the shelf, drag one of its edges or corners.",
+                                    "Die Größe der Ablage änderst du, indem du an einer Kante oder Ecke ziehst.")) {
                 SliderRow(L("Item size", "Objektgröße"),
                           value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
                           range: 0...Double(ShelfSizes.items.count - 1), step: 1,
                           format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
-                let choices = ShelfGrid.columnChoices(iconSize: settings.tileIconSize, range: range)
-                SliderRow(L("Columns", "Spalten"),
-                          value: stepIndex(columnChoice, in: choices.map(Double.init)),
-                          range: 0...Double(max(1, choices.count - 1)), step: 1,
-                          format: { Self.columnsText(choices[min(max(Int($0.rounded()), 0), choices.count - 1)]) })
-                let rows = rowChoices
-                SliderRow(L("Rows", "Reihen"),
-                          value: stepIndex(rowChoice, in: rows.map(Double.init)),
-                          range: 0...Double(max(1, rows.count - 1)), step: 1,
-                          format: { ShelfRows.text(rows[min(max(Int($0.rounded()), 0), rows.count - 1)]) })
+                SettingsRow(L("Shelf size", "Größe der Ablage")) {
+                    Button(L("Default", "Standard")) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { settings.resetSize() }
+                    }
+                    .buttonStyle(KlackButtonStyle())
+                    .disabled(settings.sizeIsDefault)
+                }
             }
 
             SettingsSection(L("Style", "Stil")) {

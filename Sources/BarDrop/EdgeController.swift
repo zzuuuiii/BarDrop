@@ -52,8 +52,7 @@ final class EdgeController: NSObject {
     /// nach dem Öffnen per Kurzbefehl kein Greifen mehr (Protokoll des Nutzers, 31.10.2026)
     private var guideHeldY: CGFloat?
     private var lastSizeSignature = ""
-    /// Reihenzahl, auf die die Ablage nach dem Ziehen mit ⌘ gleitet
-    private var settledRows: Int?
+
     /// Adaptive Höhe: Zeigerhöhe, an der die Ablage erscheinen soll.
     private var adaptiveY: CGFloat?
     private var lastLayoutSignature = ""
@@ -326,7 +325,7 @@ final class EdgeController: NSObject {
         }
         if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
             guard let self else { return event }
-            // ⌘ an einer Ecke: Größe ändern (siehe resizeEvent)
+            // An einer Ecke oder Kante: Größe ändern (siehe resizeEvent)
             guard let event = self.resizeEvent(event) else { return nil }
             // Ziehen an der Kopfzeile behält BarDrop für sich (siehe tearEvent)
             guard let passed = self.tearEvent(event) else { return nil }
@@ -1179,7 +1178,8 @@ final class EdgeController: NSObject {
                     if !ui.showSampleTile { ui.showSampleTile = true }
                     samplePreviewRunning = true
                 }
-                previewUntil = now.addingTimeInterval(1.5)
+                // Lang genug, um das Ergebnis in Ruhe anzusehen (Nutzertest: 1,5 s zu kurz)
+                previewUntil = now.addingTimeInterval(3)
                 previewLevel = .expanded
                 // Ohne Fokus zeichnet macOS die Ablage sonst erst beim nächsten Öffnen neu:
                 // Symbolgröße und Namen der Aktionen ändern die Fenstergröße nicht
@@ -1481,7 +1481,7 @@ extension EdgeController {
     static var widthRange: ClosedRange<Double> { ShelfResize.widthRange }
     static var heightRange: ClosedRange<Double> { ShelfResize.heightRange }
 
-    /// ⌘ gedrückt und an einer Ecke oder Seite der offenen Ablage gezogen: An Ecken ändern sich
+    /// An einer Ecke oder Seite der offenen Ablage gezogen: An Ecken ändern sich
     /// Breite und Höhe, oben und unten nur die Höhe, an der Seite nur die Breite. Angedockt geht
     /// das nicht an der Seite am Bildschirmrand. Der Wert landet direkt in den Einstellungen (die
     /// Regler laufen mit). Ohne ⌥ bleibt die gegenüberliegende Kante stehen, mit ⌥ wächst sie um
@@ -1517,7 +1517,8 @@ extension EdgeController {
     func resizeEvent(_ event: NSEvent) -> NSEvent? {
         switch event.type {
         case .leftMouseDown:
-            guard event.modifierFlags.contains(.command), event.window === panel, !gestureBlocked,
+            // Ohne Taste wie an einem Fenster (Nutzertest 07.11.2026: ⌘ fand niemand)
+            guard event.window === panel, !gestureBlocked,
                   resizeSettle == nil, let handle = resizeHandle(at: NSEvent.mouseLocation) else { return event }
             let floating = tearDrag?.phase == .floating
             let center = screen.map { panelCenterY(on: $0) } ?? panel.frame.midY
@@ -1525,7 +1526,6 @@ extension EdgeController {
                                         height: settings.shelfHeight, handle: handle, floating: floating,
                                         centerY: center, body: floating ? tearDrag?.body ?? .zero : .zero,
                                         symmetric: event.modifierFlags.contains(.option))
-            ShelfRows.resizing = true
             // Volle Bildrate, solange gezogen wird (siehe FrameRateBoost)
             FrameRateBoost.shared.hold(on: panel)
             Diagnostics.shared.record("resize", "start x=\(handle.x) y=\(handle.y)")
@@ -1549,13 +1549,13 @@ extension EdgeController {
         }
     }
 
-    /// Mit ⌘ an einer Ecke oder Seite (und während des Ziehens) zeigt der Zeiger den Pfeil zum
+    /// An einer Ecke oder Seite (und während des Ziehens) zeigt der Zeiger den Pfeil zum
     /// Ändern der Größe wie an einem Fenster; danach wieder den normalen Zeiger
     private func updateResizeCursor(at p: NSPoint) {
         let handle: ResizeHandle?
         if let r = cornerResize {
             handle = r.handle
-        } else if NSEvent.modifierFlags.contains(.command) {
+        } else if (NSEvent.pressedMouseButtons & 1) == 0, !gestureBlocked {
             handle = resizeHandle(at: p)
         } else {
             handle = nil
@@ -1612,6 +1612,9 @@ extension EdgeController {
             if !floating && x == edgeX { x = 0 }
             if x != 0 && y != 0 { y = 0 }
         }
+        // Am Griff oben wird abgezogen, nicht die Größe geändert
+        let grip = grabZone(floating ? tearDrag!.body : ui.expandedBody)
+        if x == 0, grip.insetBy(dx: 0, dy: -outside).contains(p) { return nil }
         return x == 0 && y == 0 ? nil : ResizeHandle(x: x, y: y)
     }
 
@@ -1655,7 +1658,6 @@ extension EdgeController {
         let toW = ShelfResize.settledWidth(fromW, iconSize: settings.tileIconSize, range: Self.widthRange)
         let rows = ShelfResize.settledRows(fromH, iconSize: settings.tileIconSize, maxHeight: resizeMaxHeight(r))
         let toH = ShelfRows.height(rows: rows, iconSize: settings.tileIconSize)
-        settledRows = rows
         let begin = CACurrentMediaTime()
         let duration = Motion.reduceMotion ? 0 : ShelfResize.settleDuration
         guard duration > 0, fromW != toW || fromH != toH else {
@@ -1681,12 +1683,7 @@ extension EdgeController {
 
     private func finishResize(_ r: CornerResize) {
         cornerResize = nil
-        ShelfRows.resizing = false
-        // Die Reihenzahl gilt jetzt auch für die Einstellungen (rechnet dieselbe Höhe)
-        if let rows = settledRows {
-            settledRows = nil
-            if settings.shelfRows != rows { settings.shelfRows = rows } else { settings.applyRows() }
-        }
+
         // Angedockt: Die neue Lage gilt auch für das nächste Öffnen. Feste Höhe: die Position am
         // Rand rückt mit (der Streifen sitzt in der Mitte der Ablage), am Zeiger die zuletzt
         // gezeigte Höhe

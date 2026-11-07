@@ -212,6 +212,14 @@ struct AppearanceSettings: View {
                 set: { settings.tileIconSize = $0 })
     }
 
+    /// „3 Spalten × 4 Reihen“: so viele passen bei der eingestellten Objektgröße hinein
+    private var sizeText: String {
+        let icon = settings.tileIconSize
+        let columns = ShelfGrid.columns(shelfWidth: settings.shelfWidth, iconSize: icon)
+        let rows = max(1, Int(ShelfRows.rows(forHeight: settings.shelfHeight, iconSize: icon).rounded()))
+        return L("\(columns) × \(rows)", "\(columns) × \(rows)") + " " + L(columns == 1 && rows == 1 ? "item" : "items", "Objekte")
+    }
+
     var body: some View {
         SettingsPage {
             // Neu nach dem Nutzertest (07.11.2026, alle 6 Personen): Die Größe der Ablage stellt man
@@ -225,7 +233,13 @@ struct AppearanceSettings: View {
                           value: stepIndex(itemSize, in: ShelfSizes.items.map(\.0)),
                           range: 0...Double(ShelfSizes.items.count - 1), step: 1,
                           format: { ShelfSizes.items[min(max(Int($0.rounded()), 0), ShelfSizes.items.count - 1)].1 })
+                // Die Größe als Wert, den man ablesen und weitergeben kann (Nutzertest: ohne
+                // Angabe wirkte „Standard“ wie eine Anzeige)
                 SettingsRow(L("Shelf size", "Größe der Ablage")) {
+                    Text(sizeText)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                     Button(L("Default", "Standard")) {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { settings.resetSize() }
                     }

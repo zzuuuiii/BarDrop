@@ -671,20 +671,21 @@ final class AppSettings: ObservableObject {
 
     /// „Aussehen“: Größe
     func resetLook() {
-        tileIconSize = ShelfDefaults.iconSize
         resetSize()
         actionIconSize = ShelfDefaults.actionIconSize
     }
 
-    /// Knopf „Standard“ bei Aussehen → Größe → Größe der Ablage
+    /// Knopf „Standard“ bei Aussehen → Größe: Objektgröße und Größe der Ablage (Nutzertest:
+    /// alle erwarteten beides)
     func resetSize() {
+        tileIconSize = ShelfDefaults.iconSize
         shelfWidth = ShelfDefaults.width
         shelfHeight = ShelfDefaults.height
     }
 
-    /// Die Ablage hat schon ihre Standardgröße
+    /// Objektgröße und Ablage sind schon wie beim Start
     var sizeIsDefault: Bool {
-        shelfWidth == ShelfDefaults.width
+        tileIconSize == ShelfDefaults.iconSize && shelfWidth == ShelfDefaults.width
             && abs(shelfHeight - ShelfDefaults.height) < 1
     }
 

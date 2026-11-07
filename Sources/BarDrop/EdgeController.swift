@@ -1595,7 +1595,9 @@ extension EdgeController {
         let fillet = ShelfMetrics.for(.expanded, settings: settings).fillet
         let body = floating ? tearDrag!.body : ui.expandedBody.insetBy(dx: 0, dy: fillet)
         // Ecken etwas großzügiger als die Seiten (dort nur ein schmaler Streifen am Rand)
-        let corner: CGFloat = 26, side: CGFloat = 8, outside: CGFloat = 4
+        // Breiter als bei Fenstern: ohne sichtbaren Rahmen trafen Testpersonen 8 pt schlecht
+        // (Nutzertest 07.11.2026, vor allem mit Maus und bei Sehschwäche)
+        let corner: CGFloat = 30, side: CGFloat = 12, outside: CGFloat = 6
         guard body.insetBy(dx: -outside, dy: -outside).contains(p) else { return nil }
         // Angedockt liegt eine Seite am Bildschirmrand: Dort gibt es nichts zu ziehen
         let edgeX = settings.edge == .right ? 1 : -1

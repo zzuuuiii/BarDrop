@@ -27,6 +27,12 @@ SHORT="${VERSION%%-*}"
 sed -e "s/__VERSION__/$VERSION/g" -e "s/__SHORT__/$SHORT/g" -e "s/__BUILD__/$BUILD_NUMBER/g" \
     -e "s/__COMMIT__/$COMMIT/g" Resources/Info.plist > "$APP_DIR/Contents/Info.plist"
 printf "APPL????" > "$APP_DIR/Contents/PkgInfo"
+# Google-Client-Secret nur beim Bauen eintragen (GitHub-Secret BARDROP_GOOGLE_CLIENT_SECRET),
+# nie im Repo. Ohne die Variable bleibt der Wert aus Resources/Info.plist
+if [ -n "${BARDROP_GOOGLE_CLIENT_SECRET:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Set :BarDropCloudGoogleClientSecret $BARDROP_GOOGLE_CLIENT_SECRET" "$APP_DIR/Contents/Info.plist"
+  echo "==> Google-Client-Secret eingetragen"
+fi
 
 echo "==> Erzeuge App-Icon"
 ICONSET="$OUT/AppIcon.iconset"

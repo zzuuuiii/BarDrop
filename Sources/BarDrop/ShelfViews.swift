@@ -462,7 +462,8 @@ struct ShelfContent: View {
             if !shelfDemo {
                 Capsule()
                     .fill(Color.primary.opacity(ui.grabbing ? 0.85 : 0.28))
-                    .frame(width: ui.grabbing ? 46 : 36, height: 5)
+                    // Etwas schmaler als früher (36/46 pt, Nutzer 17.11.2026)
+                    .frame(width: ui.grabbing ? 42 : 32, height: 5)
                     .padding(.top, 9)
                     .opacity(ui.grabbing || ui.grabberHover ? 1 : 0)
                     .allowsHitTesting(false)

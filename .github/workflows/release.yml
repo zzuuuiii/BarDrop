@@ -54,6 +54,8 @@ jobs:
         env:
           BARDROP_SIGNING_P12: ${{ github.event_name != 'pull_request' && secrets.BARDROP_SIGNING_P12 || '' }}
           BARDROP_SIGNING_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.BARDROP_SIGNING_PASSWORD || '' }}
+          # Google Drive: Secret nur beim Bauen, nie im Repo (wie die Signatur nicht für Pull Requests)
+          BARDROP_GOOGLE_CLIENT_SECRET: ${{ github.event_name != 'pull_request' && secrets.BARDROP_GOOGLE_CLIENT_SECRET || '' }}
         run: |
           chmod +x scripts/build_app.sh
           set -o pipefail

@@ -56,9 +56,9 @@ enum EdgeTear {
     static let grabHeight: CGFloat = 26
     /// Eckenradius der schwebenden Ablage (wie die offene Ablage innen)
     static let cornerRadius: CGFloat = 28
-    /// Bereich oben, in dem der Griff erscheint: bis ins obere Drittel des Titels (Kopfzeile:
-    /// 12 pt Abstand, Zeile 30 pt, siehe ShelfContent), nicht schon an seiner Unterkante
-    static let headerHeight: CGFloat = 25
+    /// Bereich oben, in dem der Griff erscheint: die ganze Kopfzeile mit „BarDrop“ bzw.
+    /// „… ausgewählt“ (Nutzer, 17.11.2026), so hoch wie in ShelfRows
+    static let headerHeight: CGFloat = CGFloat(ShelfRows.headerHeight)
 
     /// Umriss der Ablage: Je fester sie mit dem Rand verbunden ist, desto eckiger werden die
     /// Ecken auf seiner Seite. Angedockt hat sie dort keine Rundung, sondern geht in den Bogen

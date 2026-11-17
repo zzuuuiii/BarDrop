@@ -83,7 +83,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * Uses practically no energy while idle
 
 **Items**
-* Files, folders, images from the web (WebP, AVIF and HEIC can be saved as PNG or JPEG), links and text
+* Files, folders, images from the web (WebP, AVIF and HEIC are saved as PNG or JPEG), links and text
 * New screenshots and files received with AirDrop can land in the shelf automatically
 * Convert with a right-click: images, PDF pages, text documents, audio and video, using only what macOS includes
 * Newest first, stacks (drag one item onto another), selection like in the Finder; double-click a folder to see its contents right in the shelf

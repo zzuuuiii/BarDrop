@@ -89,12 +89,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Normaler Klick ohne Ziehen: Auswahl auf dieses Objekt reduzieren.
     func clickedWithoutDrag(_ entry: ShelfEntry, modifiers: NSEvent.ModifierFlags) {
         guard modifiers.isDisjoint(with: [.command, .shift]) else { return }
-        if entry.isStack {
-            openStack(entry)            // Klick auf einen Stapel: hineingehen
-        } else {
-            ui.selection = [entry.id]
-            ui.selectionAnchor = entry.id
-        }
+        // Auch ein Stapel wird mit einem Klick nur ausgewählt, geöffnet mit Doppelklick wie
+        // ein Ordner im Finder (Nutzer, 17.11.2026)
+        ui.selection = [entry.id]
+        ui.selectionAnchor = entry.id
     }
 
     func selectAll() {

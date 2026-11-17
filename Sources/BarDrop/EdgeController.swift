@@ -1343,12 +1343,11 @@ final class EdgeController: NSObject {
         // Nicht während einer Vorschau oder der Einführung, nicht bei gedrückter Taste und
         // nicht, solange Übersicht, Menü oder ein Dialog offen sind.
         let inside = ui.level == .expanded && expandedBody.contains(loc)
-        // Griff oben, solange der Zeiger in der Kopfzeile ist; nicht, während etwas gezogen
-        // wird (Dateien über der Ablage) oder die Taste gedrückt ist
-        // Griff sichtbar, solange der Zeiger über der Ablage ist, nicht nur in der Kopfzeile
-        // (Nutzertest 07.11.2026: niemand fand ihn)
-        let hover = inside && !mouseDown
-        if ui.grabberHover != hover {
+        // Griff nur, solange der Zeiger in der Kopfzeile ist (Nutzer, 17.11.2026). Bei gedrückter
+        // Taste bleibt er, wie er war: Vorher verschwand er bei jedem Klick in die Ablage kurz
+        // und kam wieder (flackerte)
+        let hover = inside && headerZone(expandedBody).contains(loc)
+        if !mouseDown, ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }
         if inside && !pointerInside && !mouseDown && !panel.isKeyWindow && !locked
@@ -2699,8 +2698,9 @@ extension EdgeController {
         }
         if !inside && pointerInside { returnFloatingFocusSoon() }
         pointerInside = inside
-        let hover = inside && !mouseDown
-        if ui.grabberHover != hover {
+        // Wie am Rand: nur in der Kopfzeile, beim Klicken unverändert (kein Flackern)
+        let hover = inside && headerZone(body).contains(loc)
+        if !mouseDown, ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }
     }

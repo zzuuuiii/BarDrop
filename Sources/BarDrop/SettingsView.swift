@@ -276,18 +276,23 @@ struct AppearanceSettings: View {
                     CountStepper(value: rows, exact: ShelfRows.rows(forHeight: settings.shelfHeight, iconSize: settings.tileIconSize),
                                  choices: rowChoices)
                 }
-                SettingsRow(L("Reset size", "Größe zurücksetzen")) {
-                    Button(L("Reset", "Zurücksetzen")) {
+                // Nur der Knopf, ohne Zeilentitel, der dasselbe noch einmal sagte (Nutzer, 17.11.2026)
+                HStack {
+                    Spacer(minLength: 0)
+                    Button(L("Reset Size", "Größe zurücksetzen")) {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { settings.resetSize() }
                     }
                     .buttonStyle(KlackButtonStyle())
                     .disabled(settings.sizeIsDefault)
                 }
+                .padding(.horizontal, SettingsTheme.rowPadding)
+                .frame(minHeight: 44)
             }
 
             // Aussehen der Aktionsleiste, vorher unter Aktionen → Darstellung (Nutzer, 08.11.2026)
             SettingsSection(L("Action bar", "Aktionsleiste")) {
-                SliderRow(L("Icon size", "Symbolgröße"),
+                // Nicht noch einmal „Symbolgröße“ wie oben bei Größe (Nutzer, 17.11.2026)
+                SliderRow(L("Action size", "Größe der Aktionen"),
                           value: stepIndex($settings.actionIconSize, in: ShelfSizes.actions.map(\.0)),
                           range: 0...Double(ShelfSizes.actions.count - 1), step: 1,
                           format: { ShelfSizes.actions[min(max(Int($0.rounded()), 0), ShelfSizes.actions.count - 1)].1 })
@@ -458,10 +463,6 @@ struct ItemSettings: View {
                                   "Original: Die Ablage nutzt die Datei an ihrem Ort, immer in der aktuellen Version. Kopie: Die Ablage behält eine eigene Kopie, die sich nicht ändert. Bilder aus dem Web, Texte und Links liegen immer in BarDrop."),
                           selection: finderFiles,
                           options: FinderFiles.allCases.map { ($0, $0.title) })
-                ToggleRow(L("Web images as PNG or JPEG", "Bilder aus dem Web als PNG/JPEG"),
-                          info: L("WebP, AVIF and HEIC become PNG or JPEG, so any app can open them.",
-                                  "WebP, AVIF und HEIC werden zu PNG oder JPEG, damit jede App sie öffnen kann."),
-                          isOn: $settings.convertWebImages)
             }
 
             SettingsSection(L("Add automatically", "Automatisch hinzufügen")) {

@@ -242,7 +242,7 @@ final class ShelfStore: ObservableObject {
         if baseDirectory == nil { Self.currentItemsDir = itemsDir }
         dbURL = baseDir.appendingPathComponent("shelf.json")
         try? FileManager.default.createDirectory(at: itemsDir, withIntermediateDirectories: true)
-        importer = ContentImporter(storage: itemsDir, convertImages: AppSettings.shared.convertWebImages)
+        importer = ContentImporter(storage: itemsDir, convertImages: true)
         load()
         importer.onCopyFinished = { [weak self] id, copy in self?.copyFinished(id, copy) }
     }
@@ -914,7 +914,6 @@ final class ShelfStore: ObservableObject {
     /// `completion` liefert die Dateien, die daraus entstanden sind.
     func ingest(from pb: NSPasteboard, into target: UUID? = nil, byUser: Bool = false,
                 completion: (([URL]) -> Void)? = nil) {
-        importer.convertImages = AppSettings.shared.convertWebImages
         importer.alwaysCopy = AppSettings.shared.copyAllFiles
         pendingImports += 1
         let started = Date()

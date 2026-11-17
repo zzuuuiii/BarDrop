@@ -209,7 +209,6 @@ final class AppSettings: ObservableObject {
         static let keepAfterAction = "keepAfterAction"
         static let openMode = "openMode"
         static let autoRemoveAfter = "autoRemoveAfter"
-        static let convertWebImages = "convertWebImages"
         static let copyAllFiles = "copyAllFiles"
         static let hapticsEnabled = "hapticsEnabled"
         static let soundsEnabled = "soundsEnabled"
@@ -288,8 +287,6 @@ final class AppSettings: ObservableObject {
     @Published var autoRemoveAfter: Double { didSet { defaults.set(autoRemoveAfter, forKey: Key.autoRemoveAfter) } }
     /// Auch eigene Dateien als Kopie ablegen, unabhängig vom Original.
     @Published var copyAllFiles: Bool { didSet { defaults.set(copyAllFiles, forKey: Key.copyAllFiles) } }
-    /// Bilder aus dem Web (WebP, AVIF, HEIC …) in PNG/JPEG umwandeln.
-    @Published var convertWebImages: Bool { didSet { defaults.set(convertWebImages, forKey: Key.convertWebImages) } }
     /// Globaler Kurzbefehl (virtueller Tastencode und Carbon-Sondertasten).
     @Published var hotKeyCode: Int { didSet { defaults.set(hotKeyCode, forKey: Key.hotKeyCode) } }
     @Published var hotKeyModifiers: Int { didSet { defaults.set(hotKeyModifiers, forKey: Key.hotKeyModifiers) } }
@@ -511,7 +508,6 @@ final class AppSettings: ObservableObject {
             Key.keepAfterAction: true,
             Key.openMode: OpenMode.automatic.rawValue,
             Key.autoRemoveAfter: AutoRemoveOption.never.rawValue,
-            Key.convertWebImages: true,
             Key.copyAllFiles: false,
             Key.showOutline: true,
             Key.detachedGlass: false,
@@ -572,7 +568,6 @@ final class AppSettings: ObservableObject {
         let storedKeep = defaults.bool(forKey: Key.keepAfterAction)
         keepAfterAction = storedKeep || !storedRemove
         openMode = OpenMode(rawValue: defaults.string(forKey: Key.openMode) ?? "") ?? .automatic
-        convertWebImages = defaults.bool(forKey: Key.convertWebImages)
         copyAllFiles = defaults.bool(forKey: Key.copyAllFiles)
         // 1.25 hatte „ohne Rahmen“ als Standard. Wer BarDrop schon benutzt und den Rahmen
         // nie selbst umgestellt hat, behält den Zustand, den er gerade sieht; neue
@@ -717,7 +712,6 @@ final class AppSettings: ObservableObject {
         stackThreshold = 2
         keepAfterAction = true
         autoRemoveAfter = AutoRemoveOption.never.rawValue
-        convertWebImages = true
         copyAllFiles = false
         quickActions = QuickAction.defaults
         autoUpdateCheck = true

@@ -252,7 +252,7 @@ final class Diagnostics {
             "openMode=\(s.openMode.rawValue) openDelay=\(s.openDelay) fullScreen=\(s.openInFullScreen) excludedApps=\(s.excludedApps.count)",
             "size=\(Int(s.shelfWidth))×\(Int(s.shelfHeight)) icon=\(Int(s.tileIconSize)) outline=\(s.showOutline) reduceMotion=\(Motion.reduceMotion)",
             "stacks=\(s.stackMultiple ? String(s.stackThreshold) : "off") reopenWhereLeft=\(s.reopenWhereLeft) removeAfterDragOut=\(s.removeAfterDragOut) keepAfterAction=\(s.keepAfterAction)",
-            "finderFiles=\(s.copyAllFiles ? "copy" : "original") webAsPNGorJPEG=\(s.convertWebImages) screenshots=\(s.addScreenshots) airdrop=\(s.addAirDrop) downloads=\(s.addDownloads) autoRemove=\(Int(s.autoRemoveAfter))s",
+            "finderFiles=\(s.copyAllFiles ? "copy" : "original") screenshots=\(s.addScreenshots) airdrop=\(s.addAirDrop) downloads=\(s.addDownloads) autoRemove=\(Int(s.autoRemoveAfter))s",
             "actions=\(s.quickActions.map(\.kind.rawValue).joined(separator: ",")) split=\(s.effectiveActionSplit) actionIcon=\(Int(s.actionIconSize)) labels=\(s.showActionLabels ? (s.labelsOnlyFolders ? "folders" : "all") : "none")",
             "hotKey=\(s.hotKeyDescription) haptics=\(s.hapticsEnabled) sounds=\(s.soundsEnabled) glass=\(s.detachedGlass) autoUpdate=\(s.autoUpdateCheck) beta=\(s.betaUpdates) introDone=\(s.didLaunchBefore)"
         ]

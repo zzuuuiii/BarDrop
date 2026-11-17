@@ -46,7 +46,7 @@ transparent), then render and encode:
 python3 - <<'PY'
 from PIL import Image
 import numpy as np
-im = np.array(Image.open('GIF3_4.png').convert('RGBA').crop((516, 330, 644, 458))).astype(float)
+im = np.array(Image.open('GIF3_4.png').convert('RGBA').crop((1032, 652, 1288, 908))).astype(float)
 a = np.clip((im[..., :3].max(axis=2) - 8) / 22, 0, 1)
 im[..., 3] = a * 255
 im[..., :3] = np.where(a[..., None] > 0, np.clip(im[..., :3] / np.maximum(a[..., None], 1e-3), 0, 255), 0)

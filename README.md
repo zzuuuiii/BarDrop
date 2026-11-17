@@ -29,7 +29,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/preview.gif" width="640" alt="Two images are dragged from a browser into the shelf, then onto a slide on another desktop; an archive goes to the Trash and comes back with ⌘Z">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/preview-dark.gif">
+    <img src="docs/preview.gif" width="640" alt="Two images are dragged from a browser into the shelf, then onto a slide on another desktop; an archive goes to the Trash and comes back with ⌘Z">
+  </picture>
 </p>
 
 ---

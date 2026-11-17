@@ -32,6 +32,10 @@ swiftc -O gif3frames.swift -o gif3frames && mkdir -p frames && ./gif3frames "$PW
 ffmpeg -framerate 20 -i frames/f%04d.png -vf "scale=1280:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=192[p];[b][p]paletteuse=dither=sierra2_4a" -loop 0 preview.gif
 ```
 
+Rounded corners (28 px at 1280 px) are cut into every frame as transparency before encoding; then
+encode at 15 fps with `palettegen=reserve_transparent=1` and shrink with `gifsicle -O3 --lossy=40`
+(transparency stops ffmpeg from storing only the changes, about 34 MB before, under 7 MB after).
+
 The pictures use the same dark greys (`#3c3c40` to `#1d1d1f`) as one gradient across all four, and
 the shelf always sits on the outer side of the 2 × 2 grid (`make.py`, `base.css`).
 

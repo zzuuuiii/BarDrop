@@ -1136,9 +1136,37 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.renaming = entry.id
     }
 
+    /// Datei im Ordner aus der Aktionsleiste umbenennen: die echte Datei, wie im Finder.
+    /// Danach bleibt sie unter ihrem neuen Namen ausgewählt
+    private func renameInFolder(_ url: URL, to text: String) {
+        let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard name != url.lastPathComponent else { return }
+        guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else {
+            NSSound.beep()
+            return announce(L("Name not allowed", "Name nicht möglich"))
+        }
+        let target = url.deletingLastPathComponent().appendingPathComponent(name)
+        // Nur Groß-/Kleinschreibung geändert: dieselbe Datei, kein Konflikt
+        let sameFile = name.lowercased() == url.lastPathComponent.lowercased()
+        if !sameFile, FileManager.default.fileExists(atPath: target.path) {
+            NSSound.beep()
+            return announce(L("Name already taken", "Name schon vergeben"))
+        }
+        do {
+            try FileManager.default.moveItem(at: url, to: target)
+            let newID = FolderBrowser.id(for: target)
+            ui.memberSelection = [newID]
+            ui.memberAnchor = newID
+            folder.reload(after: 0)
+        } catch {
+            NSSound.beep()
+            Diagnostics.shared.failure("rename", "Umbenennen im Ordner fehlgeschlagen", error)
+            announce(L("Couldn’t rename", "Nicht umbenannt"))
+        }
+    }
+
     /// Datei im geöffneten Stapel umbenennen
     func beginRename(member file: ShelfFile) {
-        guard !isFolderOpen else { return }
         ui.memberSelection = [file.id]
         ui.memberAnchor = file.id
         ui.renaming = file.id
@@ -1150,6 +1178,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard ui.renaming == id else { return }
         ui.renaming = nil
         guard let text else { return }
+        if isFolderOpen, let file = stackFiles.first(where: { $0.id == id }) {
+            return renameInFolder(file.url, to: text)
+        }
         let fileID: UUID
         if let entry = store.entries.first(where: { $0.id == id }) {
             if entry.isStack { return store.renameStack(id, to: text) }
@@ -1296,6 +1327,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             menu.addItem(ClosureMenuItem(files.count > 1 ? L("Add \(files.count) Items to Shelf", "\(files.count) Objekte in die Ablage legen") : L("Add to Shelf", "In die Ablage legen")) { [weak self] in
                 self?.addToShelf(urls)
             })
+            if files.count == 1 {
+                menu.addItem(ClosureMenuItem(L("Rename", "Umbenennen")) { [weak self] in self?.beginRename(member: file) })
+            }
             menu.addItem(moveToTrashItem(urls))
             addPluginItems(to: menu, files: files)
             return menu

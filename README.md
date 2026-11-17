@@ -18,18 +18,11 @@
   &nbsp;·&nbsp;
   <a href="https://bardrop.app"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/zzuuuiii/BarDrop/releases">All versions</a>
-  &nbsp;·&nbsp;
-  <a href="CHANGELOG.md">Changelog</a>
-  &nbsp;·&nbsp;
-  <a href="#screenshots">Screenshots</a>
+  <a href="CHANGELOG.md">What’s new</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/zzuuuiii/BarDrop/releases/latest"><img src="https://img.shields.io/github/v/release/zzuuuiii/BarDrop?label=Version&labelColor=0A84FF&color=2E3543" alt="Version"></a>
-  <img src="https://img.shields.io/badge/macOS-14%2B-2E3543?labelColor=5E5CE6" alt="macOS 14 or later">
-  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-D97706" alt="Apple Silicon and Intel">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-2E3543?labelColor=30A14E" alt="License GPL-3.0"></a>
+  Free &nbsp;·&nbsp; Open source &nbsp;·&nbsp; macOS 14 or later &nbsp;·&nbsp; Apple Silicon and Intel
 </p>
 
 <p align="center">
@@ -45,6 +38,16 @@
 3. **Later.** Move the pointer to the edge, the shelf opens, drag the file out into any app.
 
 Images from the browser, links and text work just like files. On first launch a short introduction walks you through each step.
+
+## What BarDrop does
+
+* **Always at hand.** The shelf hides at the edge of your screen and opens when you need it.
+* **Takes anything.** Files, folders, images from the web, links and text.
+* **Sends it on.** Drop items on AirDrop, Mail, a folder or the Trash in the action bar.
+* **Converts with a right-click.** Images, PDF pages, audio and video, using only what macOS includes.
+* **Forgives mistakes.** Removed something or moved it to the Trash? `⌘Z` brings it back.
+* **Feels like the Finder.** The same shortcuts, Quick Look, stacks and folders.
+* **Free and private.** No account, no tracking, and the code is open.
 
 ## Installation
 
@@ -68,7 +71,11 @@ After that, BarDrop keeps itself up to date in the background while you’re not
   <img src="docs/images/settings-en.jpg" width="49%" alt="The Settings window in light and dark mode">
 </p>
 
-## Features
+## All features
+
+<details>
+<summary><b>Show every feature</b></summary>
+
 
 **Shelf**
 * Left or right edge, at a fixed spot or wherever the pointer reaches the edge, in an area you choose from a small part to the whole edge
@@ -78,7 +85,7 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * Files flung quickly at the edge are still caught
 * Thin light outline so it stays visible on dark backgrounds
 * Pull it off the edge by its handle: it floats above all windows, optionally as dark glass, and goes back to either edge
-* Hold `⌘` and drag a corner or side to change its size, like a window
+* Drag a corner or side to change its size, like a window in the Finder
 * On all displays, or only the built-in or external ones
 * Uses practically no energy while idle
 
@@ -117,7 +124,13 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 * English or German, following the system language by default
 * No menu bar icon: right-click the shelf for Settings and Quit
 
+</details>
+
 ## Keyboard
+
+<details>
+<summary><b>Show keyboard shortcuts</b></summary>
+
 
 | Key | Action |
 |---|---|
@@ -144,13 +157,25 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 | Letters | Select the item whose name starts with them |
 | `esc` | Step back (Quick Look, folder, selection, stack), then close; a floating shelf goes back to the edge |
 
+</details>
+
 ## Privacy
 
 BarDrop collects no data and sends nothing about you. The shelf lives only on your Mac in `~/Library/Application Support/BarDrop`. BarDrop connects to GitHub to check for updates (you can turn this off), to load “What’s new” and, with plugins turned on, the plugin gallery. Everything else happens only when you ask for it: images and links from the web when you drag them into the shelf, programs a plugin downloads after you allow it, and a cloud service you connect yourself.
 
-**Diagnostic log (beta versions only, off by default).** If you use beta versions, you can turn on a diagnostic log in Settings → About BarDrop, after a notice explaining what it records. It records in detail what happens in the app (drops, previews, the shelf at the edge, keyboard focus, actions, the introduction, errors), your settings and your Mac model and macOS version. File and folder names, paths and contents are never recorded; files appear only as an anonymous code with their type. The log stays in `~/Library/Logs/BarDrop` on your Mac and is never sent anywhere. Only “Save Log” creates a text file, which you can pass on yourself to help fix bugs. Turning it off deletes the log. Only if you create the folder `Bilder` in that folder yourself does it also save pictures of the shelf, which do show names and previews; delete the folder to stop.
+<details>
+<summary><b>Diagnostic log (beta versions only, off by default)</b></summary>
 
-## Build it yourself
+If you use beta versions, you can turn on a diagnostic log in Settings → About BarDrop, after a notice explaining what it records. It records in detail what happens in the app (drops, previews, the shelf at the edge, keyboard focus, actions, the introduction, errors), your settings and your Mac model and macOS version. File and folder names, paths and contents are never recorded; files appear only as an anonymous code with their type. The log stays in `~/Library/Logs/BarDrop` on your Mac and is never sent anywhere. Only “Save Log” creates a text file, which you can pass on yourself to help fix bugs. Turning it off deletes the log. Only if you create the folder `Bilder` in that folder yourself does it also save pictures of the shelf, which do show names and previews; delete the folder to stop.
+
+</details>
+
+## For developers
+
+<details>
+<summary><b>Build it yourself, development rules and project layout</b></summary>
+
+### Build it yourself
 
 ```bash
 git clone https://github.com/zzuuuiii/BarDrop.git
@@ -194,6 +219,8 @@ The shelf stores its contents in `shelf.json`. So that an update never loses ite
 | `Plugins/` | Plugins: installing, permissions, running |
 | `Tests/` | Automated tests |
 | `scripts/` | Build, DMG, app icon, preview, checking and publishing plugins |
+
+</details>
 
 </details>
 

@@ -18,18 +18,11 @@
   &nbsp;·&nbsp;
   <a href="https://bardrop.app/?lang=de"><b>Website</b></a>
   &nbsp;·&nbsp;
-  <a href="https://github.com/zzuuuiii/BarDrop/releases">Alle Versionen</a>
-  &nbsp;·&nbsp;
-  <a href="../CHANGELOG.md">Änderungen (englisch)</a>
-  &nbsp;·&nbsp;
-  <a href="#bildschirmfotos">Bildschirmfotos</a>
+  <a href="../CHANGELOG.md">Was ist neu (englisch)</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/zzuuuiii/BarDrop/releases/latest"><img src="https://img.shields.io/github/v/release/zzuuuiii/BarDrop?label=Version&labelColor=0A84FF&color=2E3543" alt="Version"></a>
-  <img src="https://img.shields.io/badge/macOS-14%2B-2E3543?labelColor=5E5CE6" alt="macOS 14 oder neuer">
-  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-D97706" alt="Apple Silicon und Intel">
-  <a href="../LICENSE"><img src="https://img.shields.io/badge/Lizenz-GPL--3.0-2E3543?labelColor=30A14E" alt="Lizenz GPL-3.0"></a>
+  Kostenlos &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; macOS 14 oder neuer &nbsp;·&nbsp; Apple Silicon und Intel
 </p>
 
 <p align="center">
@@ -45,6 +38,16 @@
 3. **Später.** Zeiger an den Rand, die Ablage geht auf, Datei herausziehen und in jede App ablegen.
 
 Bilder aus dem Browser, Links und Text funktionieren genauso wie Dateien. Beim ersten Start zeigt eine kurze Einführung jeden Schritt zum Mitmachen.
+
+## Was BarDrop kann
+
+* **Immer zur Hand.** Die Ablage wartet unsichtbar am Bildschirmrand und geht auf, wenn du sie brauchst.
+* **Nimmt alles.** Dateien, Ordner, Bilder aus dem Web, Links und Text.
+* **Schickt es weiter.** Objekte auf AirDrop, Mail, einen Ordner oder den Papierkorb in der Aktionsleiste ziehen.
+* **Wandelt per Rechtsklick um.** Bilder, PDF-Seiten, Audio und Video, nur mit dem, was macOS mitbringt.
+* **Verzeiht Fehler.** Aus Versehen entfernt oder in den Papierkorb gelegt? `⌘Z` holt es zurück.
+* **Fühlt sich an wie der Finder.** Dieselben Tasten, Übersicht, Stapel und Ordner.
+* **Kostenlos und privat.** Kein Konto, kein Tracking, der Code ist offen.
 
 ## Installation
 
@@ -68,7 +71,11 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
   <img src="images/settings-de.jpg" width="49%" alt="Das Einstellungsfenster hell und dunkel">
 </p>
 
-## Funktionen
+## Alle Funktionen
+
+<details>
+<summary><b>Alle Funktionen zeigen</b></summary>
+
 
 **Ablage**
 * Links oder rechts, an fester Stelle oder dort, wo der Zeiger den Rand erreicht, in einem Bereich von einem kleinen Stück bis zum ganzen Rand
@@ -78,7 +85,7 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Auch schnell an den Rand geworfene Dateien werden sicher aufgenommen
 * Feiner heller Rahmen, damit sie auch auf dunklem Hintergrund zu sehen ist
 * Am Griff vom Rand ziehen: Sie schwebt über allen Fenstern, auf Wunsch als dunkles Glas, und geht an beide Ränder zurück
-* Mit gedrücktem `⌘` an einer Ecke oder Seite ziehen ändert ihre Größe wie bei einem Fenster
+* An einer Ecke oder Seite ziehen ändert ihre Größe wie bei einem Fenster im Finder
 * Auf allen Bildschirmen oder nur auf dem integrierten bzw. den externen
 * Verbraucht im Leerlauf praktisch keine Energie
 
@@ -117,7 +124,13 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Englisch oder Deutsch, standardmäßig wie die Sprache des Systems
 * Kein Symbol in der Menüleiste: Rechtsklick in die Ablage für Einstellungen und Beenden
 
+</details>
+
 ## Tastatur
+
+<details>
+<summary><b>Tastenkürzel zeigen</b></summary>
+
 
 | Taste | Aktion |
 |---|---|
@@ -144,13 +157,25 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 | Buchstaben | Objekt wählen, dessen Name so beginnt |
 | `esc` | Schritt zurück (Übersicht, Ordner, Auswahl, Stapel), dann schließen; eine schwebende Ablage geht zurück an den Rand |
 
+</details>
+
 ## Datenschutz
 
 BarDrop sammelt keine Daten und sendet nichts über dich. Die Ablage liegt nur auf deinem Mac unter `~/Library/Application Support/BarDrop`. BarDrop verbindet sich mit GitHub: für die Suche nach Updates (lässt sich abschalten), für „Was ist neu“ und bei eingeschalteten Plugins für die Plugin-Galerie. Alles andere passiert nur, wenn du es willst: Bilder und Links aus dem Web, wenn du sie in die Ablage ziehst, Programme, die ein Plugin nach deiner Erlaubnis lädt, und ein Cloud-Dienst, den du selbst verbindest.
 
-**Diagnoseprotokoll (nur Beta-Versionen, standardmäßig aus).** Wer Beta-Versionen nutzt, kann unter Einstellungen → Über BarDrop ein Diagnoseprotokoll einschalten, nach einem Hinweis, was es erfasst. Es hält ausführlich fest, was in der App passiert (Ablegen, Vorschaubilder, die Ablage am Rand, Tastaturfokus, Aktionen, die Einführung, Fehler), dazu deine Einstellungen sowie Mac-Modell und macOS-Version. Datei- und Ordnernamen, Pfade und Inhalte werden nie erfasst; Dateien erscheinen nur als anonyme Kennung mit ihrem Typ. Das Protokoll bleibt auf deinem Mac unter `~/Library/Logs/BarDrop` und wird nirgendwohin geschickt. Erst „Protokoll sichern“ erstellt eine Textdatei, die du selbst weitergeben kannst, um bei der Fehlersuche zu helfen. Ausschalten löscht das Protokoll. Nur wenn du dort selbst den Ordner `Bilder` anlegst, speichert es zusätzlich Bilder der Ablage, auf denen Namen und Vorschauen zu sehen sind; den Ordner löschen beendet das.
+<details>
+<summary><b>Diagnoseprotokoll (nur Beta-Versionen, standardmäßig aus)</b></summary>
 
-## Selbst bauen
+Wer Beta-Versionen nutzt, kann unter Einstellungen → Über BarDrop ein Diagnoseprotokoll einschalten, nach einem Hinweis, was es erfasst. Es hält ausführlich fest, was in der App passiert (Ablegen, Vorschaubilder, die Ablage am Rand, Tastaturfokus, Aktionen, die Einführung, Fehler), dazu deine Einstellungen sowie Mac-Modell und macOS-Version. Datei- und Ordnernamen, Pfade und Inhalte werden nie erfasst; Dateien erscheinen nur als anonyme Kennung mit ihrem Typ. Das Protokoll bleibt auf deinem Mac unter `~/Library/Logs/BarDrop` und wird nirgendwohin geschickt. Erst „Protokoll sichern“ erstellt eine Textdatei, die du selbst weitergeben kannst, um bei der Fehlersuche zu helfen. Ausschalten löscht das Protokoll. Nur wenn du dort selbst den Ordner `Bilder` anlegst, speichert es zusätzlich Bilder der Ablage, auf denen Namen und Vorschauen zu sehen sind; den Ordner löschen beendet das.
+
+</details>
+
+## Für Entwickler
+
+<details>
+<summary><b>Selbst bauen, Regeln für die Entwicklung und Aufbau des Projekts</b></summary>
+
+### Selbst bauen
 
 ```bash
 git clone https://github.com/zzuuuiii/BarDrop.git
@@ -194,6 +219,8 @@ Die Ablage speichert ihren Inhalt in `shelf.json`. Damit ein Update nie Einträg
 | `Plugins/` | Plugins: installieren, Rechte, ausführen |
 | `Tests/` | Automatische Tests |
 | `scripts/` | Bauen, DMG, App-Symbol, Vorschau, Plugins prüfen und veröffentlichen |
+
+</details>
 
 </details>
 

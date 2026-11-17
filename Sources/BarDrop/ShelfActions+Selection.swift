@@ -281,7 +281,8 @@ extension ShelfActions {
     func renameCurrentSelection() {
         if isInStack {
             let members = selectedMembers
-            guard !isFolderOpen, members.count == 1, let file = members.first else { return NSSound.beep() }
+            // Auch im Ordner aus der Aktionsleiste, wie im Finder (Nutzer, 17.11.2026)
+            guard members.count == 1, let file = members.first else { return NSSound.beep() }
             return beginRename(member: file)
         }
         let selected = selectedEntries

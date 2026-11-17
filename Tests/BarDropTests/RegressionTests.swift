@@ -144,5 +144,17 @@ final class RegressionTests: XCTestCase {
         expected.insert("inhalt.txt", at: try XCTUnwrap(order.firstIndex(of: "a.zip")))
         XCTAssertEqual(store.entries.map { $0.files[0].url.lastPathComponent }, expected)
     }
-}
 
+    /// Die Einstellungen öffnen sich neben der schwebenden Ablage, nicht darüber
+    func testSettingsFrameAvoidsFloatingShelf() throws {
+        guard let area = NSScreen.main?.visibleFrame, area.width > 900 else { throw XCTSkip("Kein Bildschirm") }
+        let shelf = NSRect(x: area.midX - 105, y: area.midY - 150, width: 210, height: 300)
+        let window = NSRect(x: area.midX - 300, y: area.midY - 250, width: 600, height: 500)
+        if let free = AppDelegate.frame(window, avoiding: shelf) {
+            XCTAssertFalse(free.intersects(shelf))
+            XCTAssertTrue(area.contains(free))
+        }
+        let apart = NSRect(x: area.minX, y: area.minY, width: 100, height: 100)
+        XCTAssertNil(AppDelegate.frame(apart, avoiding: NSRect(x: area.maxX - 50, y: area.maxY - 50, width: 40, height: 40)))
+    }
+}

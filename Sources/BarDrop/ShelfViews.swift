@@ -461,9 +461,11 @@ struct ShelfContent: View {
         .overlay(alignment: .top) {
             if !shelfDemo {
                 Capsule()
-                    .fill(Color.primary.opacity(ui.grabbing ? 0.85 : 0.28))
-                    // Gleich lang wie früher, nur etwas flacher (5 → 4 pt, Nutzer 17.11.2026)
-                    .frame(width: ui.grabbing ? 46 : 36, height: 4)
+                    .fill(Color.primary.opacity(ui.grabbing ? 0.85 : ui.grabberHot ? 0.5 : 0.28))
+                    // Gleich lang wie früher, etwas flacher (5 → 4,5 pt); über dem Griff heller
+                    // und etwas breiter (Nutzer 17.11.2026)
+                    .frame(width: ui.grabbing ? 46 : ui.grabberHot ? 40 : 36, height: 4.5)
+                    .animation(.easeOut(duration: 0.15), value: ui.grabberHot)
                     .padding(.top, 9)
                     .opacity(ui.grabbing || ui.grabberHover ? 1 : 0)
                     .allowsHitTesting(false)

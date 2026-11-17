@@ -110,8 +110,8 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 * Mit gedrückter `⌘`-Taste eine Aktion an eine andere Stelle ziehen, auch in die andere Reihe; auf Wunsch Ordner und Apps per Ziehen auf die Ablage anheften und Aktionen mit `⌘` herausziehen, um sie zu entfernen
 
 **Zwischenablage und Cloud**
-* Verlauf der Zwischenablage (standardmäßig aus): BarDrop merkt sich die letzten 50 Dinge, die du kopiert hast, ein Klick auf die Aktion „Zwischenablage“ zeigt sie in der Ablage. Als privat markierte Passwörter werden übersprungen
-* Cloud (Beta): iCloud Drive, Dropbox oder Google Drive unter Einstellungen → Cloud verbinden, dann Dateien auf die Aktion ziehen und den Link in der Zwischenablage bekommen. OneDrive folgt später. Einrichtung für Entwickler: [CLOUD.de.md](CLOUD.de.md)
+* Verlauf der Zwischenablage: Solange die Aktion „Zwischenablage“ in der Aktionsleiste liegt, merkt sich BarDrop die letzten 50 Dinge, die du kopiert hast, ein Klick darauf zeigt sie in der Ablage. Als privat markierte Passwörter werden übersprungen
+* Cloud: iCloud Drive, Dropbox oder Google Drive unter Einstellungen → Cloud verbinden, dann Dateien auf die Aktion ziehen und den Link in der Zwischenablage bekommen. OneDrive folgt später. Einrichtung für Entwickler: [CLOUD.de.md](CLOUD.de.md)
 
 **Plugins** (optional, standardmäßig aus)
 * Kleine Erweiterungen, die BarDrop Neues beibringen: im Rechtsklick-Menü, in der Aktionsleiste oder automatisch beim Ablegen passender Dateitypen und Links

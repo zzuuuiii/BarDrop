@@ -293,6 +293,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.setFrameOrigin(NSPoint(x: (area.midX - size.width / 2).rounded(),
                                           y: (area.midY - size.height / 2).rounded()))
         }
+        // Schwebt die Ablage frei, öffnen sich die Einstellungen neben ihr statt darüber: Sie
+        // lag sonst dahinter und war kaum zu sehen (Nutzer, 17.11.2026)
+        if let window = settingsWindow, let body = controller.floatingBody,
+           let free = Self.frame(window.frame, avoiding: body) {
+            window.setFrameOrigin(free.origin)
+        }
         // Solange die Einstellungen offen sind, ist BarDrop eine normale App (Dock-Symbol,
         // ⌘⇥). Ohne Dock-Symbol behandelt macOS das Fenster nicht wie ein normales: Nach dem
         // Kontrollzentrum oder einem Menü der Menüleiste bekam die App davor den Fokus, und
@@ -305,6 +311,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsWindow?.makeKeyAndOrderFront(nil)
         // Neue Version? Dann zeigt „Über BarDrop“ einen dezenten Hinweis, ohne eigenes Fenster
         Updater.shared.checkQuietly()
+    }
+
+    /// Lage für ein Fenster, die `obstacle` nicht verdeckt: links, rechts, darüber oder darunter,
+    /// möglichst nah an der bisherigen und ganz im sichtbaren Bereich ihres Bildschirms.
+    /// nil, wenn es schon frei liegt oder nirgends ganz Platz ist
+    static func frame(_ frame: NSRect, avoiding obstacle: NSRect, gap: CGFloat = 16) -> NSRect? {
+        guard frame.intersects(obstacle.insetBy(dx: -gap / 2, dy: -gap / 2)) else { return nil }
+        let screen = NSScreen.screens.first { $0.frame.intersects(obstacle) } ?? NSScreen.main
+        guard let area = screen?.visibleFrame else { return nil }
+        func clamped(_ r: NSRect) -> NSRect {
+            var r = r
+            r.origin.x = min(max(r.minX, area.minX), area.maxX - r.width)
+            r.origin.y = min(max(r.minY, area.minY), area.maxY - r.height)
+            return r.integral
+        }
+        let options = [
+            NSRect(x: obstacle.minX - gap - frame.width, y: frame.minY, width: frame.width, height: frame.height),
+            NSRect(x: obstacle.maxX + gap, y: frame.minY, width: frame.width, height: frame.height),
+            NSRect(x: frame.minX, y: obstacle.maxY + gap, width: frame.width, height: frame.height),
+            NSRect(x: frame.minX, y: obstacle.minY - gap - frame.height, width: frame.width, height: frame.height),
+        ].map(clamped).filter { !$0.intersects(obstacle) && area.contains($0) }
+        return options.min { hypot($0.midX - frame.midX, $0.midY - frame.midY) < hypot($1.midX - frame.midX, $1.midY - frame.midY) }
     }
 
     func windowWillClose(_ notification: Notification) {

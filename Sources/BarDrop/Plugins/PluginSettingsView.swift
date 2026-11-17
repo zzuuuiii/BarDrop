@@ -520,8 +520,9 @@ struct GalleryRow: View {
     var body: some View {
         HStack(spacing: 10) {
             PluginIconView(icon: entry.icon, size: 26)
-            // Zwei Zeilen wie bei den installierten: Name, darunter offline oder nicht und
-            // die Größe. Die Beschreibung steht beim Darüberfahren und auf der Seite.
+            // Nur der Name, mittig wie bei den installierten (Nutzer, 17.11.2026). Offline oder
+            // nicht und die Größe stehen auf der Seite des Plugins, die Beschreibung beim
+            // Darüberfahren. Nur ein Fehler beim Laden steht darunter
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(entry.name.text)
@@ -530,10 +531,12 @@ struct GalleryRow: View {
                     // Zwei Monate nach dem Erscheinen in der Galerie
                     if entry.isNew { Badge(L("NEW", "NEU")) }
                 }
-                Text(failed ? L("Download failed", "Laden fehlgeschlagen") : meta)
-                    .font(.system(size: 11))
-                    .foregroundStyle(failed ? Color.orange : Color.secondary)
-                    .lineLimit(1)
+                if failed {
+                    Text(L("Download failed", "Laden fehlgeschlagen"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.orange)
+                        .lineLimit(1)
+                }
             }
             .help(entry.description?.text ?? "")
             Spacer(minLength: 8)
@@ -575,8 +578,6 @@ struct GalleryRow: View {
             DispatchQueue.main.async { done(true) }
         }
     }
-
-    private var meta: String { Self.summary(entry) }
 
     /// „Läuft lokal · 14 KB“ (Internet nur, wenn der Katalog die Rechte nennt); auch im
     /// Fenster vor dem Laden über einen Link der Website (PluginLink)

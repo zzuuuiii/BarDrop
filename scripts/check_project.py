@@ -56,16 +56,14 @@ top = re.search(r"^## (\S+)", changelog, re.M)
 if not top or top.group(1) != version:
     error("CHANGELOG.md", f"oberster Eintrag ist {top.group(1) if top else 'keiner'}, VERSION ist {version}")
 
+# Release-Notizen nur englisch (ab 1.31.0 Beta 12, docs/CHANGELOG-STYLE.md)
 notes = (ROOT / ".github/RELEASE_NOTES.md").read_text(encoding="utf-8")
-marker = "<!-- de -->"
-if notes.count(marker) != 1:
-    error(".github/RELEASE_NOTES.md", f"genau eine Marke {marker} nötig")
-else:
-    english, german = notes.split(marker)
-    if not re.search(r"^\* ", english, re.M) or not re.search(r"^\* ", german, re.M):
-        error(".github/RELEASE_NOTES.md", "englischer und deutscher Teil brauchen je mindestens einen Punkt")
-    if UMLAUT.search(english):
-        error(".github/RELEASE_NOTES.md", "Deutscher Text im englischen Teil")
+if "<!-- de -->" in notes:
+    error(".github/RELEASE_NOTES.md", "nur englisch, keine Marke <!-- de --> mehr")
+if not re.search(r"^\* \*\*", notes, re.M):
+    error(".github/RELEASE_NOTES.md", "mindestens ein Punkt im Format * **Titel.** Text")
+if UMLAUT.search(notes):
+    error(".github/RELEASE_NOTES.md", "Deutscher Text in den Release-Notizen")
 
 # BarDrop hat keine eingebauten Plugins: keine Namen bestimmter Dienste oder Programme,
 # für die es Plugins gibt (auch nicht als Beispiel)

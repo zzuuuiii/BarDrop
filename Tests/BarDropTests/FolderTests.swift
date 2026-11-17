@@ -157,6 +157,32 @@ final class FolderTests: XCTestCase {
         waitForFiles(1)
     }
 
+    /// ↩ im Ordner aus der Aktionsleiste benennt die echte Datei um, wie im Finder
+    func testRenameInFolderRenamesRealFile() {
+        let file = makeFile("alt.txt")
+        makeFile("belegt.txt")
+        actions.click(folderAction)
+        waitForFiles(2)
+        guard let member = actions.stackFiles.first(where: { $0.url.lastPathComponent == "alt.txt" }) else {
+            return XCTFail("Datei fehlt")
+        }
+        actions.beginRename(member: member)
+        XCTAssertEqual(ui.renaming, member.id)
+        // Name schon vergeben: nichts passiert
+        actions.endRename(member.id, text: "belegt.txt")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
+        actions.beginRename(member: member)
+        actions.endRename(member.id, text: "neu.txt")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("neu.txt").path))
+        // Die Ansicht lädt den Ordner kurz danach neu
+        let deadline = Date().addingTimeInterval(5)
+        while !actions.stackFiles.contains(where: { $0.url.lastPathComponent == "neu.txt" }), Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        XCTAssertEqual(Set(actions.stackFiles.map(\.url.lastPathComponent)), ["neu.txt", "belegt.txt"])
+    }
+
     func testFilesDroppedIntoOpenFolderLandThere() {
         let outside = base.appendingPathComponent("draussen.txt")
         try? Data("x".utf8).write(to: outside)

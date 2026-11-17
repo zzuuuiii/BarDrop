@@ -1350,6 +1350,8 @@ final class EdgeController: NSObject {
         if !mouseDown, ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }
+        let hot = hover && grabZone(expandedBody).contains(loc)
+        if !mouseDown, ui.grabberHot != hot { ui.grabberHot = hot }
         if inside && !pointerInside && !mouseDown && !panel.isKeyWindow && !locked
             && previewUntil == nil && NSApp.modalWindow == nil {
             takeFocus()
@@ -1497,6 +1499,10 @@ extension EdgeController {
         panel.level = level
         glassWindow?.level = level
     }
+
+    /// Die frei schwebende Ablage (nil: am Rand oder gerade gezogen). Die Einstellungen öffnen
+    /// sich so, dass sie sie nicht verdecken (AppDelegate.showSettings)
+    var floatingBody: NSRect? { tearDrag?.phase == .floating ? tearDrag?.body : nil }
 
     /// Ereignisse der eigenen Fenster, bevor sie ankommen. Ein Drücken auf den Griff behält
     /// BarDrop zunächst für sich: Wird daraus ein Ziehen, löst sich die Ablage vom Rand (oder
@@ -2703,6 +2709,8 @@ extension EdgeController {
         if !mouseDown, ui.grabberHover != hover {
             withAnimation(.easeOut(duration: 0.15)) { ui.grabberHover = hover }
         }
+        let hot = hover && grabZone(body).contains(loc)
+        if !mouseDown, ui.grabberHot != hot { ui.grabberHot = hot }
     }
 }
 

@@ -1,63 +1,16 @@
-### Highlights
-* **New (beta): Cloud.** Settings → Cloud connects iCloud Drive and Dropbox. Drop files on a service’s action or right-click “Share with …”: they go into a “BarDrop Share” folder, and the link lands on the clipboard and/or in the shelf. Files dropped together get one link (zipped), and an upload shows the same progress bar as a running plugin. A click on the action shows the “BarDrop Share” folder in the shelf; dropping files there uploads them, deleting there deletes them in the cloud too. Google Drive and OneDrive follow later
-* **New: Clipboard history** (off until you turn it on in Settings → Actions). BarDrop keeps the last 50 things you copied; a click on the Clipboard action shows them in the shelf, a click on one copies it again. Passwords marked as private are skipped
-* **New:** “Clipboard” action: drop files on it to put them on the clipboard, like `⌘C` in the Finder
-* **New:** `⌘D` duplicates the selected items in the shelf or a stack, like in the Finder (`⌘Z` removes the copies)
-* **New:** Double-click an action to open where it leads: folders and the Trash in the Finder, AirDrop, Mail, Messages, the shortcut in Shortcuts, a plugin’s page in Settings
-* **New:** In an open folder, drop files on a subfolder (hold briefly) to put them into it, like in the Finder
-* **New:** Settings → Appearance → Icons: Automatic, Light or Dark for BarDrop’s own icons, drawn with the exact size and corners of macOS 26 app icons
-* **New:** The plus button of a plugin on bardrop.app installs it in BarDrop (BarDrop asks first), and `.bdrop` files show their plugin’s symbol in the Finder
-* **Smoother shelf:** A shelf pulled off the edge now moves exactly once per frame, just before the screen draws, and slightly ahead of the pointer, so it no longer trembles or lags behind, especially on 60 Hz displays. It glides across displays in one piece (also with “Displays have separate Spaces”), settles fully onto one display if you let go on the border, stays behind Settings while they are in front, and the first opening after launch is smooth
-
-### Plugins
-* **Changed:** Plugins download the programs they need themselves (with a fixed checksum, only the one for your Mac’s chip) instead of asking you to install Homebrew. Removing a plugin asks whether to remove its programs too, and never touches folders that existed before you installed it
-* **Changed:** Results of plugins, “Convert” and unzipping land right to the left of the original; a running plugin’s placeholder stands there too
-* **Changed:** Installing a plugin from a file shows several programs as one row that expands with its arrow; afterwards a warning reminds you that the plugin isn’t from the gallery (“Cancel” is the default). “View Script” is gone
-* **Changed:** A failed plugin keeps its warning triangle until its next successful run; installed plugins show a colored symbol for running, error and updated; “Show Error” lets you select and copy the message; “Plugin files” shows the plugin folder in the Finder
-* **Gallery:** Convert 1.1.0 and Video to GIF 1.1.0 work without Homebrew for most formats (photos keep their orientation, GIFs without gifski). Separate Vocals 1.1.2 downloads its audio programs itself and goes away completely with the plugin. Downloaders for videos or music from platforms are no longer accepted in the gallery
+### New
+* **Plugins.** Add small extensions from the gallery in Settings → Plugins: in the right-click menu, in the action bar or automatically for matching files. They update by themselves.
+* **Cloud.** Connect iCloud Drive, Dropbox or Google Drive in Settings → Cloud, drop files on its action and get a link on the clipboard.
+* **Pull the shelf off the edge.** Grab the handle at the top and pull: the shelf floats above all windows, optionally as glass, and docks at either edge again.
+* **Folders, stacks and renaming.** Open folders right in the shelf, make a stack by dragging one item onto another, make a new folder with `⇧⌘N` and press `↩` to rename.
+* **More actions.** Shortcuts, the clipboard with its history and unzipping, right in the shelf.
+* **Files arrive by themselves.** Files received with AirDrop, or every new download, can land in the shelf automatically (Settings → Items).
 
 ### Changed
-* **Settings:** Opening has one “Strip at the edge” card, Appearance a separate “Glass” card, Cloud is one card. Clearer names (“Keyboard Shortcut”, “Item size”, “Vertical position”), “Add Action” and “Add App” are a “+” menu that grays out what you already have
-* **Introduction:** shows the standard actions, has a step to try pulling the shelf off the edge, an exercise card per step and a last page about plugins and the cloud. “Done” ends with confetti
-* **Shelf:** Inside a stack the header says “Stack” and counts “1 item”/“3 items”; notices at the top right are short and consistent (“Link copied”, “Not uploaded”, “Sign-in expired”); App icons in the action bar are a bit larger
-* Removed: “Only at the strip” and the 4 and 5 second open delays. Width and Height go one step smaller (210 and 270 pt)
+* **Resize like a Finder window.** Drag an edge or corner of the shelf. Settings → Appearance shows a live preview with icon size, columns and rows.
+* **Simpler settings.** Fewer options, live previews and clearer names, and Settings open next to a floating shelf instead of over it.
+* **Feels like the Finder.** Stacks open with a double-click, and `⌘↓`, `⌘W`, `⇥`, `⌘D` and typing a name work as in the Finder.
 
-### Fixed: 94 bugs after a full review of the app
-* **Critical (5, possible data loss):** An unreadable `shelf.json` was overwritten with an empty shelf. Files left the shelf when BarDrop briefly lost access to their folder (for example after an update). Rewriting a file could lose its only copy. A different file already at the target could be deleted. A file deleted in Dropbox right after uploading came back at the next sync
-* **Serious (16):** 5 crashes (very wide grid, writing the log on a full disk, an invalid shortcut value, huge numbers in plugin settings, duplicate IDs). An upload hung or crashed when the file got shorter. After a lost mouse-up, resizing with `⌘` kept the shelf locked open and the grip stopped closing it. Two parallel token refreshes signed you out of a cloud service. Cloud messages came from a background thread. Portrait photos came out sideways when converting. The shortcut recorder grabbed keys from the shelf. Silent updates could replace BarDrop while a plugin or an upload was running, two updates could install at once, and betas kept coming after turning betas off. An unreadable plugin list lost all plugin settings
-* **Other (73):** A quick throw away from the edge docked again, the shelf blinked when reopened, switching displays was delayed, the light frame disappeared on new installs from the second launch, the clipboard could stay empty after a read error, an unknown action removed all actions, the clipboard history recorded the current item twice after a restart, plugin timers (`setInterval`) and `createLink` errors, a white icon flashed when dropping, Stage Manager showed square shadows, Google Drive appeared before it can sign in, VoiceOver now reads the items and the action bar, and more
-* **Faster:** Previews of 300 files need about 600 instead of 9,900 file accesses per second (5.5 instead of 73.6 ms main thread), moving 200 files saves once instead of 600 times (1 instead of 421 ms), plugin output is read three times faster, and checking an update needs 1 MB instead of 40 MB of memory
-* **Safer:** Updates are only accepted from github.com with the same app identity, plugin logs are only readable by you, and links have a size limit
+### Fixed
+* **Over 100 bugs.** A full review fixed possible data loss, crashes and many smaller issues, and the shelf runs smoother when pulled off, docked or full of items.
 
-<!-- de -->
-
-### Highlights
-* **Neu (Beta): Cloud.** Einstellungen → Cloud verbindet iCloud Drive und Dropbox. Dateien auf die Aktion eines Dienstes ziehen oder per Rechtsklick „Über … teilen“: Sie landen in einem Ordner „BarDrop Share“, der Link in der Zwischenablage und/oder in der Ablage. Zusammen abgelegte Dateien bekommen einen Link (gezippt), beim Hochladen zeigt die Datei denselben Balken wie ein laufendes Plugin. Ein Klick auf die Aktion zeigt den Ordner „BarDrop Share“ in der Ablage; Dateien dort hineinziehen lädt sie hoch, dort löschen löscht sie auch in der Cloud. Google Drive und OneDrive folgen später
-* **Neu: Verlauf der Zwischenablage** (aus, bis du ihn in Einstellungen → Aktionen einschaltest). BarDrop merkt sich die letzten 50 kopierten Dinge; ein Klick auf die Aktion „Zwischenablage“ zeigt sie in der Ablage, ein Klick auf eins kopiert es wieder. Als privat markierte Passwörter werden übersprungen
-* **Neu:** Aktion „Zwischenablage“: Dateien darauf ziehen legt sie in die Zwischenablage, wie `⌘C` im Finder
-* **Neu:** `⌘D` dupliziert die ausgewählten Objekte in der Ablage oder im Stapel, wie im Finder (`⌘Z` nimmt die Kopien wieder heraus)
-* **Neu:** Doppelklick auf eine Aktion öffnet, wohin sie führt: Ordner und Papierkorb im Finder, AirDrop, Mail, Nachrichten, den Kurzbefehl in Kurzbefehle, die Seite eines Plugins in den Einstellungen
-* **Neu:** In einem geöffneten Ordner Dateien auf einen Unterordner ziehen (kurz halten) legt sie hinein, wie im Finder
-* **Neu:** Einstellungen → Erscheinungsbild → Symbole: Automatisch, Hell oder Dunkel für BarDrops eigene Symbole, in genau der Größe und Rundung der App-Symbole von macOS 26
-* **Neu:** Der Plus-Knopf eines Plugins auf bardrop.app installiert es in BarDrop (BarDrop fragt vorher), und `.bdrop`-Dateien zeigen im Finder das Symbol ihres Plugins
-* **Flüssigere Ablage:** Die losgelöste Ablage bewegt sich jetzt genau einmal pro Bild, kurz bevor der Bildschirm zeichnet, und etwas vor dem Zeiger her. Sie zittert und hängt nicht mehr hinterher, gerade auf 60-Hz-Bildschirmen. Sie gleitet am Stück auf andere Bildschirme (auch mit „Bildschirme verwenden verschiedene Spaces“), rutscht ganz auf einen Bildschirm, wenn man sie auf der Grenze loslässt, liegt hinter den Einstellungen, solange diese vorn sind, und das erste Öffnen nach dem Start ist flüssig
-
-### Plugins
-* **Geändert:** Plugins laden die Programme, die sie brauchen, selbst (mit fester Prüfsumme, nur das für den Chip deines Mac), statt dich Homebrew installieren zu lassen. Beim Entfernen eines Plugins fragt BarDrop, ob seine Programme mitgehen sollen, und rührt Ordner, die es schon vor dem Installieren gab, nie an
-* **Geändert:** Ergebnisse von Plugins, „Umwandeln“ und Entpacken landen direkt links neben dem Original; der Platzhalter eines laufenden Plugins steht ebenfalls dort
-* **Geändert:** Beim Installieren aus einer Datei stehen mehrere Programme in einer Zeile, die sich per Pfeil aufklappt; danach erinnert eine Warnung, dass das Plugin nicht aus der Galerie stammt („Abbrechen“ ist die Vorgabe). „Skript ansehen“ entfällt
-* **Geändert:** Ein fehlgeschlagenes Plugin behält sein Warndreieck bis zum nächsten erfolgreichen Lauf; installierte Plugins zeigen ein farbiges Symbol für läuft, Fehler und aktualisiert; „Fehler anzeigen“ macht die Meldung auswählbar und kopierbar; „Plugin-Dateien“ zeigt den Plugin-Ordner im Finder
-* **Galerie:** Konvertieren 1.1.0 und Video zu GIF 1.1.0 brauchen für die meisten Formate kein Homebrew mehr (Fotos behalten ihre Ausrichtung, GIFs ohne gifski). Gesang trennen 1.1.2 lädt seine Audio-Programme selbst und verschwindet mit dem Plugin vollständig. Downloader für Videos oder Musik von Plattformen nimmt die Galerie nicht mehr an
-
-### Geändert
-* **Einstellungen:** Öffnen hat eine Karte „Streifen am Rand“, Erscheinungsbild eine eigene Karte „Glas“, Cloud ist eine Karte. Klarere Namen („Tastaturkurzbefehl“, „Objektgröße“, „Höhe am Rand“), „Aktion hinzufügen“ und „App hinzufügen“ sind ein „+“-Menü, das Vorhandenes ausgraut
-* **Einführung:** zeigt die Standard-Aktionen, hat einen Schritt zum Abziehen der Ablage vom Rand, je Schritt eine Übungskarte und eine letzte Seite zu Plugins und Cloud. „Fertig“ endet mit Konfetti
-* **Ablage:** Im Stapel steht oben „Stapel“ und „1 Objekt“/„3 Objekte“; Meldungen oben rechts sind kurz und einheitlich („Link kopiert“, „Nicht hochgeladen“, „Anmeldung abgelaufen“); App-Symbole in der Aktionsleiste sind etwas größer
-* Entfernt: „Nur am Streifen“ und die Verzögerungen von 4 und 5 Sekunden. Breite und Höhe gehen eine Stufe kleiner (210 und 270 pt)
-
-### Behoben: 94 Fehler nach einer vollständigen Prüfung der App
-* **Kritisch (5, möglicher Datenverlust):** Eine unlesbare `shelf.json` wurde mit einer leeren Ablage überschrieben. Dateien flogen aus der Ablage, wenn BarDrop kurz keinen Zugriff auf ihren Ordner hatte (etwa nach einem Update). Beim Neuschreiben einer Datei konnte ihre einzige Kopie verloren gehen. Eine andere Datei, die schon am Ziel lag, konnte gelöscht werden. Eine direkt nach dem Hochladen in Dropbox gelöschte Datei kam beim nächsten Abgleich zurück
-* **Schwer (16):** 5 Abstürze (sehr breites Raster, Protokoll auf vollem Laufwerk, ungültiger Wert beim Kurzbefehl, sehr große Zahlen in Plugin-Einstellungen, doppelte Kennungen). Hochladen hing oder stürzte ab, wenn die Datei kürzer wurde. Nach einem verlorenen Loslassen blieb die Ablage beim Größe-Ändern mit `⌘` offen gesperrt, und der Griff schloss sie nicht mehr. Zwei gleichzeitige Token-Erneuerungen meldeten von einem Cloud-Dienst ab. Cloud-Meldungen kamen aus einem Hintergrund-Thread. Hochformat-Fotos kamen beim Umwandeln quer heraus. Die Kurzbefehl-Aufnahme schnappte der Ablage Tasten weg. Stille Updates konnten BarDrop ersetzen, während ein Plugin oder ein Upload lief, zwei Updates konnten gleichzeitig installieren, und nach dem Ausschalten der Betas kamen weiter Betas. Eine unlesbare Plugin-Liste verlor alle Plugin-Einstellungen
-* **Weitere (73):** Ein schneller Wurf vom Rand weg dockte wieder an, die Ablage blinkte beim Wiederöffnen, der Bildschirmwechsel kam verzögert, der helle Rahmen fehlte bei Neuinstallationen ab dem zweiten Start, die Zwischenablage konnte nach einem Lesefehler leer bleiben, eine unbekannte Aktion löschte alle Aktionen, der Verlauf der Zwischenablage nahm nach einem Neustart den aktuellen Eintrag doppelt auf, Zeitgeber (`setInterval`) und `createLink`-Fehler in Plugins, ein weißes Symbol blitzte beim Ablegen auf, Stage Manager zeigte eckige Schatten, Google Drive erschien, bevor die Anmeldung geht, VoiceOver liest jetzt die Objekte und die Aktionsleiste vor, und mehr
-* **Schneller:** Vorschaubilder für 300 Dateien brauchen etwa 600 statt 9.900 Dateizugriffe pro Sekunde (5,5 statt 73,6 ms Hauptthread), 200 Dateien verschieben speichert einmal statt 600-mal (1 statt 421 ms), Plugin-Ausgaben werden dreimal so schnell gelesen, und die Update-Prüfung braucht 1 MB statt 40 MB Speicher
-* **Sicherer:** Updates kommen nur noch von github.com mit derselben App-Kennung, Plugin-Protokolle kann nur noch der eigene Benutzer lesen, und Links haben eine Größengrenze

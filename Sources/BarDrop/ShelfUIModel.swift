@@ -111,6 +111,9 @@ final class ShelfUIModel: ObservableObject {
     @Published private(set) var isTorn = false
     /// Der Zeiger ist in der Kopfzeile: Der Griff oben erscheint
     @Published var grabberHover = false
+    /// Der Zeiger ist direkt über dem Griff (dort, wo man ziehen kann): Er wird heller und etwas
+    /// breiter, damit man sieht, dass man ihn anfassen kann (Nutzer, 17.11.2026)
+    @Published var grabberHot = false
 
     /// Die Ablage wird gerade am Griff gezogen: Er ist hell und etwas länger
     @Published var grabbing = false

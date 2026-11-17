@@ -92,12 +92,17 @@ final class ReleaseNotes: ObservableObject {
             let page = (json["html_url"] as? String).flatMap(URL.init(string:))
             let body = json["body"] as? String ?? ""
             let beta = (json["prerelease"] as? Bool) == true
-            // Zweisprachige Releases (ab 1.16): Englisch oben, Deutsch nach der Marke <!-- de -->.
-            // Ältere Releases sind nur deutsch; Englisch kommt dann aus dem Änderungsprotokoll.
+            // Zweisprachige Releases (1.16 bis 1.31.0 Beta 11): Englisch oben, Deutsch nach der
+            // Marke <!-- de -->. Ältere Releases sind nur deutsch (Englisch kommt dann aus dem
+            // Änderungsprotokoll), neuere nur englisch (docs/CHANGELOG-STYLE.md)
             let parts = body.components(separatedBy: germanMarker)
             if parts.count > 1 {
                 return Entry(version: version, date: date, notesEnglish: cleanNotes(parts[0]),
                              notesGerman: cleanNotes(parts[1]), page: page, beta: beta)
+            }
+            if !isBeforeBilingual(version) {
+                return Entry(version: version, date: date, notesEnglish: cleanNotes(body),
+                             notesGerman: nil, page: page, beta: beta)
             }
             return Entry(version: version, date: date, notesEnglish: englishFallback[version],
                          notesGerman: cleanNotes(body), page: page, beta: beta)
@@ -106,6 +111,13 @@ final class ReleaseNotes: ObservableObject {
 
     /// Trennt in den Release-Notizen die englische von der deutschen Fassung
     static let germanMarker = "<!-- de -->"
+
+    /// Releases vor 1.16 haben nur deutsche Notizen
+    static func isBeforeBilingual(_ version: String) -> Bool {
+        let parts = version.split(separator: ".").map { Int($0.prefix(while: \.isNumber)) ?? 0 }
+        guard parts.count >= 2 else { return false }
+        return (parts[0], parts[1]) < (1, 16)
+    }
 
     /// Nur die Aufzählung der Änderungen: ohne Überschrift, Installationshinweis
     /// und Notizblöcke, die in jedem Release gleich sind.

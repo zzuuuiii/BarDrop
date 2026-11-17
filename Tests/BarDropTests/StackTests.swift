@@ -306,4 +306,22 @@ final class StackTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: folder.appendingPathComponent("Liste.txt").path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: other.path))
     }
+
+    /// Ein Klick wählt einen Stapel nur aus, geöffnet wird er mit Doppelklick (wie ein Ordner)
+    func testSingleClickSelectsStackDoubleClickOpens() {
+        let stack = makeStack(2)
+        actions.clickedWithoutDrag(stack, modifiers: [])
+        XCTAssertNil(ui.openStack)
+        XCTAssertEqual(ui.selection, [stack.id])
+        actions.activate(stack)
+        XCTAssertEqual(ui.openStack, stack.id)
+    }
+
+    /// Buchstaben tippen wählt das Objekt, dessen Name so beginnt (wie im Finder)
+    func testTypingSelectsByName() {
+        let stack = makeStack(3)
+        actions.openStack(stack)
+        actions.typeSelect("datei2")
+        XCTAssertEqual(actions.selectedMembers.map(\.url.lastPathComponent), ["datei2.txt"])
+    }
 }

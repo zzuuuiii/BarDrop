@@ -368,7 +368,7 @@ struct SettingsRoot: View {
 
     private func row(_ item: SettingsPane) -> some View {
         SidebarRow(item: item, selected: pane == item,
-                   badge: item == .about && updateAvailable, beta: item == .plugins || item == .cloud) {
+                   badge: item == .about && updateAvailable, beta: item == .plugins) {   // Cloud ohne BETA (Nutzer, 17.11.2026)
             // Nochmals auf den gewählten Bereich: zurück zu seiner Startseite
             if pane == item {
                 if navigation.pluginPage != .list {

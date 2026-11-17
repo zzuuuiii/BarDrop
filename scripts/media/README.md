@@ -25,9 +25,11 @@ pictures share one background, so they read as one surface in the 2 × 2 grid of
 
 Since November 2026, `docs/preview.gif` comes from the interactive demo on the website
 (`Website/public`), so the README looks like bardrop.app: serve `Website/public` locally, click
-once into the demo, wait for the hint pointer to drag the folder to the edge, record the demo
-area and encode about five seconds (one loop, first frame equals last) at 800 px wide, 25 fps.
-The pictures use the website's light grey (`#f5f5f7`) and dark text (`make.py`, `base.css`).
+in dark mode, hide `header`, `.tour`, `.note`, `.win` and `.coach-ring` (no tutorial look, no
+Finder window), click once into the demo, wait for the hint pointer to drag the folder to the edge,
+record the demo area and encode about five seconds (one loop, first frame equals last) at 800 px
+wide, 25 fps. The pictures use the website's dark greys (`#3c3c40` to `#1d1d1f`) as one gradient
+across all four, and the shelf always sits on the outer side of the 2 × 2 grid (`make.py`, `base.css`).
 
 ### Older GIF (image search and slide)
 

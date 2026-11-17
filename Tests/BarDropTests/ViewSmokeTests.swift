@@ -406,6 +406,11 @@ final class ViewSmokeTests: XCTestCase {
             ui.selection = Set(store.entries.dropFirst(1).prefix(1).map(\.id))
             shot(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
                  size: CGSize(width: 440, height: 600), "Produkt Ablage \(lang)", dir: dir)
+            // Dieselbe Ablage am linken Rand: In der 2×2-Kachel des README sitzt sie links außen
+            settings.edge = .left
+            shot(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
+                 size: CGSize(width: 440, height: 600), "Produkt Ablage links \(lang)", dir: dir)
+            settings.edge = .right
 
             // Aktion im Einsatz: eine Datei liegt über der Ordner-Aktion
             ui.selection = []
@@ -530,6 +535,10 @@ final class ViewSmokeTests: XCTestCase {
             ui.selection = Set(store.entries.prefix(1).map(\.id))
             shot(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
                  size: CGSize(width: 440, height: 600), "Produkt Stapel \(lang)", dir: dir)
+            settings.edge = .left
+            shot(ShelfRootView(ui: ui, store: store, settings: settings, actions: actions),
+                 size: CGSize(width: 440, height: 600), "Produkt Stapel links \(lang)", dir: dir)
+            settings.edge = .right
             if let stack = store.entries.first(where: \.isStack) {
                 ui.selection = []
                 ui.openStack = stack.id

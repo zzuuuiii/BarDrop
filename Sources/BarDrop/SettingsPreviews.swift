@@ -192,8 +192,9 @@ struct ScreenPreview: View {
         let visible = screen?.visibleFrame ?? frame
         // Der Kasten ist der Bildschirm: so breit wie die Karten, so hoch wie die Vorschau unter
         // Aussehen, ohne Rahmen im Rahmen; das Seitenverhältnis darf dafür abweichen (Nutzer,
-        // 17.11.2026). Die Ablage behält ihre Form und ist im Verhältnis zur Höhe richtig groß
-        PreviewScreen(height: 220) { size in
+        // 17.11.2026). Die Ablage behält ihre Form und ist im Verhältnis zur Höhe richtig groß.
+        // Flacher als unter Aussehen: 220 pt waren hier zu hoch (Nutzer, 17.11.2026)
+        PreviewScreen(height: 150) { size in
             let scale = size.height / frame.height
             let menu = max(0, frame.maxY - visible.maxY) * scale
             let usable = size.height - menu

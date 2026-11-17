@@ -12,8 +12,9 @@ enum EdgeTear {
     static let reach: CGFloat = 140
     /// So weit (pt) muss man vom Rand weg ziehen, bis sich die Ablage löst. Bei 85 pt war das
     /// Ablösen zu schwergängig, und der Zeiger lag beim Lösen fast 70 pt vor der Ablage, die
-    /// dann ruckartig hinterhersprang (Nutzer, 07.11.2026)
-    static let tearDistance: CGFloat = 50
+    /// dann ruckartig hinterhersprang (Nutzer, 07.11.2026). Bei 50 pt hing sie noch knapp 30 pt
+    /// hinter dem Zeiger und sprang beim Lösen; das wirkte wie Ruckeln (Nutzer, 17.11.2026)
+    static let tearDistance: CGFloat = 40
     /// Zusätzliche dunkle Tönung über dem Glas der losgelösten Ablage (dunkles Erscheinungsbild;
     /// hell gilt ein eigener Wert in TearGoo): nur so viel, dass weiße Schrift lesbar bleibt.
     /// Wie klar oder getönt das Glas ist, bestimmt der Regler „Liquid Glass“ der
@@ -45,8 +46,10 @@ enum EdgeTear {
     static let attachZone: CGFloat = 60
     /// Dehnen bis zum Lösen: höchstens so weit (pt) folgt die Ablage, und so schnell wird es
     /// zäh (anfangs folgt sie gut, kurz vor dem Reißen kaum noch)
-    static let stretchMax: CGFloat = 30
-    static let stretchSoftness: CGFloat = 40
+    /// Weniger zäh als vorher (30/40): Beim Lösen liegt der Zeiger nur noch rund 14 statt 29 pt
+    /// vor der Ablage, der Sprung zum Zeiger ist halb so groß (Nutzer, 17.11.2026)
+    static let stretchMax: CGFloat = 60
+    static let stretchSoftness: CGFloat = 70
     /// Beim Dehnen folgt die Ablage dem Zeiger senkrecht zu diesem Anteil
     static let stretchVertical: CGFloat = 0.3
     /// Nach dem Lösen holt die Ablage den Zeiger in dieser Zeit (s) ein
@@ -326,7 +329,11 @@ struct TearGoo: View, Animatable {
     /// und der eigentlichen verschmolzenen Form. Nur dort, wo der scharfe Rahmen der Ablage
     /// ausgespart ist.
     private var gooRim: some View {
-        Canvas { context, size in
+        // Im Hintergrund gezeichnet: Zwei Durchgänge mit Unschärfe über das ganze Fenster
+        // kosteten den Hauptthread in jedem Bild kurz nach dem Lösen und beim Andocken rund
+        // 35 ms; die Ablage blieb dort bis zu 140 ms stehen und ruckelte (Instruments,
+        // 17.11.2026). Der feine Saum darf ein Bild später kommen, die Fläche (goo) nicht
+        Canvas(rendersAsynchronously: true) { context, size in
             let body = CGRect(x: reach, y: inset, width: max(0, size.width - 2 * reach),
                               height: max(0, size.height - 2 * inset))
             guard body.width > 0, body.height > 0 else { return }

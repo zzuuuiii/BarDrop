@@ -15,7 +15,7 @@ function path(t,keys){
 
 // Die Ablage zählt den Zeiger noch 18 pt neben ihrer Form als „darüber“ (EdgeController)
 const S=window.SLOTS, BODY_LEFT=506+280*374/880-18;
-const LAKE=[334.5,183], DUSK=[545.5,325], PH1=[275,289], PH2=[505,289];
+const LAKE=[40+203+95.5,120+61], DUSK=[40+2*203+95.5,120+134+61], PH1=[118+60+30+105,24+38+98+96+79], PH2=[118+60+260+105,24+38+98+96+79];
 const inRect=(x,y,cx,cy,w,h)=>Math.abs(x-cx)<=w/2&&Math.abs(y-cy)<=h/2;
 const DUR=19.3;
 const P=[[0,430,470],[0.6,430,470],[1.25,LAKE[0],LAKE[1],10],[1.35,LAKE[0],LAKE[1]],[2.5,858,290,40],[2.85,858,290],

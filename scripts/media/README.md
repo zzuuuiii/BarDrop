@@ -23,6 +23,14 @@ pictures share one background, so they read as one surface in the 2 × 2 grid of
 
 ## Preview GIF
 
+Since November 2026, `docs/preview.gif` comes from the interactive demo on the website
+(`Website/public`), so the README looks like bardrop.app: serve `Website/public` locally, click
+once into the demo, wait for the hint pointer to drag the folder to the edge, record the demo
+area and encode about five seconds (one loop, first frame equals last) at 800 px wide, 25 fps.
+The pictures use the website's light grey (`#f5f5f7`) and dark text (`make.py`, `base.css`).
+
+### Older GIF (image search and slide)
+
 `gif3.html` and `gif3.js`: two images from an image search go into the shelf, onto a slide on
 another desktop, an archive goes to the Trash and comes back. Put the `GIF3_*.png` files from
 the zip next to them, cut the Archive icon out of a shelf shot (its black background made

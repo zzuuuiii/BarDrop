@@ -609,20 +609,9 @@ struct ShelfContent: View {
     @ViewBuilder
     private func status(_ fallback: String?) -> some View {
         if let notice = ui.notice {
-            // Widerrufbar: „Rückgängig“ zum Anklicken daneben. ⌘Z kannte im Nutzertest
-            // (07.11.2026) kaum jemand, und ohne sichtbaren Weg zurück traute sich niemand
-            // an „Alle Objekte entfernen“
-            HStack(spacing: 6) {
-                countLabel(notice.text)
-                if notice.canUndo {
-                    Button(L("Undo", "Rückgängig")) { actions.undo() }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
-                        .lineLimit(1)
-                        .help(L("Undo (⌘Z)", "Rückgängig (⌘Z)"))
-                }
-            }
+            // Nur ein kurzes Wort, ohne Knopf „Rückgängig“ daneben: Dafür war oben kein Platz
+            // (Nutzer, 17.11.2026). Zurück geht es mit ⌘Z
+            countLabel(notice.text)
             .id(notice.id)
             .transition(.opacity)
         } else if let fallback {

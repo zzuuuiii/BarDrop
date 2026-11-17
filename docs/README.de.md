@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <img src="preview.gif" width="640" alt="Zwei Bilder werden aus einem Browser in die Ablage gezogen und auf einem anderen Schreibtisch auf eine Folie; ein Archiv kommt in den Papierkorb und mit ⌘Z zurück, dann zurück zur Suche">
+  <img src="preview.gif" width="640" alt="Ein Ordner wird an den rechten Bildschirmrand gezogen; die Ablage öffnet sich und behält ihn">
 </p>
 
 ---

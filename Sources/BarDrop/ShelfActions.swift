@@ -1143,14 +1143,14 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard name != url.lastPathComponent else { return }
         guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else {
             NSSound.beep()
-            return announce(L("Name not allowed", "Name nicht möglich"))
+            return announce(L("Invalid name", "Ungültiger Name"))
         }
         let target = url.deletingLastPathComponent().appendingPathComponent(name)
         // Nur Groß-/Kleinschreibung geändert: dieselbe Datei, kein Konflikt
         let sameFile = name.lowercased() == url.lastPathComponent.lowercased()
         if !sameFile, FileManager.default.fileExists(atPath: target.path) {
             NSSound.beep()
-            return announce(L("Name already taken", "Name schon vergeben"))
+            return announce(L("Name taken", "Name vergeben"))
         }
         do {
             try FileManager.default.moveItem(at: url, to: target)
@@ -1193,10 +1193,10 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             try store.renameFile(fileID, to: text, keepOriginal: settings.copyAllFiles)
         } catch ShelfStore.RenameError.taken {
             NSSound.beep()
-            announce(L("Name already taken", "Name schon vergeben"))
+            announce(L("Name taken", "Name vergeben"))
         } catch ShelfStore.RenameError.invalid {
             NSSound.beep()
-            announce(L("Name not allowed", "Name nicht möglich"))
+            announce(L("Invalid name", "Ungültiger Name"))
         } catch {
             NSSound.beep()
             Diagnostics.shared.failure("rename", "Umbenennen fehlgeschlagen", error)

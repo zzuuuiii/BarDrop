@@ -1,5 +1,5 @@
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{width:1600px;height:1000px;overflow:hidden;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased}
+html,body{width:1600px;height:1000px;overflow:hidden;font-family:system-ui,-apple-system,"SF Pro Display","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
 .wall{position:absolute;inset:0;background:
  radial-gradient(1100px 640px at 50% -8%, rgba(120,135,165,.38) 0%, rgba(120,135,165,0) 70%),
  linear-gradient(180deg,#434c5e 0%,#2e3543 55%,#1d212b 100%)}
@@ -51,9 +51,10 @@ html,body{width:1600px;height:1000px;overflow:hidden;font-family:Inter,sans-seri
 .trash:before{content:"";position:absolute;left:-2px;right:-2px;top:0;height:5px;border-radius:3px;background:linear-gradient(#ddd,#999)}
 .trash:after{content:"";position:absolute;left:1px;right:1px;top:6px;bottom:0;border-radius:0 0 5px 5px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.5) 0 2px,rgba(160,160,170,.5) 2px 6px);border:1px solid rgba(255,255,255,.5)}
 .pointer{position:absolute;width:22px;height:30px}
-.title{position:absolute;color:#fff}
+/* Wie die Website: hellgraue Fläche, dunkle Schrift (#1d1d1f) */
+.title{position:absolute;color:#1d1d1f}
 .title h1{font-size:64px;line-height:1.04;font-weight:800;letter-spacing:-.025em}
-.title p{margin-top:22px;font-size:24px;line-height:1.4;font-weight:500;color:rgba(255,255,255,.85);max-width:560px}
+.title p{margin-top:22px;font-size:24px;line-height:1.4;font-weight:500;color:rgba(29,29,31,.72);max-width:560px}
 .badge{display:flex;align-items:center;gap:14px;margin-bottom:30px;font-size:22px;font-weight:700}
 .badge img{width:58px;height:58px}
 .drag{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:.92;transform:rotate(-4deg)}

@@ -367,11 +367,14 @@ final class ViewSmokeTests: XCTestCase {
         }
         let settings = AppSettings.shared
         let saved = (settings.tileIconSize, settings.shelfHeight, settings.shelfWidth, settings.language,
-                     settings.showOutline, settings.edge)
+                     settings.showOutline, settings.edge, settings.actionRowSplit)
         defer {
             settings.tileIconSize = saved.0; settings.shelfHeight = saved.1; settings.shelfWidth = saved.2
             settings.language = saved.3; settings.showOutline = saved.4; settings.edge = saved.5
+            settings.actionRowSplit = saved.6
         }
+        // Aktionsleiste in einer Reihe wie bei einer neuen Installation (andere Tests ändern sie)
+        settings.actionRowSplit = 0
         settings.tileIconSize = 64
         settings.showOutline = true
         settings.edge = .right

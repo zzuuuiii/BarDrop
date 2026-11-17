@@ -107,6 +107,32 @@ enum CloudKeychain {
         return try? JSONDecoder().decode(CloudToken.self, from: data)
     }
 
+    /// Nur ob ein Eintrag da ist (seine Merkmale, nicht der Inhalt): Dafür fragt macOS nicht
+    /// nach dem Passwort, auch wenn der Eintrag von einer anderen Version von BarDrop stammt
+    static func exists(_ service: CloudService) -> Bool {
+        guard !isTesting else { return false }
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+                                    kSecAttrService as String: serviceName,
+                                    kSecAttrAccount as String: service.rawValue,
+                                    kSecReturnAttributes as String: true,
+                                    kSecMatchLimit as String: kSecMatchLimitOne]
+        var result: AnyObject?
+        return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
+    }
+
+    /// Kontoname zur Anzeige (kein Geheimnis), damit die Einstellungen ihn ohne den
+    /// Schlüsselbund zeigen
+    private static func accountKey(_ service: CloudService) -> String { "cloudAccount.\(service.rawValue)" }
+
+    static func accountName(_ service: CloudService) -> String? {
+        UserDefaults.standard.string(forKey: accountKey(service))
+    }
+
+    static func setAccountName(_ name: String?, for service: CloudService) {
+        guard !isTesting else { return }
+        UserDefaults.standard.set(name, forKey: accountKey(service))
+    }
+
     static func save(_ token: CloudToken, for service: CloudService) {
         guard !isTesting else { return }
         guard let data = try? JSONEncoder().encode(token) else { return }
@@ -361,9 +387,27 @@ class OAuthCloudProvider {
     /// und schreiben
     private let lock = NSLock()
     private var storedToken: CloudToken?
+    /// Zugang erst lesen, wenn er gebraucht wird (Hochladen, Abgleich), nicht schon beim
+    /// Öffnen von Einstellungen → Cloud oder des Rechtsklicks: Nach jedem Update fragte macOS
+    /// dort nach dem Schlüsselbund-Passwort (Nutzer, 17.11.2026)
+    private var tokenLoaded = false
+    /// Ob ein Zugang im Schlüsselbund liegt; gelesen ohne den Zugang selbst, also ohne Abfrage
+    private var storedExists: Bool?
     private(set) var token: CloudToken? {
-        get { lock.withLock { storedToken } }
-        set { lock.withLock { storedToken = newValue } }
+        get {
+            lock.withLock {
+                if !tokenLoaded {
+                    storedToken = CloudKeychain.load(service)
+                    tokenLoaded = true
+                    // Ältere Versionen merkten sich den Kontonamen noch nicht
+                    if let name = storedToken?.account, CloudKeychain.accountName(service) == nil {
+                        CloudKeychain.setAccountName(name, for: service)
+                    }
+                }
+                return storedToken
+            }
+        }
+        set { lock.withLock { storedToken = newValue; tokenLoaded = true } }
     }
     /// Laufende Erneuerung: Wer gleichzeitig einen neuen Zugang braucht, wartet auf diese.
     /// Zwei Erneuerungen mit demselben Refresh-Token meldeten bei Microsoft (das ihn dabei
@@ -372,25 +416,36 @@ class OAuthCloudProvider {
 
     init(service: CloudService) {
         self.service = service
-        token = CloudKeychain.load(service)
     }
 
     /// Von den Unterklassen: Kennungen und Adressen des Dienstes; nil, wenn nicht eingerichtet
     var oauthRequest: CloudOAuth.Request? { nil }
 
     var isConfigured: Bool { oauthRequest != nil }
-    var isConnected: Bool { token != nil }
-    var account: String? { token?.account }
+    var isConnected: Bool {
+        lock.withLock {
+            if tokenLoaded { return storedToken != nil }
+            if storedExists == nil { storedExists = CloudKeychain.exists(service) }
+            return storedExists ?? false
+        }
+    }
+
+    /// Konto für die Anzeige, ohne den Zugang aus dem Schlüsselbund zu lesen
+    var account: String? {
+        lock.withLock { tokenLoaded ? storedToken?.account : nil } ?? CloudKeychain.accountName(service)
+    }
 
     func store(_ new: CloudToken) {
         token = new
         CloudKeychain.save(new, for: service)
+        CloudKeychain.setAccountName(new.account, for: service)
         DispatchQueue.main.async { CloudManager.shared.objectWillChange.send() }
     }
 
     func disconnect() {
         token = nil
         CloudKeychain.delete(service)
+        CloudKeychain.setAccountName(nil, for: service)
         if Thread.isMainThread {
             CloudManager.shared.objectWillChange.send()
         } else {

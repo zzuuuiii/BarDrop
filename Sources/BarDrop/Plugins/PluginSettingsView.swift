@@ -378,20 +378,10 @@ private struct InstalledRow: View {
     @ObservedObject var manager: PluginManager
     let open: () -> Void
     @State private var hovering = false
-    /// Plugin und seine Programme zusammen
-    @State private var size: Int64?
 
-    private var state: PluginState { manager.state(plugin.id) }
-    private var running: Int { manager.runningCounts[plugin.id] ?? 0 }
-
-    /// Unter dem Namen immer Version und Größe. Was gerade ansteht (läuft, hat nicht geklappt,
-    /// gerade aktualisiert), zeigt ein farbiges Zeichen rechts (vor „Aus“) (Nutzer, 25.10.2026: vorher
-    /// stand es als Text unter dem Namen). Fehlt eine Erlaubnis, ist das Plugin aus
-    private var subtitle: String {
-        var parts = [L("Version \(plugin.manifest.version)", "Version \(plugin.manifest.version)")]
-        if let size { parts.append(PluginSize.text(size)) }
-        return parts.joined(separator: " · ")
-    }
+    // In der Liste nur der Name, mittig; Version und Größe stehen auf der Seite des Plugins
+    // (Nutzer, 17.11.2026). Was gerade ansteht (läuft, hat nicht geklappt, gerade
+    // aktualisiert), zeigt ein farbiges Zeichen rechts (vor „Aus“)
 
     private var status: PluginStatus? {
         PluginStatus.current(of: plugin.id, manager: manager)
@@ -401,17 +391,10 @@ private struct InstalledRow: View {
         Button(action: open) {
             HStack(spacing: 10) {
                 PluginIconView(icon: plugin.manifest.icon, size: 26)
-                    .modifier(PluginOffLook(off: !manager.isOn(plugin)))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(plugin.manifest.name.text)
-                        .font(.system(size: 13.5))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(plugin.manifest.name.text)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
                 Spacer(minLength: 8)
                 if let status {
                     PluginStatusSymbol(status: status, size: 14)
@@ -437,14 +420,6 @@ private struct InstalledRow: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.2), value: status)
-        .onAppear { measure() }
-        .onChange(of: manager.toolRefresh[plugin.id]) { _, _ in measure(fresh: true) }
-        .onChange(of: manager.toolsChanged) { _, _ in measure(fresh: true) }
-    }
-
-    private func measure(fresh: Bool = false) {
-        let parts = PluginSize.parts(of: plugin, tools: manager.tools, fresh: fresh)
-        size = parts.own + (parts.programs ?? 0)
     }
 }
 
@@ -664,9 +639,8 @@ private struct PluginPageView: View {
         // Karte darunter, je eine ruhige Zeile.
         SettingsCard {
             HStack(spacing: 12) {
+                // Symbol immer in Farbe, auch wenn das Plugin aus ist (Nutzer, 17.11.2026)
                 PluginIconView(icon: manifest.icon, size: 36)
-                    .modifier(PluginOffLook(off: !manager.isOn(plugin)))
-                    .animation(.easeOut(duration: 0.2), value: manager.isOn(plugin))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(manifest.name.text)
                         .font(.system(size: 14, weight: .semibold))
@@ -861,18 +835,6 @@ private struct PluginPageView: View {
             names.append(path.hasPrefix(home + "/") ? "~" + path.dropFirst(home.count) : path)
         }
         return names.joined(separator: ", ")
-    }
-}
-
-/// Symbol eines ausgeschalteten Plugins: grau und dunkler, wie ausgegraut (Nutzer, 28.10.2026)
-struct PluginOffLook: ViewModifier {
-    let off: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .saturation(off ? 0 : 1)
-            .brightness(off ? -0.12 : 0)
-            .opacity(off ? 0.55 : 1)
     }
 }
 

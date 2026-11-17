@@ -346,3 +346,34 @@ extension ShelfActions {
         quickLook(urls: urls)
     }
 }
+
+/// Tippen zum Auswählen wie im Finder: Die ersten Buchstaben eines Namens wählen das erste
+/// passende Objekt; nach einer kurzen Pause beginnt die Suche von vorn
+private enum TypeSelect {
+    static var text = ""
+    static var last = Date.distantPast
+}
+
+extension ShelfActions {
+    func typeSelect(_ characters: String) {
+        let now = Date()
+        if now.timeIntervalSince(TypeSelect.last) > 1 { TypeSelect.text = "" }
+        TypeSelect.last = now
+        TypeSelect.text += characters
+        let prefix = TypeSelect.text
+        let names: [(UUID, String)] = isInStack
+            ? stackFiles.map { ($0.id, $0.url.lastPathComponent) }
+            : orderedEntries.map { ($0.id, $0.isStack ? $0.title : $0.files.first?.url.lastPathComponent ?? $0.title) }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive, .anchored]
+        guard let match = names.first(where: { $0.1.range(of: prefix, options: options) != nil })?.0 else { return }
+        ui.jobSelection = []
+        if isInStack {
+            ui.memberSelection = [match]
+            ui.memberAnchor = match
+        } else {
+            ui.selection = [match]
+            ui.selectionAnchor = match
+        }
+        ui.requestScroll(to: match)
+    }
+}

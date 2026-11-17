@@ -190,11 +190,18 @@ struct ScreenPreview: View {
         let screen = NSScreen.main ?? NSScreen.screens.first
         let frame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1470, height: 956)
         let visible = screen?.visibleFrame ?? frame
-        PreviewScreen(aspect: frame.width / frame.height) { size in
+        // So breit wie die Karten und so hoch wie die Vorschau unter Aussehen; der Bildschirm
+        // steht verkleinert in der Mitte (Nutzer, 17.11.2026: schmaler als die Karten wirkte komisch)
+        PreviewScreen(height: 220) { area in
+            let screenH = area.height - 28
+            let screenW = min(area.width - 28, screenH * frame.width / frame.height)
+            let size = CGSize(width: screenW, height: screenW * frame.height / frame.width)
             let scale = size.width / frame.width
             let menu = max(0, frame.maxY - visible.maxY) * scale
             let usable = size.height - menu
+            let shape = RoundedRectangle(cornerRadius: 6, style: .continuous)
             ZStack(alignment: .topLeading) {
+                Color.black.opacity(0.12)
                 // Menüleiste
                 Rectangle().fill(Color.white.opacity(0.35)).frame(width: size.width, height: menu)
                 if settings.adaptivePosition {
@@ -214,14 +221,16 @@ struct ScreenPreview: View {
                         .offset(x: settings.edge == .right ? size.width - shelfW : 0, y: center - shelfH / 2)
                 }
             }
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Color.white.opacity(0.45), lineWidth: 1))
+            .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
+            .frame(width: area.width, height: area.height)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.edge)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.verticalPosition)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.adaptivePosition)
             .animation(.spring(response: 0.35, dampingFraction: 0.85), value: settings.adaptiveZone)
         }
-        // Ganzer Bildschirm: nicht breiter als nötig, mittig (in voller Breite war er zu hoch)
-        .frame(maxWidth: 320)
-        .frame(maxWidth: .infinity)
         .accessibilityElement()
         .accessibilityLabel(L("Preview of the screen", "Vorschau des Bildschirms"))
     }

@@ -123,7 +123,8 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 |---|---|
 | `⌃⌥B` | Show or hide the shelf anywhere (change it in Settings → Keyboard); a floating shelf goes back to the edge |
 | Space, `⌘Y` | Quick Look |
-| `↩`, `⌘O` | Open |
+| `↩` | Rename, as in the Finder |
+| `⌘O`, `⌘↓` | Open |
 | `⌘R` | Show in Finder |
 | `⌘I` | Get Info (Finder’s Info window) |
 | `⌘A` | Select all |
@@ -136,8 +137,11 @@ After that, BarDrop keeps itself up to date in the background while you’re not
 | `⌘⌫` | Move selection to the Trash |
 | `⌘Z`, `⇧⌘Z` | Undo, redo |
 | `⌘↑` | Back from a stack or folder |
+| `⌘W` | Close the shelf |
 | `⌘,` | Settings |
 | Arrow keys | Move selection, extend with `⇧` |
+| `⇥`, `⇧⇥` | Next, previous item |
+| Letters | Select the item whose name starts with them |
 | `esc` | Step back (Quick Look, folder, selection, stack), then close; a floating shelf goes back to the edge |
 
 ## Privacy

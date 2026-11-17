@@ -120,7 +120,18 @@ final class ShelfPanel: NSPanel {
             }
             actions.moveCurrentSelection(by: step, extend: shift)
             actions.quickLookFollowSelection()
+        case 48: // Tab wie im Finder: nächstes Objekt, mit ⇧ das vorige
+            actions.moveCurrentSelection(by: shift ? -1 : 1, extend: false)
+            actions.quickLookFollowSelection()
         default:
+            // Buchstaben und Zahlen: das Objekt wählen, dessen Name so beginnt (wie im Finder)
+            let mods = event.modifierFlags.intersection([.command, .control, .option, .function])
+            if mods.isEmpty, let chars = event.characters, !chars.isEmpty,
+               chars.unicodeScalars.allSatisfy({ CharacterSet.alphanumerics.union(.punctuationCharacters).contains($0) }) {
+                actions.typeSelect(chars)
+                actions.quickLookFollowSelection()
+                return
+            }
             super.keyDown(with: event)
         }
     }
@@ -165,6 +176,12 @@ final class ShelfPanel: NSPanel {
             actions.openSettings()
         case "q":
             NSApp.terminate(nil)
+        case "w":
+            // Wie ein Finder-Fenster schließen: Ablage zu bzw. zurück an den Rand
+            onEscape()
+        case "[" where actions.ui.openStack != nil:
+            // Zurück wie im Finder (⌘[): aus Ordner bzw. Stapel eine Ebene hoch
+            actions.closeStack()
         default:
             if event.keyCode == 51 || event.keyCode == 117 { // ⌘⌫: in den Papierkorb, wie im Finder
                 if !event.isARepeat { actions.trashCurrentSelection() }
@@ -172,6 +189,10 @@ final class ShelfPanel: NSPanel {
             }
             if event.keyCode == 126, actions.ui.openStack != nil { // ⌘↑: Stapel verlassen
                 actions.closeStack()
+                return true
+            }
+            if event.keyCode == 125 { // ⌘↓: öffnen, wie im Finder
+                if !event.isARepeat { actions.openCurrentSelection() }
                 return true
             }
             return super.performKeyEquivalent(with: event)

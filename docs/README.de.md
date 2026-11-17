@@ -123,7 +123,8 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 |---|---|
 | `⌃⌥B` | Ablage überall ein- oder ausblenden (unter Einstellungen → Tastatur änderbar); eine schwebende Ablage geht zurück an den Rand |
 | Leertaste, `⌘Y` | Übersicht (Quick Look) |
-| `↩`, `⌘O` | Öffnen |
+| `↩` | Umbenennen, wie im Finder |
+| `⌘O`, `⌘↓` | Öffnen |
 | `⌘R` | Im Finder zeigen |
 | `⌘I` | Informationen (Fenster „Informationen“ des Finders) |
 | `⌘A` | Alle auswählen |
@@ -136,8 +137,11 @@ Danach hält sich BarDrop im Hintergrund selbst aktuell, während du es nicht be
 | `⌘⌫` | Auswahl in den Papierkorb legen |
 | `⌘Z`, `⇧⌘Z` | Widerrufen, wiederholen |
 | `⌘↑` | Zurück aus Stapel oder Ordner |
+| `⌘W` | Ablage schließen |
 | `⌘,` | Einstellungen |
 | Pfeiltasten | Auswahl bewegen, mit `⇧` erweitern |
+| `⇥`, `⇧⇥` | Nächstes, voriges Objekt |
+| Buchstaben | Objekt wählen, dessen Name so beginnt |
 | `esc` | Schritt zurück (Übersicht, Ordner, Auswahl, Stapel), dann schließen; eine schwebende Ablage geht zurück an den Rand |
 
 ## Datenschutz

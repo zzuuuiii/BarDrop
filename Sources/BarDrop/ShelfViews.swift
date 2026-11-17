@@ -1192,7 +1192,8 @@ struct TileLabel<Preview: View>: View {
                 .animation(.spring(response: 0.25, dampingFraction: 0.85), value: isDropTarget)
             if let rename {
                 rename
-                    .frame(width: TileMetrics.labelWidth(iconSize), height: 18)
+                    .frame(width: TileMetrics.labelWidth(iconSize))
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 28, alignment: .top)
             } else {
             Text(title)
@@ -1475,9 +1476,13 @@ struct RenameField: NSViewRepresentable {
         field.selectsBaseName = selectsBaseName
         field.font = .systemFont(ofSize: 11, weight: .medium)
         field.alignment = .center
-        field.usesSingleLineMode = true
-        field.cell?.lineBreakMode = .byTruncatingMiddle
-        field.cell?.isScrollable = true
+        // Mehrzeilig wie im Finder: Der ganze Name bleibt sichtbar und das Feld wächst nach
+        // unten. Vorher eine Zeile, in der ein langer Name nur zum Teil zu sehen war
+        // (Nutzer, 17.11.2026). ↩ übernimmt trotzdem (Coordinator)
+        field.usesSingleLineMode = false
+        field.cell?.wraps = true
+        field.cell?.isScrollable = false
+        field.cell?.lineBreakMode = .byWordWrapping
         // Wie das Feld beim Umbenennen im Finder: schlicht, mit Fokusring statt Rahmen
         field.isBezeled = false
         field.isBordered = false
@@ -1497,6 +1502,27 @@ struct RenameField: NSViewRepresentable {
     final class StartEditingField: NSTextField {
         var selectsBaseName = false
         private var started = false
+
+        /// Höhe passend zum Namen, so breit wie das Feld; während der Eingabe mit dem Text,
+        /// der gerade getippt wird
+        override var intrinsicContentSize: NSSize {
+            guard let cell = cell?.copy() as? NSCell else { return super.intrinsicContentSize }
+            cell.stringValue = currentEditor()?.string ?? stringValue
+            let width = max(bounds.width, 20)
+            let height = cell.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: 10_000)).height
+            return NSSize(width: NSView.noIntrinsicMetric, height: ceil(height))
+        }
+
+        override func textDidChange(_ notification: Notification) {
+            super.textDidChange(notification)
+            invalidateIntrinsicContentSize()
+        }
+
+        override func setFrameSize(_ newSize: NSSize) {
+            let widthChanged = newSize.width != frame.width
+            super.setFrameSize(newSize)
+            if widthChanged { invalidateIntrinsicContentSize() }
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()

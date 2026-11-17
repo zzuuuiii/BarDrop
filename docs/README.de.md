@@ -22,11 +22,14 @@
 </p>
 
 <p align="center">
-  Kostenlos &nbsp;·&nbsp; Open Source &nbsp;·&nbsp; macOS 14 oder neuer &nbsp;·&nbsp; Apple Silicon und Intel
+  <a href="https://github.com/zzuuuiii/BarDrop/releases/latest"><img src="https://img.shields.io/github/v/release/zzuuuiii/BarDrop?label=Version&labelColor=0A84FF&color=2E3543" alt="Version"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-2E3543?labelColor=5E5CE6" alt="macOS 14 oder neuer">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-D97706" alt="Apple Silicon und Intel">
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/Lizenz-GPL--3.0-2E3543?labelColor=30A14E" alt="Lizenz GPL-3.0"></a>
 </p>
 
 <p align="center">
-  <img src="preview.gif" width="640" alt="Ein Ordner wird an den rechten Bildschirmrand gezogen; die Ablage öffnet sich und behält ihn">
+  <img src="preview.gif" width="640" alt="Zwei Bilder werden aus einem Browser in die Ablage gezogen und auf einem anderen Schreibtisch auf eine Folie; ein Archiv kommt in den Papierkorb und mit ⌘Z zurück">
 </p>
 
 ---

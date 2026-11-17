@@ -22,11 +22,14 @@
 </p>
 
 <p align="center">
-  Free &nbsp;·&nbsp; Open source &nbsp;·&nbsp; macOS 14 or later &nbsp;·&nbsp; Apple Silicon and Intel
+  <a href="https://github.com/zzuuuiii/BarDrop/releases/latest"><img src="https://img.shields.io/github/v/release/zzuuuiii/BarDrop?label=Version&labelColor=0A84FF&color=2E3543" alt="Version"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-2E3543?labelColor=5E5CE6" alt="macOS 14 or later">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%26%20Intel-D97706" alt="Apple Silicon and Intel">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-2E3543?labelColor=30A14E" alt="License GPL-3.0"></a>
 </p>
 
 <p align="center">
-  <img src="docs/preview.gif" width="640" alt="A folder is dragged to the right edge of the screen; the shelf opens and keeps it">
+  <img src="docs/preview.gif" width="640" alt="Two images are dragged from a browser into the shelf, then onto a slide on another desktop; an archive goes to the Trash and comes back with ⌘Z">
 </p>
 
 ---

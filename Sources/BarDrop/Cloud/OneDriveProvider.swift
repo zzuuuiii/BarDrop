@@ -54,6 +54,7 @@ final class OneDriveProvider: OAuthCloudProvider, CloudProvider {
             }
             var offset: UInt64 = 0
             var last: [String: Any] = [:]
+            var failures = 0
             while offset < size {
                 try Task.checkCancellation()
                 let piece = try Self.chunk(of: file, offset: offset, length: Self.chunkSize)
@@ -62,18 +63,46 @@ final class OneDriveProvider: OAuthCloudProvider, CloudProvider {
                 var request = URLRequest(url: target)
                 request.httpMethod = "PUT"
                 request.setValue("bytes \(offset)-\(offset + UInt64(piece.count) - 1)/\(size)", forHTTPHeaderField: "Content-Range")
-                let (data, response) = try await URLSession.shared.upload(for: request, from: piece)
-                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                guard [200, 201, 202].contains(status) else { throw CloudError.http(status, data, service: service) }
-                last = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-                offset += UInt64(piece.count)
-                progress(Double(offset) / Double(max(size, 1)), label)
+                let data: Data, status: Int, http: HTTPURLResponse?
+                do {
+                    let (answer, response) = try await URLSession.shared.upload(for: request, from: piece)
+                    data = answer
+                    http = response as? HTTPURLResponse
+                    status = http?.statusCode ?? 0
+                } catch where Self.isTransient(error) && failures < Self.maxRetries {
+                    // Netz weg: nachfragen, was angekommen ist, und dort weitermachen
+                    offset = try await recover(&failures) { try await nextOffset(target, size: size) }
+                    continue
+                }
+                if [200, 201, 202].contains(status) {
+                    last = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+                    offset += UInt64(piece.count)
+                    failures = 0
+                    progress(Double(offset) / Double(max(size, 1)), label)
+                } else if (Self.isTransient(status: status) || status == 416), failures < Self.maxRetries {
+                    // 416: Dieses Stück hat Microsoft schon. Sonst kurz überlastet
+                    offset = try await recover(&failures, response: http) { try await nextOffset(target, size: size) }
+                } else {
+                    throw CloudError.http(status, data, service: service)
+                }
             }
             item = last
         }
         guard let id = item["id"] as? String else { throw CloudError(message: L("OneDrive didn’t save the file.", "OneDrive hat die Datei nicht gespeichert.")) }
         progress(1, label)
         return try await link(for: id)
+    }
+
+    /// Wie weit die Sitzung ist: der Anfang des ersten noch fehlenden Bereichs
+    private func nextOffset(_ session: URL, size: UInt64) async throws -> UInt64 {
+        let (data, response) = try await URLSession.shared.data(from: session)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let range = (object["nextExpectedRanges"] as? [String])?.first,
+              let start = range.split(separator: "-").first.flatMap({ UInt64($0) }),
+              start < size else { throw CloudError.http(status, data, service: service) }
+        return start
     }
 
     /// Link für alle; schaltet die Firma das ab, ein Link für die eigene Organisation

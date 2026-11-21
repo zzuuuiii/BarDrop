@@ -781,7 +781,7 @@ struct QuickActionBar: View {
         let slots = all.map(Slot.action) + (pin.map { [Slot.pin($0)] } ?? [])
         Group {
             // Zwei Reihen, wie in den Einstellungen verteilt
-            let split = shelfDemo ? slots.count : AppSettings.clampSplit(settings.actionRowSplit, count: slots.count)
+            let split = shelfDemo ? slots.count : AppSettings.clampSplit(settings.visibleRowSplit(shown: all), count: slots.count)
             let top = Array(slots.prefix(split))
             let bottom = Array(slots.dropFirst(split).prefix(QuickAction.perRow))
             // Beide Reihen gleich groß: so groß, wie es die vollere Reihe erlaubt

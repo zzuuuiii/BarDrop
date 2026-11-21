@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.31.1
+
+### Changed
+* **Pressing against an edge.** Push a floating shelf against a screen edge and it joins the edge smoothly while you press, then docks when you let go.
+* **Action bar preview.** Changing the size or names of actions in Settings → Appearance shows up in the preview instead of opening the shelf.
+
+### Fixed
+* **Smooth pulling off and docking.** Pulling the shelf off the edge and docking it no longer stutters when glass is on.
+* **Faster and lighter.** Lasso selection, plugin settings, new downloads and screenshots, and the list of shortcuts do less work and no longer stall BarDrop.
+* **Cloud uploads.** Uploads to Dropbox, Google Drive and OneDrive continue after a short network drop instead of failing, and large Dropbox uploads show their progress.
+* **Shelf and stacks.** Double-click opens stacks again, folders dragged out keep their contents, the arrow keys start at the first item, and a floating shelf returns after a display change.
+* **Clipboard and files.** Copying an item back from the history always works, and files still downloading from iCloud no longer break imports or the history.
+* **Plugins.** A plugin that leaves a background process running no longer hangs, and changes to a plugin’s files always reset its permissions.
+* **Smaller fixes.** The keyboard shortcut registers reliably at login, animated images stay intact, and onboarding points to the right place in Settings.
+
 ## 1.31.0
 
 ### New

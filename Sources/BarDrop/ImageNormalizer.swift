@@ -21,7 +21,10 @@ enum ImageNormalizer {
             return url
         }
 
-        if compatible.contains(type) || !convert {
+        // Bewegte Bilder (WebP, AVIF, HEICS) und mehrseitige TIFFs nicht auf das erste Bild
+        // reduzieren. Fotos (HEIC) enthalten oft weitere Bilder (Tiefe, Serien): die weiter umwandeln
+        let still = type.conforms(to: .heif) && type.identifier != "public.heics"
+        if compatible.contains(type) || !convert || (CGImageSourceGetCount(source) > 1 && !still) {
             return fixExtension(of: url, for: type)
         }
 

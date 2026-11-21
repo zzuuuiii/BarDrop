@@ -22,9 +22,14 @@ enum ShortcutRunner {
         process.standardOutput = pipe
         process.standardError = FileHandle.nullDevice
         do { try process.run() } catch { return [] }
+        // Läuft beim Öffnen des Menüs auf dem Hauptthread: Hängt der Dienst der Kurzbefehle,
+        // nach 2 s abbrechen (ohne Kurzbefehle), statt die Einstellungen einzufrieren
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+            if process.isRunning { process.terminate() }
+        }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
-        guard process.terminationStatus == 0 else { return [] }
+        guard process.terminationReason == .exit, process.terminationStatus == 0 else { return [] }
         return String(decoding: data, as: UTF8.self)
             .split(whereSeparator: \.isNewline)
             .map { String($0).trimmingCharacters(in: .whitespaces) }
@@ -83,6 +88,20 @@ enum ShortcutRunner {
         return .done(results: results, folder: folder)
     }
 
+    /// Text, wenn der Anfang gültiges UTF-8 ist. Nur den Anfang lesen: Große Ergebnisse
+    /// (Videos, Audio) kamen sonst ganz in den Speicher
+    private static func isText(_ file: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: file) else { return false }
+        defer { try? handle.close() }
+        let limit = 64 * 1024
+        let head = handle.readData(ofLength: limit + 1)
+        guard !head.isEmpty, !head.contains(0) else { return false }
+        if head.count <= limit { return String(data: head, encoding: .utf8) != nil }
+        // Abgeschnitten: Ein Zeichen kann am Ende geteilt sein (höchstens 3 Bytes)
+        let cut = head.prefix(limit)
+        return (0...3).contains { String(data: cut.dropLast($0), encoding: .utf8) != nil }
+    }
+
     /// Eine einzelne zurückgegebene Datei kommt ohne Endung: nach ihrem Inhalt benennen
     private static func named(_ file: URL) -> URL {
         guard let handle = try? FileHandle(forReadingFrom: file) else { return file }
@@ -99,7 +118,7 @@ enum ShortcutRunner {
         else if starts([0x50, 0x4B, 0x03, 0x04]) { ext = "zip" }
         else if starts(Array("ftyphei".utf8), at: 4) || starts(Array("ftypmif1".utf8), at: 4) { ext = "heic" }
         else if starts(Array("ftyp".utf8), at: 4) { ext = "mp4" }
-        else if let data = try? Data(contentsOf: file), String(data: data, encoding: .utf8) != nil { ext = "txt" }
+        else if isText(file) { ext = "txt" }
         else { return file }
         let target = file.deletingLastPathComponent()
             .appendingPathComponent(L("Shortcut Result", "Kurzbefehl-Ergebnis")).appendingPathExtension(ext)

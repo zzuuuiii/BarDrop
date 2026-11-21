@@ -46,7 +46,7 @@ jobs:
           # Zusammenfassung sichtbar machen (bestanden, übersprungen)
           grep -E "Executed [0-9]+ tests|skipped" test.log | sort -u | tail -8 | while IFS= read -r line; do
             echo "::notice::${line}"
-          done
+          done || true
 
       - name: App und DMG bauen
         # Feste Signatur, sobald die Geheimnisse angelegt sind (scripts/sign_app.sh); ohne sie ad hoc
@@ -74,7 +74,7 @@ jobs:
           PID=$!
           sleep 15
           if ! kill -0 "$PID" 2>/dev/null; then
-            wait "$PID"; CODE=$?
+            CODE=0; wait "$PID" || CODE=$?
             echo "::error::BarDrop hat sich nach dem Start beendet (Code $CODE)"
             tail -40 launch.log
             ls -t ~/Library/Logs/DiagnosticReports 2>/dev/null | grep -i bardrop | head -1 | while read -r report; do

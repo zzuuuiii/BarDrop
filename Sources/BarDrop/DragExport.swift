@@ -235,13 +235,33 @@ final class Outbox {
         self.directory = directory ?? support.appendingPathComponent("BarDrop/Outbox", isDirectory: true)
     }
 
+    /// Zuletzt aufgeräumt: Die App läuft oft wochenlang, aufgeräumt wurde bisher nur beim Start
+    private var lastCleanUp = Date()
+
     func freshCopy(of url: URL) -> URL? {
+        if Date().timeIntervalSince(lastCleanUp) > 3600 {
+            lastCleanUp = Date()
+            cleanUp()
+        }
         let dir = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let target = dir.appendingPathComponent(url.lastPathComponent)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
             return nil
+        }
+        // Ordner und Pakete (.app, .rtfd): copyfile ohne COPYFILE_RECURSIVE kopiert nur
+        // den leeren Ordner. FileManager kopiert rekursiv und klont auf APFS ebenfalls.
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            do {
+                try FileManager.default.copyItem(at: url, to: target)
+                return target
+            } catch {
+                try? FileManager.default.removeItem(at: dir)
+                Diagnostics.shared.failure("export", "Frische Kopie eines Ordners nicht möglich, nehme Original", error)
+                return nil
+            }
         }
         let result = url.withUnsafeFileSystemRepresentation { src in
             target.withUnsafeFileSystemRepresentation { dst in

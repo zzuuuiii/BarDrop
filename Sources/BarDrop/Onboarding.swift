@@ -1227,8 +1227,8 @@ private struct ShortcutPage: View {
 
     var body: some View {
         PresentationPage(title: L("Open from Anywhere", "Von überall öffnen"),
-                         text: L("The keyboard shortcut opens the shelf wherever you are. Press it again to close it. You can change it in Settings → Keyboard.",
-                                 "Der Tastaturkurzbefehl öffnet die Ablage, egal wo du bist. Noch einmal drücken schließt sie wieder. Ändern kannst du ihn unter Einstellungen → Tastatur.")) {
+                         text: L("The keyboard shortcut opens the shelf wherever you are. Press it again to close it. You can change it in Settings → General.",
+                                 "Der Tastaturkurzbefehl öffnet die Ablage, egal wo du bist. Noch einmal drücken schließt sie wieder. Ändern kannst du ihn unter Einstellungen → Allgemein.")) {
             ShelfStage(scene: .shortcut)
         } practice: {
             TaskCard(done: model.stepDone,

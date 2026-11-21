@@ -74,15 +74,27 @@ final class AirDropWatcher {
 
     /// AirDrop schreibt größere Dateien eine Weile: mehrmals nachsehen
     private func folderChanged() {
+        // Ereignisse kommen oft in Schüben (viele Dateien auf einmal): Jedes plante vier eigene
+        // Durchgänge über den ganzen Ordner. Die Durchgänge eines Ereignisses, das eben erst
+        // kam, decken ein weiteres in dieser Zeit mit ab (der erste kommt erst danach)
+        guard Date().timeIntervalSince(lastScheduled) >= 0.25 else { return }
+        lastScheduled = Date()
         for delay in [0.5, 1.5, 4.0, 10.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.scan() }
         }
     }
 
+    private var lastScheduled = Date.distantPast
+
     private func scan() {
         guard let folder else { return }
         let keys: [URLResourceKey] = [.creationDateKey, .addedToDirectoryDateKey, .fileSizeKey, .isDirectoryKey]
         guard let files = FolderAccess.shared.contents(of: folder, keys: keys, area: "airdrop") else { return }
+        // Was nicht mehr im Ordner liegt, vergessen: Kommt später eine Datei mit
+        // demselben Namen (zweites AirDrop von „Dokument.pdf“), wird sie wieder übernommen
+        let present = Set(files.map(\.path))
+        seen.formIntersection(present)
+        sizes = sizes.filter { present.contains($0.key) }
         var ready: [URL] = []
         for url in files where !seen.contains(url.path) {
             guard let values = try? url.resourceValues(forKeys: Set(keys)) else { continue }

@@ -17,6 +17,19 @@ final class ExportTests: XCTestCase {
         super.tearDown()
     }
 
+    /// Ordner aus der Ablage ziehen: Die frische Kopie enthält alles (vorher war sie leer)
+    func testFreshCopyOfFolderKeepsContents() throws {
+        let inner = file("a.txt", "eins")
+        let folder = inner.deletingLastPathComponent()
+        let sub = folder.appendingPathComponent("Unterordner", isDirectory: true)
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try Data("zwei".utf8).write(to: sub.appendingPathComponent("b.txt"))
+        let outbox = Outbox(directory: base.appendingPathComponent("Outbox", isDirectory: true))
+        let copy = try XCTUnwrap(outbox.freshCopy(of: folder))
+        XCTAssertEqual(try String(contentsOf: copy.appendingPathComponent("a.txt"), encoding: .utf8), "eins")
+        XCTAssertEqual(try String(contentsOf: copy.appendingPathComponent("Unterordner/b.txt"), encoding: .utf8), "zwei")
+    }
+
     private func file(_ name: String, _ content: String) -> URL {
         let url = base.appendingPathComponent(UUID().uuidString).appendingPathComponent(name)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

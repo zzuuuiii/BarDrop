@@ -151,7 +151,8 @@ final class ScreenshotWatcher {
     private func followFolderChange() {
         let folder = Self.screenshotFolder()
         guard folder.standardizedFileURL != watchedFolder?.standardizedFileURL else { return }
-        Diagnostics.shared.record("screenshots", "Ort umgestellt")
+        // Nicht lesbarer Ordner: Der neue Versuch alle 5 Sekunden ist gewollt, aber kein Umstellen
+        if folder != unreadableFolder { Diagnostics.shared.record("screenshots", "Ort umgestellt") }
         folderSource?.cancel()
         folderSource = nil
         watchedFolder = nil
@@ -161,10 +162,16 @@ final class ScreenshotWatcher {
     /// Etwas im Ordner hat sich geändert: kurz danach nachsehen (macOS setzt die Kennzeichnung
     /// als Bildschirmfoto erst nach dem Umbenennen)
     private func folderChanged() {
+        // Schübe von Ereignissen zusammenfassen (wie AirDropWatcher): Die Durchgänge eines eben
+        // gekommenen Ereignisses decken weitere in dieser Zeit mit ab
+        guard Date().timeIntervalSince(lastScheduled) >= 0.2 else { return }
+        lastScheduled = Date()
         for delay in [0.3, 1.2, 3.0] {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.scanFolder() }
         }
     }
+
+    private var lastScheduled = Date.distantPast
 
     private func scanFolder() {
         guard let folder = watchedFolder else { return }

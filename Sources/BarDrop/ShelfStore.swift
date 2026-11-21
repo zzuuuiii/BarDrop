@@ -853,7 +853,15 @@ final class ShelfStore: ObservableObject {
     /// Widerrufen ist für diese Entfernung nicht mehr möglich: aufgehobene Dateien löschen.
     private func expire(_ removal: ShelfRemoval) {
         undoManager.removeAllActions(withTarget: removal)
-        let due = removal.heldFiles.filter { pendingDeletion.removeValue(forKey: $0.url.standardizedFileURL) != nil }
+        // Liegt die Datei inzwischen wieder in der Ablage (zurückgeholt und erneut entfernt),
+        // gehört sie zu einer neueren Entfernung: nicht löschen
+        let inShelf = Set(entries.flatMap(\.files).map(\.url.standardizedFileURL))
+        let newer = Set(removals.flatMap(\.heldFiles).map(\.url.standardizedFileURL))
+        let due = removal.heldFiles.filter { file in
+            let key = file.url.standardizedFileURL
+            guard !inShelf.contains(key), !newer.contains(key) else { return false }
+            return pendingDeletion.removeValue(forKey: key) != nil
+        }
         deleteOwnedFiles(due)
     }
 

@@ -12,6 +12,8 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
         get { UserDefaults.standard.string(forKey: "cloudGoogleFolder") }
         set { UserDefaults.standard.set(newValue, forKey: "cloudGoogleFolder") }
     }
+    /// Gemerkter Ordner in diesem Lauf schon einmal geprüft (gelöscht oder im Papierkorb?)
+    private var folderVerified = false
     /// Stücke beim Hochladen: Vielfache von 256 KB verlangt Google
     private static let chunkSize = 32 * 256 * 1024
 
@@ -33,6 +35,7 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
     func connect() async throws {
         var new = try await signIn()
         folderID = nil
+        folderVerified = false
         if let info = try? await json({ Self.request(URL(string: "https://www.googleapis.com/oauth2/v3/userinfo")!, token: $0, json: false) }),
            let email = info["email"] as? String {
             new.account = email
@@ -42,6 +45,7 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
 
     override func disconnect() {
         folderID = nil
+        folderVerified = false
         super.disconnect()
     }
 
@@ -61,37 +65,106 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
               let session = URL(string: location) else { throw CloudError.http(response.statusCode, data, service: service) }
         var offset: UInt64 = 0
         var result: [String: Any] = [:]
-        repeat {
+        var failures = 0
+        uploading: repeat {
             try Task.checkCancellation()
             let piece = try Self.chunk(of: file, offset: offset, length: Self.chunkSize)
             guard size == 0 || !piece.isEmpty else { throw CloudError.fileChanged }
             let last = offset + UInt64(piece.count)
-            let (answer, status) = try await send({ token in
-                var r = Self.request(session, method: "PUT", token: token, json: false)
-                r.setValue(size == 0 ? "bytes */0" : "bytes \(offset)-\(last - 1)/\(size)", forHTTPHeaderField: "Content-Range")
-                return r
-            }, body: piece)
+            let answer: Data, status: HTTPURLResponse
+            do {
+                (answer, status) = try await send({ token in
+                    var r = Self.request(session, method: "PUT", token: token, json: false)
+                    r.setValue(size == 0 ? "bytes */0" : "bytes \(offset)-\(last - 1)/\(size)", forHTTPHeaderField: "Content-Range")
+                    return r
+                }, body: piece)
+            } catch where Self.isTransient(error) && failures < Self.maxRetries {
+                // Netz weg: Google fragen, was angekommen ist, und dort weitermachen
+                switch try await recover(&failures, { try await resumeState(session, size: size) }) {
+                case .done(let object): result = object; break uploading
+                case .at(let received): offset = received; continue uploading
+                }
+            }
             if status.statusCode == 200 || status.statusCode == 201 {
                 result = (try? JSONSerialization.jsonObject(with: answer) as? [String: Any]) ?? [:]
                 break
             }
-            // 308: Stück angekommen, weiter
+            if Self.isTransient(status: status.statusCode), failures < Self.maxRetries {
+                switch try await recover(&failures, response: status, { try await resumeState(session, size: size) }) {
+                case .done(let object): result = object; break uploading
+                case .at(let received): offset = received; continue uploading
+                }
+            }
+            // 308: Stück angekommen, weiter (so weit, wie Google es bestätigt)
             guard status.statusCode == 308 else { throw CloudError.http(status.statusCode, answer, service: service) }
-            offset = last
+            offset = Self.receivedBytes(status) ?? last
+            failures = 0
             progress(Double(offset) / Double(max(size, 1)), label)
         } while offset < size || size == 0
         guard let id = result["id"] as? String else { throw CloudError(message: L("Google Drive didn’t save the file.", "Google Drive hat die Datei nicht gespeichert.")) }
         progress(1, label)
-        // Jeder mit dem Link darf ansehen
-        _ = try await json({ Self.request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)/permissions")!, method: "POST", token: $0) },
-                           body: Self.body(["type": "anyone", "role": "reader"]))
+        // Jeder mit dem Link darf ansehen. Klappt das nicht, die Datei wieder entfernen: Sonst
+        // läge sie ohne funktionierenden Link in Drive, und ein neuer Versuch legte sie doppelt an
+        do {
+            _ = try await json({ Self.request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)/permissions")!, method: "POST", token: $0) },
+                               body: Self.body(["type": "anyone", "role": "reader"]))
+        } catch {
+            _ = try? await send({ Self.request(URL(string: "https://www.googleapis.com/drive/v3/files/\(id)")!, method: "DELETE", token: $0, json: false) })
+            throw error
+        }
         if let link = result["webViewLink"] as? String, let url = URL(string: link) { return url }
         return URL(string: "https://drive.google.com/file/d/\(id)/view")!
     }
 
+    private enum ResumeState {
+        case done([String: Any])
+        case at(UInt64)
+    }
+
+    /// Stand einer unterbrochenen Sitzung erfragen (leeres Stück mit „bytes */Größe“)
+    private func resumeState(_ session: URL, size: UInt64) async throws -> ResumeState {
+        let (data, response) = try await send({ token in
+            var r = Self.request(session, method: "PUT", token: token, json: false)
+            r.setValue("bytes */\(size)", forHTTPHeaderField: "Content-Range")
+            return r
+        }, body: Data())
+        switch response.statusCode {
+        case 200, 201:
+            return .done((try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:])
+        case 308:
+            // Ohne Range-Kopf ist noch nichts angekommen
+            return .at(Self.receivedBytes(response) ?? 0)
+        default:
+            throw CloudError.http(response.statusCode, data, service: service)
+        }
+    }
+
+    /// Angekommene Bytes aus „Range: bytes=0-N“
+    private static func receivedBytes(_ response: HTTPURLResponse) -> UInt64? {
+        guard let range = response.value(forHTTPHeaderField: "Range"),
+              let end = range.split(separator: "-").last.flatMap({ UInt64($0) }) else { return nil }
+        return end + 1
+    }
+
     /// „BarDrop Share“ suchen (nur unter den eigenen Dateien sichtbar) oder anlegen
     private func shareFolder() async throws -> String {
-        if let folderID { return folderID }
+        if let cached = folderID {
+            if folderVerified { return cached }
+            // Einmal je Lauf prüfen: Hat man „BarDrop Share“ in Drive gelöscht oder in den
+            // Papierkorb gelegt, ging sonst jedes Hochladen dorthin bzw. scheiterte mit 404
+            let check = URL(string: "https://www.googleapis.com/drive/v3/files/\(cached)?fields=trashed")!
+            let (data, response) = try await send({ Self.request(check, token: $0, json: false) })
+            let info = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            if response.statusCode == 200, info["trashed"] as? Bool != true {
+                folderVerified = true
+                return cached
+            }
+            guard response.statusCode == 200 || response.statusCode == 404 else {
+                throw CloudError.http(response.statusCode, data, service: service)
+            }
+            folderID = nil
+        }
+        folderVerified = true
         var search = URLComponents(string: "https://www.googleapis.com/drive/v3/files")!
         search.queryItems = [URLQueryItem(name: "q", value: "name = '\(CloudService.folderName)' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"),
                              URLQueryItem(name: "fields", value: "files(id)")]

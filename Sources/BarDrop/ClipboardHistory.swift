@@ -153,8 +153,12 @@ final class ClipboardHistory {
     /// Kopierte Datei aufheben. Auf demselben Laufwerk legt das System nur einen Klon an
     /// (APFS), sonst nur kleine Dateien
     private func copyFile(_ source: URL) -> URL? {
-        let keys: Set<URLResourceKey> = [.volumeIdentifierKey, .fileSizeKey, .isDirectoryKey]
+        let keys: Set<URLResourceKey> = [.volumeIdentifierKey, .fileSizeKey, .isDirectoryKey,
+                                         .ubiquitousItemDownloadingStatusKey]
         let values = try? source.resourceValues(forKeys: keys)
+        // Nicht geladene iCloud-Dateien nicht anfassen: Die Kopie würde sie auf dem Hauptthread
+        // erst herunterladen und die Oberfläche anhalten
+        if let status = values?.ubiquitousItemDownloadingStatus, status == .notDownloaded { return nil }
         let here = try? folder.resourceValues(forKeys: [.volumeIdentifierKey])
         let sameVolume = values?.volumeIdentifier.map { id in
             (here?.volumeIdentifier).map { ($0 as AnyObject).isEqual(id) } ?? false
@@ -207,12 +211,14 @@ final class ClipboardHistory {
     /// Link als Link, Bild als Bild und Datei. Er rückt nach oben, wird aber nicht neu aufgenommen.
     /// Erst lesen, dann leeren: Lässt sich der Eintrag nicht lesen, bleibt die Zwischenablage, wie sie war.
     func copyBack(_ url: URL) {
+        var handled = false
         switch url.pathExtension.lowercased() {
         case "txt":
             if let text = try? String(contentsOf: url, encoding: .utf8) {
                 pasteboard.clearContents()
                 pasteboard.setString(text, forType: .string)
                 lastSignature = "text:" + text
+                handled = true
             }
         case "webloc":
             if let data = try? Data(contentsOf: url),
@@ -222,8 +228,15 @@ final class ClipboardHistory {
                 pasteboard.writeObjects([link as NSURL])
                 pasteboard.setString(string, forType: .string)
                 lastSignature = "link:" + string
+                handled = true
             }
         default:
+            break
+        }
+        // Alles andere und Text, der kein UTF-8 ist: als Datei (vorher passierte dann gar
+        // nichts). Fehlt die Datei, bleibt die Zwischenablage, wie sie war
+        if !handled {
+            guard FileManager.default.isReadableFile(atPath: url.path) else { return }
             var objects: [NSPasteboardWriting] = [url as NSURL]
             if let image = NSImage(contentsOf: url), UTType(filenameExtension: url.pathExtension)?.conforms(to: .image) == true {
                 objects.append(image)

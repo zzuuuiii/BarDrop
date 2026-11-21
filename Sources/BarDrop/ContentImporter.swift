@@ -153,10 +153,12 @@ final class ContentImporter {
         let placeholders = urls.map { ShelfFile(url: $0, owned: false) }
         finish(placeholders, completion)
         for (url, placeholder) in zip(urls, placeholders) {
-            CloudFiles.whenDownloaded(url) { [weak self] _ in
+            CloudFiles.whenDownloaded(url) { [weak self] downloaded in
                 guard let self else { return }
                 self.copyQueue.addOperation {
-                    let copied = self.copyIntoStorage(url, foreign: false)
+                    // Nicht geladen (Zeit abgelaufen, offline): nicht trotzdem kopieren, das
+                    // hielte einen der beiden Kopierplätze minutenlang fest
+                    let copied = downloaded ? self.copyIntoStorage(url, foreign: false) : nil
                     DispatchQueue.main.async { self.onCopyFinished(placeholder.id, copied) }
                 }
             }

@@ -455,6 +455,12 @@ class OAuthCloudProvider {
 
     /// Zugang erneuern, gleichzeitige Anfragen teilen sich eine Erneuerung
     private func refresh(_ current: CloudToken, _ request: CloudOAuth.Request) async throws -> CloudToken {
+        // Hat eine andere Anfrage den Zugang gerade erneuert, ihn nehmen: Ein zweites Erneuern
+        // mit dem alten Refresh-Token scheitert bei Diensten, die ihn dabei austauschen.
+        // (Vor der Sperre lesen: `token` nimmt sie selbst.)
+        if let latest = token, latest.accessToken != current.accessToken, !latest.isExpired {
+            return latest
+        }
         let task: Task<CloudToken, Error> = lock.withLock {
             if let running = refreshing { return running }
             let task = Task { () throws -> CloudToken in
@@ -490,6 +496,51 @@ class OAuthCloudProvider {
         }
         guard current.isExpired else { return current.accessToken }
         return try await refresh(current, request).accessToken
+    }
+
+    // MARK: Neuer Versuch beim Hochladen
+
+    /// So oft hintereinander wird ein Stück neu versucht, bevor das Hochladen aufgibt
+    static let maxRetries = 4
+    /// Wartezeit vor dem 1., 2., 3. … neuen Versuch (zusammen rund eine halbe Minute)
+    private static let retryDelays: [Double] = [1, 3, 8, 20]
+
+    /// Netz kurz weg, Zeitüberschreitung, WLAN gewechselt: später wieder versuchen
+    static func isTransient(_ error: Error) -> Bool {
+        guard let error = error as? URLError else { return false }
+        return [.timedOut, .networkConnectionLost, .notConnectedToInternet, .cannotConnectToHost,
+                .cannotFindHost, .dnsLookupFailed, .dataNotAllowed].contains(error.code)
+    }
+
+    /// Zu viele Anfragen (429) oder Fehler beim Dienst (5xx, außer „voll“)
+    static func isTransient(status: Int) -> Bool {
+        status == 429 || ((500...599).contains(status) && status != 507)
+    }
+
+    /// Vor einem neuen Versuch warten; nennt der Dienst eine Wartezeit (Retry-After), gilt sie
+    static func waitBeforeRetry(_ attempt: Int, response: HTTPURLResponse? = nil) async throws {
+        var delay = retryDelays[min(max(attempt, 1), retryDelays.count) - 1]
+        if let value = response?.value(forHTTPHeaderField: "Retry-After"), let seconds = Double(value) {
+            delay = min(max(seconds, delay), 120)
+        }
+        Diagnostics.shared.record("cloud", "neuer Versuch \(attempt) in \(Int(delay)) s")
+        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+    }
+
+    /// Nach einem Fehler warten und fragen, wie weit der Dienst ist (`ask`). Scheitert auch das
+    /// am Netz, wird es weiter versucht, bis `maxRetries` erreicht ist. Zählt `failures` hoch.
+    func recover<T>(_ failures: inout Int, response: HTTPURLResponse? = nil,
+                    _ ask: () async throws -> T) async throws -> T {
+        var response = response
+        while true {
+            failures += 1
+            try await Self.waitBeforeRetry(failures, response: response)
+            do {
+                return try await ask()
+            } catch where Self.isTransient(error) && failures < Self.maxRetries {
+                response = nil
+            }
+        }
     }
 
     /// Anfrage mit Zugang; bei 401 einmal mit erneuertem Zugang wiederholen
@@ -531,6 +582,7 @@ class OAuthCloudProvider {
         if (response as? HTTPURLResponse)?.statusCode == 401, let current = token, let oauth = oauthRequest {
             // Über die gemeinsame Erneuerung, nie zwei mit demselben Refresh-Token (siehe `refreshing`)
             let fresh = try await refresh(current, oauth)
+            try? FileManager.default.removeItem(at: temporary)
             (temporary, response) = try await URLSession.shared.download(for: make(fresh.accessToken))
         }
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

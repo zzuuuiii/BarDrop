@@ -129,6 +129,10 @@ final class ShelfUIModel: ObservableObject {
     }
     /// Mehr Glas als Schwarz (`tearGlass` über 0,5): bestimmt hell oder dunkel der Schrift
     @Published private(set) var tearGlassMostly = false
+    /// Nur die Schrift umstellen (die Überblendung selbst setzt `tearState.glass` Bild für Bild)
+    func setTearGlassMostly(_ mostly: Bool) {
+        if tearGlassMostly != mostly { tearGlassMostly = mostly }
+    }
     /// Helles Erscheinungsbild des Systems (folgt Änderungen während der Nutzung)
     /// (gesetzt vom Rand-Controller; hier ohne NSApp, das gibt es in den Tests nicht)
     @Published var systemLight = false

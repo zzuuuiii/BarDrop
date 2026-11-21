@@ -81,6 +81,9 @@ final class EdgeController: NSObject {
     var coverCheck: (time: Date, rects: [CGRect], covered: Bool) = (.distantPast, [], false)
     /// Takt beim Ziehen, Einrasten und Andocken: im Bildtakt des Bildschirms (siehe startTearTimer)
     var tearLink: CADisplayLink?
+    /// Laufende Überblendung zu Glas (Start- und Zielwert, Beginn), siehe startGlassFade
+    var glassFade: (from: Double, to: Double, start: CFTimeInterval)?
+    var glassFadeLink: CADisplayLink?
     /// Verschieben kurz vor dem nächsten Bild ist schon geplant (siehe tearFrame)
     var latchPending = false
     /// Zeitpunkt des Bildes, für das gerade verschoben wird (nur während tearFrame)
@@ -606,6 +609,17 @@ final class EdgeController: NSObject {
                 logic.levelSince = Date()
                 logic.outsideSince = nil
                 if panel.isKeyWindow { resignFocus() }
+            } else if drag.phase == .floating,
+                      let display = drag.floatDisplay,
+                      let floatScreen = NSScreen.screens.first(where: { $0.displayID == display }) {
+                // Bildschirm noch da, aber Auflösung oder Anordnung geändert: auf ihn zurückholen,
+                // damit die Ablage nicht außerhalb aller Bildschirme schwebt
+                let target = Self.clampFloating(drag.body, around: floatScreen, among: allowedScreens())
+                if target != drag.body {
+                    Diagnostics.shared.record("screen", "floating shelf moved back onto its display")
+                    drag.body = target
+                    applyTearFrame(target)
+                }
             }
         }
         // Bildschirm abgesteckt, Mac entsperrt oder Auflösung geändert: neu ausrichten
@@ -710,8 +724,6 @@ final class EdgeController: NSObject {
     /// Lesen übernommener Wert wäre schon der verstellte, und das erste Verschieben des
     /// Reglers zeigte keine Beispieldateien.
     private var lastTileIconSize: Double
-    /// Symbolgröße und Namen der Aktionsleiste beim letzten Mal (deren Änderung zeigt die Ablage)
-    private var lastActionLook = "\(AppSettings.shared.actionIconSize)|\(AppSettings.shared.showActionLabels)"
 
     /// Zuletzt sichtbar oder benutzt (für stille Updates)
     private(set) var lastActivity = Date()
@@ -1171,26 +1183,13 @@ final class EdgeController: NSObject {
             layoutPanel()
             // Breite oder Länge geändert: die offene Ablage zeigen, damit man die neue
             // Größe sieht. Sonst (Rand, Höhe, Lage) den Griff an der neuen Stelle.
-            if settings.sizeSignature != lastSizeSignature,
-               "\(settings.actionIconSize)|\(settings.showActionLabels)" == lastActionLook {
-                // Größe oder Symbolgröße aus Einstellungen → Aussehen: Dort zeigt eine Vorschau
-                // das Ergebnis, die Ablage klappt dafür nicht mehr auf (Nutzertest 07.11.2026)
+            if settings.sizeSignature != lastSizeSignature {
+                // Größe, Symbolgröße und Aktionsleiste (Größe, Namen) aus Einstellungen → Aussehen:
+                // Dort zeigt eine Vorschau das Ergebnis, die Ablage klappt dafür nicht mehr auf
+                // (Nutzertest 07.11.2026; für die Aktionsleiste Nutzer, 21.11.2026: sie öffnete
+                // sich neben den Einstellungen, statt dass die Vorschau sich änderte)
                 lastSizeSignature = settings.sizeSignature
                 lastTileIconSize = settings.tileIconSize
-                DispatchQueue.main.async { [weak self] in self?.redrawContent() }
-            } else if settings.sizeSignature != lastSizeSignature {
-                lastSizeSignature = settings.sizeSignature
-                lastActionLook = "\(settings.actionIconSize)|\(settings.showActionLabels)"
-                // Symbolgröße der Dateien verstellt: eine Beispieldatei zeigen, damit man
-                // die Wirkung sieht, auch wenn die Ablage leer ist
-                if settings.tileIconSize != lastTileIconSize {
-                    lastTileIconSize = settings.tileIconSize
-                    if !ui.showSampleTile { ui.showSampleTile = true }
-                    samplePreviewRunning = true
-                }
-                // Lang genug, um das Ergebnis in Ruhe anzusehen (Nutzertest: 1,5 s zu kurz)
-                previewUntil = now.addingTimeInterval(3)
-                previewLevel = .expanded
                 // Ohne Fokus zeichnet macOS die Ablage sonst erst beim nächsten Öffnen neu:
                 // Symbolgröße und Namen der Aktionen ändern die Fenstergröße nicht
                 DispatchQueue.main.async { [weak self] in self?.redrawContent() }
@@ -1369,7 +1368,10 @@ final class EdgeController: NSObject {
         // Ruhezustand: Takt anhalten, Ereignisse des Systems wecken ihn wieder
         if EdgeLogic.isCalm(fullyHidden: fullyHidden && ui.level == .hidden, mouseDown: mouseDown,
                             manualOpen: logic.manualOpen, previewActive: previewUntil != nil,
-                            locked: ui.isLocked, onScreen: onScreen, dx: dx) {
+                            locked: ui.isLocked || ui.ownDragActive || pendingResignFocus,
+                            onScreen: onScreen, dx: dx) {
+            // Nicht anhalten, solange der Fokus noch abgegeben werden muss: Sonst bliebe die
+            // unsichtbare Ablage nach dem Herausziehen das aktive Fenster
             pauseTicking()
         }
     }
@@ -1414,6 +1416,10 @@ final class TearDrag {
     var leftZone = false
     /// Gerade in der Nähe eines Rands, der sie anzieht (für den Impuls beim Hineinkommen)
     var inZone = false
+    /// An den Rand gedrückt: ganz mit ihm verbunden, schwarz (siehe updateAttraction)
+    var pressedToEdge = false
+    /// Überblendung in die angedockte Form beim Loslassen (schon an den Rand gedrückt: weiter von dort)
+    var dockBlend: CGFloat = 0
     /// Andocken: von wo nach wo, an welchem Rand, danach schließen (esc, Kurzbefehl)
     var dockFrom: NSRect = .zero
     var dockTo: NSRect = .zero
@@ -2211,7 +2217,11 @@ extension EdgeController {
     private func updateAttraction(_ drag: TearDrag) {
         let body = drag.body
         guard let near = nearestDock(for: body) else {
-            setTear(gap: 0, attach: drag.leftZone ? 0 : nil, side: ui.tear?.side ?? drag.origin)
+            if drag.pressedToEdge {
+                drag.pressedToEdge = false
+                setGlassAmount(1)
+            }
+            setTear(gap: 0, attach: drag.leftZone ? 0 : nil, side: ui.tear?.side ?? drag.origin, dock: 0)
             return
         }
         if near.distance >= EdgeTear.attachZone { drag.leftZone = true }
@@ -2223,7 +2233,22 @@ extension EdgeController {
             if inZone && !drag.inZone { Haptics.tap() }
             drag.inZone = inZone
             let attach = inZone ? 1 - near.distance / EdgeTear.attachZone : 0
-            setTear(gap: near.distance, attach: attach * 0.85, side: near.side)
+            // An den Rand gedrückt: Schon während man drückt, verbindet sie sich ganz mit ihm, mit
+            // derselben Überblendung in die angedockte Form und zu Schwarz wie beim Zurückschnellen
+            // (Nutzer, 21.11.2026). Vorher blieb sie bis zum Loslassen halb verbunden und in Glas
+            // Alles folgt stufenlos dem Abstand, nichts schaltet an einer Grenze um (Nutzer,
+            // 21.11.2026: auf 10 pt und mit eigener Überblendung zu Schwarz war es zu schlagartig):
+            // Verbindung und Schwarz über die ganze Nähe, die angedockte Form erst ganz zuletzt
+            let near01 = max(0, min(1, (EdgeTear.contactZone - near.distance) / EdgeTear.contactZone))
+            let contact = near01 * near01 * (3 - 2 * near01)
+            let last = max(0, min(1, (EdgeTear.contactZone * 0.4 - near.distance) / (EdgeTear.contactZone * 0.4)))
+            let blend = last * last * (3 - 2 * last)
+            // Läuft noch die Überblendung vom Lösen, nicht hineinspringen
+            if glassFade == nil, contact > 0 || drag.pressedToEdge {
+                drag.pressedToEdge = contact > 0
+                setGlassAmount(1 - contact)
+            }
+            setTear(gap: near.distance, attach: attach * 0.85 + 0.15 * contact, side: near.side, dock: blend)
         } else {
             // Gleich nach dem Lösen: Die Verbindung zum alten Rand zieht sich schnell zurück
             let screen = liveOrigin(drag).frame
@@ -2238,6 +2263,7 @@ extension EdgeController {
     /// Glas direkt aus der Bewegung (beim Dehnen), ohne eigene Animation
     private func setGlassAmount(_ value: Double) {
         let rounded = settings.detachedGlass ? (value * 50).rounded() / 50 : 0
+        stopGlassFade()
         guard ui.tearGlass != rounded else { return }
         var transaction = Transaction()
         transaction.disablesAnimations = true
@@ -2249,7 +2275,8 @@ extension EdgeController {
     /// `shapeOnly`: nur Lage und Form, die Stärke nicht anfassen (läuft sie gerade weich
     /// über, sprang sie sonst bei jeder Bewegung ans Ziel)
     private func syncGlassWindow(shapeOnly: Bool = false) {
-        guard tearDrag != nil, ui.tearGlass > 0 || glassWindow != nil else { return }
+        let level = glassFade?.to ?? ui.tearGlass
+        guard tearDrag != nil, level > 0 || glassWindow != nil else { return }
         let window = glassWindow ?? ShelfGlassWindow()
         glassWindow = window
         let m = ShelfMetrics.for(.expanded, settings: settings)
@@ -2267,11 +2294,11 @@ extension EdgeController {
         // darunter ab. Die Überblendung eines Fensters mit Hintergrund-Blur ließ während des
         // Lösens und Andockens Bilder ausfallen (Diagnose 27.10.2026: Ausreißer 100 bis 150 ms
         // genau in diesen 0,3 s). Weg: sofort da, beim Verschwinden erst nach dem Rückzug.
-        if ui.tearGlass > 0 {
+        if level > 0 {
             window.show(1)
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                guard let self, self.ui.tearGlass == 0 else { return }
+                guard let self, (self.glassFade?.to ?? self.ui.tearGlass) == 0 else { return }
                 self.glassWindow?.show(0)
             }
         }
@@ -2302,15 +2329,67 @@ extension EdgeController {
 
     private func setGlass(_ on: Bool, animated: Bool = true) {
         let value: Double = on && settings.detachedGlass ? 1 : 0
-        guard ui.tearGlass != value else { return }
+        guard (glassFade?.to ?? ui.tearGlass) != value else { return }
         if animated {
-            withAnimation(.easeOut(duration: 0.3)) { ui.tearGlass = value }
+            startGlassFade(to: value)
         } else {
+            stopGlassFade()
             var transaction = Transaction()
             transaction.disablesAnimations = true
             withTransaction(transaction) { ui.tearGlass = value }
         }
         syncGlassWindow()
+    }
+
+    // MARK: Überblendung zu Glas im eigenen Bildtakt
+
+    private static let glassFadeDuration: CFTimeInterval = 0.3
+
+    /// Schwarz ↔ Glas über 0,3 s, Bild für Bild ohne SwiftUI-Animation, mit derselben Kurve wie
+    /// vorher (easeOut). Als `withAnimation` lief sie in einem eigenen Takt von SwiftUI neben dem
+    /// Verschieben des Fensters; beide zusammen ließen mit dem SDK von macOS 26/27 beim Lösen
+    /// und Andocken Bilder ausfallen, bis 120 ms. Mit einer Kopie, die macOS als ältere App
+    /// behandelte, und ohne die Überblendung nie (Messung mit echten Mausbewegungen, 21.11.2026)
+    private func startGlassFade(to value: Double) {
+        glassFade = (ui.tearGlass, value, CACurrentMediaTime())
+        // Schrift hell oder dunkel wie bisher gleich zu Beginn, weich
+        withAnimation(.easeOut(duration: Self.glassFadeDuration)) { ui.setTearGlassMostly(value > 0.5) }
+        guard glassFadeLink == nil, let view = panel.contentView else { return }
+        let link = view.displayLink(target: self, selector: #selector(glassFadeFrame(_:)))
+        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        link.add(to: .main, forMode: .common)
+        glassFadeLink = link
+    }
+
+    @objc private func glassFadeFrame(_ link: CADisplayLink) {
+        guard let fade = glassFade else { return stopGlassFade() }
+        let t = max(0, min(1, (link.targetTimestamp - fade.start) / Self.glassFadeDuration))
+        let value = fade.from + (fade.to - fade.from) * Self.easeOut(t)
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) { ui.tearState.glass = value }
+        if t >= 1 { stopGlassFade() }
+    }
+
+    private func stopGlassFade() {
+        glassFade = nil
+        glassFadeLink?.invalidate()
+        glassFadeLink = nil
+    }
+
+    /// Wie `Animation.easeOut` von SwiftUI (Bézierkurve 0, 0, 0,58, 1)
+    static func easeOut(_ t: Double) -> Double {
+        let x2 = 0.58
+        // x(s) = 3(1-s)s²·x2 + s³ ist monoton: Lage s zur Zeit t per Halbieren
+        var lo = 0.0, hi = 1.0
+        for _ in 0..<30 {
+            let s = (lo + hi) / 2
+            let x = 3 * (1 - s) * s * s * x2 + s * s * s
+            if x < t { lo = s } else { hi = s }
+        }
+        let s = (lo + hi) / 2
+        // y(s) mit den Punkten 0, 0, 1, 1
+        return 3 * (1 - s) * (1 - s) * s * 0 + 3 * (1 - s) * s * s + s * s * s
     }
 
     private func detachTear(_ drag: TearDrag) {
@@ -2432,6 +2511,8 @@ extension EdgeController {
         drag.dockScreen = screen
         drag.dockFrom = drag.body
         drag.dockAttach = ui.tear?.attach ?? 0
+        // Schon an den Rand gedrückt (siehe updateAttraction): die Überblendung von dort weiter
+        drag.dockBlend = ui.tear?.dock ?? 0
         // Wo die Ablage dort sitzt: an der Wunschhöhe wie sonst (adaptiv: wo man losließ)
         if settings.adaptivePosition { adaptiveY = drag.body.midY }
         let centerY = panelCenterY(on: screen)
@@ -2468,7 +2549,7 @@ extension EdgeController {
             let reach = min(1, e * 1.35)
             // Noch in der Bewegung in die Form der angedockten Ablage überblenden; das letzte Viertel ist schon sie, am Ende springt nichts mehr
             setTear(gap: gap, attach: drag.dockAttach + (1 - drag.dockAttach) * reach, side: drag.dockSide,
-                    dock: CGFloat((t - 0.35) / 0.4))
+                    dock: max(drag.dockBlend, CGFloat((t - 0.35) / 0.4)))
         }
         applyTearFrame(body)
         if t >= 1 { finishDock(drag) }
@@ -2501,6 +2582,7 @@ extension EdgeController {
             }
             ui.tear = nil
             ui.grabbing = false
+            stopGlassFade()
             ui.tearGlass = 0
             removeGlassWindow()
             // Rahmen samt Bögen zum Bildschirm sind schon da (Überblendung in TearGoo)
@@ -2528,6 +2610,7 @@ extension EdgeController {
         withTransaction(transaction) {
             ui.tear = nil
             ui.grabbing = false
+            stopGlassFade()
             ui.tearGlass = 0
         }
         removeGlassWindow()

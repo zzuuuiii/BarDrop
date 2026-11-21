@@ -927,6 +927,18 @@ final class PluginRuntime {
         // kamen Zeilen in falscher Reihenfolge an.)
         let finished = DispatchGroup()
         finished.enter(); finished.enter(); finished.enter()
+        // Jeder Leser meldet sein Ende genau einmal: selbst oder, wenn ein im Hintergrund
+        // weiterlaufendes Unterprogramm die Ausgabe offen hält („sleep 1000 &“), kurz nach
+        // dem Ende des Programms an seiner Stelle. Sonst kam der Aufruf nie zurück.
+        let readerLock = NSLock()
+        var readerDone = [false, false]
+        func readerFinished(_ slot: Int) {
+            readerLock.lock()
+            let first = !readerDone[slot]
+            readerDone[slot] = true
+            readerLock.unlock()
+            if first { finished.leave() }
+        }
         func read(_ pipe: Pipe, stderr isErr: Bool) {
             Thread.detachNewThread {
                 let handle = pipe.fileHandleForReading
@@ -935,10 +947,16 @@ final class PluginRuntime {
                     if data.isEmpty { break }
                     collected.add(data, stderr: isErr, lines: lineHandler)
                 }
-                finished.leave()
+                readerFinished(isErr ? 1 : 0)
             }
         }
-        process.terminationHandler = { _ in finished.leave() }
+        process.terminationHandler = { _ in
+            finished.leave()
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 2) {
+                readerFinished(0)
+                readerFinished(1)
+            }
+        }
         let ended: () -> Void = { [weak self] in
             collected.flush(lines: lineHandler)
             if let self {

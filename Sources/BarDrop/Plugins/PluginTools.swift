@@ -26,6 +26,10 @@ final class PluginTools {
         var fetched: Date
         /// „Programme aktualisieren“: beim nächsten Gebrauch neu laden, ohne erneut zu fragen
         var outdated: Bool?
+        /// Aus welchem Archiv und unter welchem Pfad darin: Zwei Plugins mit derselben ZIP-Adresse,
+        /// aber verschiedenem `executable`, dürfen sich das Programm nicht teilen
+        var archive: String?
+        var executable: String?
     }
 
     /// Ordner aller geladenen Programme, auch anderer Plugins (für die Suche nach Programmen)
@@ -55,7 +59,8 @@ final class PluginTools {
             let dir = URL(fileURLWithPath: path, isDirectory: true)
             guard let data = try? Data(contentsOf: dir.appendingPathComponent("meta.json")),
                   let meta = try? JSONDecoder().decode(Meta.self, from: data),
-                  Self.isCurrent(meta, for: tool) else { continue }
+                  Self.isCurrent(meta, for: tool),
+                  tool.archive == nil || (meta.archive == tool.archive && meta.executable == tool.executable) else { continue }
             let files = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
             guard let binary = files.first(where: { $0.lastPathComponent != "meta.json" && fm.isExecutableFile(atPath: $0.path) }),
                   PluginPackage.sha256(of: binary)?.lowercased() == meta.sha256 || tool.archive == "zip" else { continue }
@@ -218,7 +223,8 @@ final class PluginTools {
         }
         try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: target.path)
         removexattr(target.path, "com.apple.quarantine", 0)
-        let meta = Meta(url: tool.resolvedURL, sha256: expected, fetched: Date())
+        let meta = Meta(url: tool.resolvedURL, sha256: expected, fetched: Date(),
+                        archive: tool.archive, executable: tool.executable)
         try JSONEncoder().encode(meta).write(to: folder(tool).appendingPathComponent("meta.json"))
         // Fassung aus dem alten, nur nach `id` benannten Ordner wird nicht mehr gebraucht
         try? fm.removeItem(at: legacyFolder(tool))

@@ -127,7 +127,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func registerHotKey(code: Int, modifiers: Int) {
+    private func registerHotKey(code: Int, modifiers: Int, attempt: Int = 0) {
         hotKey = nil
         let key = HotKey(keyCode: UInt32(clamping: code), modifiers: UInt32(clamping: modifiers)) { [weak self] in
             self?.controller.toggle()
@@ -135,6 +135,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         hotKey = key
         HotKeyStatus.shared.available = key.registered
+        // Beim Start hält eine gerade beendete andere Instanz (endOtherInstances) die
+        // Kombination oft noch kurz fest: einige Male nachfassen, solange sie gleich bleibt
+        if !key.registered, attempt < 3 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, self.hotKey === key,
+                      self.settings.hotKeyCode == code, self.settings.hotKeyModifiers == modifiers else { return }
+                self.registerHotKey(code: code, modifiers: modifiers, attempt: attempt + 1)
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

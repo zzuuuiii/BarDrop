@@ -7,8 +7,10 @@ final class DropboxProvider: OAuthCloudProvider, CloudProvider {
     static let shared = DropboxProvider()
     private init() { super.init(service: .dropbox) }
 
-    /// Bis zu dieser Größe in einem Stück (Dropbox erlaubt 150 MB), sonst in Stücken
-    private static let singleLimit: UInt64 = 140 * 1024 * 1024
+    /// Bis zu dieser Größe in einem Stück (Dropbox erlaubt 150 MB), sonst in Stücken. Klein
+    /// gehalten: In einem Stück lag die ganze Datei im Speicher, der Fortschritt stand bis zum
+    /// Ende auf 0, und ein abgebrochener Upload begann von vorn
+    private static let singleLimit: UInt64 = 16 * 1024 * 1024
     private static let chunkSize = 8 * 1024 * 1024
 
     override var oauthRequest: CloudOAuth.Request? {
@@ -67,18 +69,39 @@ final class DropboxProvider: OAuthCloudProvider, CloudProvider {
         }, body: Data())
         guard let session = start["session_id"] as? String else { throw CloudError(message: L("Dropbox didn’t start the upload.", "Dropbox hat das Hochladen nicht begonnen.")) }
         var offset: UInt64 = 0
+        var failures = 0
         while offset < size {
             try Task.checkCancellation()
             let piece = try Self.chunk(of: file, offset: offset, length: Self.chunkSize)
             guard !piece.isEmpty else { throw CloudError.fileChanged }
             let arg = Self.apiArg(["cursor": ["session_id": session, "offset": offset], "close": false])
-            _ = try await json({ token in
-                var r = Self.request(URL(string: "https://content.dropboxapi.com/2/files/upload_session/append_v2")!, method: "POST", token: token, json: false)
-                r.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
-                r.setValue(arg, forHTTPHeaderField: "Dropbox-API-Arg")
-                return r
-            }, body: piece)
-            offset += UInt64(piece.count)
+            let data: Data, response: HTTPURLResponse
+            do {
+                (data, response) = try await send({ token in
+                    var r = Self.request(URL(string: "https://content.dropboxapi.com/2/files/upload_session/append_v2")!, method: "POST", token: token, json: false)
+                    r.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+                    r.setValue(arg, forHTTPHeaderField: "Dropbox-API-Arg")
+                    return r
+                }, body: piece)
+            } catch where Self.isTransient(error) && failures < Self.maxRetries {
+                // Netz weg: dasselbe Stück noch einmal. Kam es doch an, nennt Dropbox den
+                // richtigen Stand (incorrect_offset, unten)
+                failures += 1
+                try await Self.waitBeforeRetry(failures)
+                continue
+            }
+            if response.statusCode == 200 {
+                offset += UInt64(piece.count)
+            } else if response.statusCode == 409, let correct = Self.correctOffset(data), correct > offset, correct <= size {
+                offset = correct
+            } else if Self.isTransient(status: response.statusCode), failures < Self.maxRetries {
+                failures += 1
+                try await Self.waitBeforeRetry(failures, response: response)
+                continue
+            } else {
+                throw CloudError.http(response.statusCode, data, service: service)
+            }
+            failures = 0
             progress(Double(offset) / Double(max(size, 1)), label)
         }
         let finish = Self.apiArg(["cursor": ["session_id": session, "offset": offset],
@@ -90,6 +113,15 @@ final class DropboxProvider: OAuthCloudProvider, CloudProvider {
             return r
         }, body: Data())
         return meta["path_lower"] as? String ?? path
+    }
+
+    /// Stand der Sitzung aus dem Fehler „incorrect_offset“ (das Stück war schon angekommen)
+    static func correctOffset(_ data: Data) -> UInt64? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let error = object["error"] as? [String: Any],
+              error[".tag"] as? String == "incorrect_offset",
+              let correct = error["correct_offset"] as? NSNumber else { return nil }
+        return correct.uint64Value
     }
 
     /// Öffentlicher Link; gibt es schon einen, wird er genommen

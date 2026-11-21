@@ -158,3 +158,21 @@ final class RegressionTests: XCTestCase {
         XCTAssertNil(AppDelegate.frame(apart, avoiding: NSRect(x: area.maxX - 50, y: area.maxY - 50, width: 40, height: 40)))
     }
 }
+
+/// Überblendung zu Glas im eigenen Takt (EdgeController.startGlassFade): dieselbe Kurve wie
+/// `Animation.easeOut` von SwiftUI, Bézier 0, 0, 0,58, 1
+final class GlassFadeCurveTests: XCTestCase {
+    func testEaseOutMatchesSwiftUICurve() {
+        XCTAssertEqual(EdgeController.easeOut(0), 0, accuracy: 1e-6)
+        XCTAssertEqual(EdgeController.easeOut(1), 1, accuracy: 1e-6)
+        // Werte der Kurve (0, 0, 0,58, 1), unabhängig nachgerechnet
+        XCTAssertEqual(EdgeController.easeOut(0.5), 0.6846, accuracy: 0.002)
+        XCTAssertEqual(EdgeController.easeOut(0.25), 0.3781, accuracy: 0.002)
+        var last = 0.0
+        for i in 1...100 {
+            let v = EdgeController.easeOut(Double(i) / 100)
+            XCTAssertGreaterThanOrEqual(v, last)
+            last = v
+        }
+    }
+}

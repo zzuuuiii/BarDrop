@@ -25,13 +25,19 @@ IDENTITY="-"
 TEMP_KEYCHAIN=""
 P12=""
 
-ORIGINAL_KEYCHAINS="$(security list-keychains -d user | tr -d '"')"
+# Als Liste, nicht als Text: Pfade mit Leerzeichen (Benutzerordner) blieben sonst nicht ganz
+ORIGINAL_KEYCHAINS=()
+while IFS= read -r line; do
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%\"}"; line="${line#\"}"
+  if [ -n "$line" ]; then ORIGINAL_KEYCHAINS+=("$line"); fi
+done < <(security list-keychains -d user)
 cleanup() {
   # Auch wenn der Import scheitert: die entschlüsselte Zertifikatsdatei nicht liegen lassen
   if [ -n "$P12" ]; then rm -f "$P12"; fi
   if [ -n "$TEMP_KEYCHAIN" ]; then
     # Suchliste wie vorher (auf einem Mac sonst bliebe der gelöschte Schlüsselbund darin)
-    security list-keychains -d user -s $ORIGINAL_KEYCHAINS
+    security list-keychains -d user -s ${ORIGINAL_KEYCHAINS[@]+"${ORIGINAL_KEYCHAINS[@]}"}
     security delete-keychain "$TEMP_KEYCHAIN" >/dev/null 2>&1 || true
   fi
 }
@@ -50,7 +56,7 @@ if [ -n "${BARDROP_SIGNING_P12:-}" ] && [ -n "${BARDROP_SIGNING_PASSWORD:-}" ]; 
   # codesign darf den Schlüssel ohne Rückfrage benutzen
   security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$TEMP_KEYCHAIN" >/dev/null
   # Schlüsselbund in die Suchliste, damit codesign die Identität findet
-  security list-keychains -d user -s "$TEMP_KEYCHAIN" $ORIGINAL_KEYCHAINS
+  security list-keychains -d user -s "$TEMP_KEYCHAIN" ${ORIGINAL_KEYCHAINS[@]+"${ORIGINAL_KEYCHAINS[@]}"}
   IDENTITY="$NAME"
 elif security find-certificate -c "$NAME" >/dev/null 2>&1; then
   IDENTITY="$NAME"

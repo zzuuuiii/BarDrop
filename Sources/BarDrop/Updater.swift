@@ -428,7 +428,8 @@ final class Updater: ObservableObject {
 
     private func fail(_ message: String, _ release: Release) {
         Log.update.error("Update fehlgeschlagen: \(message, privacy: .public)")
-        Diagnostics.shared.failure("update", "Update fehlgeschlagen: \(message)")
+        // Systemmeldungen nennen oft Datei- und Ordnernamen: wie alle Fehler im Protokoll entschärfen
+        Diagnostics.shared.failure("update", "Update fehlgeschlagen: \(Diagnostics.scrub(message))")
         DispatchQueue.main.async {
             self.state = .failed(message)
             // Still im Hintergrund: keine Meldung, beim nächsten Suchen neuer Versuch

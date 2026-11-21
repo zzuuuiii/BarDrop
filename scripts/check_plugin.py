@@ -34,8 +34,8 @@ MAX_SCRIPT = 1024 * 1024
 # Beschreibung höchstens so lang, je Sprache (wie PluginManifest.maxDescriptionLength): Sie steht
 # in der Galerie, auf bardrop.app und im Fenster vor dem Installieren und soll dort kurz bleiben
 MAX_DESCRIPTION = 100
-ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+$")
-VERSION_PATTERN = re.compile(r"^\d+(\.\d+){0,2}$")
+ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\.[A-Za-z0-9][A-Za-z0-9-]*)+\Z")
+VERSION_PATTERN = re.compile(r"^\d+(\.\d+){0,2}\Z")
 PERMISSIONS = {"network", "run", "clipboard"}
 TRIGGERS = {"menu", "action", "automatic"}
 SETTING_TYPES = {"toggle", "choice", "text"}

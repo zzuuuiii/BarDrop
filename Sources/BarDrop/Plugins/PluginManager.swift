@@ -361,6 +361,7 @@ final class PluginManager: ObservableObject {
 
     /// Liest alle installierten Plugins neu von der Platte (nach Bearbeiten, Installieren).
     func reload() {
+        let statesBefore = states
         let fm = FileManager.default
         let dirs = ((try? fm.contentsOfDirectory(at: pluginsDirectory, includingPropertiesForKeys: [.isDirectoryKey])) ?? [])
             .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true }
@@ -398,7 +399,11 @@ final class PluginManager: ObservableObject {
         }
         if found != plugins { plugins = found }
         if errors != broken { broken = errors }
-        order = found.map(\.id)
+        // Nur speichern, wenn sich etwas geändert hat: reload läuft bei jedem Seitenwechsel in den
+        // Plugin-Einstellungen, und jedes Speichern schrieb auch den ganzen Katalog neu
+        let newOrder = found.map(\.id)
+        guard newOrder != order || states != statesBefore else { return }
+        order = newOrder
         saveState()
     }
 
@@ -726,6 +731,12 @@ final class PluginManager: ObservableObject {
     func install(_ unpacked: PluginPackage.Unpacked, standard: Bool, keepPermissions: Bool = false) throws -> InstalledPlugin {
         let id = unpacked.manifest.id
         if !standard, state(id).isStandard, plugin(id) != nil { throw InstallError.standardExists }
+        // Der Plugin-Ordner unterscheidet keine Groß- und Kleinschreibung: „io.a.Foo“ würde die
+        // Dateien von „io.a.foo“ überschreiben (auch eines Standard-Plugins)
+        if plugins.contains(where: { $0.id != id && $0.id.lowercased() == id.lowercased() }) {
+            throw InstallError.failed(L("A plugin with the same identifier in different capitalization is already installed.",
+                                        "Ein Plugin mit derselben Kennung in anderer Groß- und Kleinschreibung ist schon installiert."))
+        }
         let fm = FileManager.default
         let target = pluginsDirectory.appendingPathComponent(id, isDirectory: true)
         let staging = pluginsDirectory.appendingPathComponent(".install-\(UUID().uuidString)", isDirectory: true)

@@ -148,8 +148,9 @@ extension ShelfActions {
         guard !ids.isEmpty else { return }
         let inStack = isInStack
         let anchor = inStack ? ui.memberAnchor : ui.selectionAnchor
-        let current = anchor.flatMap { ids.firstIndex(of: $0) } ?? (step > 0 ? -1 : ids.count)
-        let id = ids[min(max(current + step, 0), ids.count - 1)]
+        // Ohne Auswahl wählt jede Pfeiltaste wie im Finder das erste (↓ →) bzw. letzte (↑ ←) Objekt
+        let target = anchor.flatMap { ids.firstIndex(of: $0) }.map { $0 + step } ?? (step > 0 ? 0 : ids.count - 1)
+        let id = ids[min(max(target, 0), ids.count - 1)]
         let isJob = plugins.job(for: id) != nil
         if !extend {
             ui.jobSelection = []
@@ -294,6 +295,9 @@ extension ShelfActions {
         if isInStack { return openMembers(selectedMembers) }
         // ↩ bzw. ⌘O auf einem einzelnen Ordner: wie der Doppelklick in der Ablage zeigen
         let selected = selectedEntries
+        if selected.count == 1, let entry = selected.first, entry.isStack {
+            return openStack(entry)
+        }
         if selected.count == 1, let entry = selected.first, isBrowsableFolder(entry) {
             return openFolder(from: entry)
         }

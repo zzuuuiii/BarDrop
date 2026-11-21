@@ -128,7 +128,7 @@ struct MiniActionBar: View {
 
     var body: some View {
         let all = settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
-        let split = AppSettings.clampSplit(settings.actionRowSplit, count: all.count)
+        let split = AppSettings.clampSplit(settings.visibleRowSplit(shown: all), count: all.count)
         let rows = [Array(all.prefix(split)), Array(all.dropFirst(split).prefix(QuickAction.perRow))].filter { !$0.isEmpty }
         let size = iconSize(forActions: rows.map(\.count).max() ?? 1)
         VStack(spacing: 4 * scale) {
@@ -291,7 +291,9 @@ struct ActionBarPreview: View {
     /// Höhe des Ausschnitts: Leiste wie in der Ablage plus etwas Ablage darüber und Rand darunter
     private var barHeight: CGFloat {
         let all = settings.quickActions.filter { $0.kind != .plugin || PluginManager.shared.isActive($0.path) }
-        let rows: CGFloat = all.count > AppSettings.clampSplit(settings.actionRowSplit, count: all.count) ? 2 : 1
+        // Wie in der Leiste: eine leere obere Reihe zählt nicht mit
+        let split = AppSettings.clampSplit(settings.visibleRowSplit(shown: all), count: all.count)
+        let rows = CGFloat(max(1, (split > 0 ? 1 : 0) + (all.count > split ? 1 : 0)))
         let icon = CGFloat(settings.actionIconSize) + (settings.showActionLabels ? 16 : 10)
         return rows * icon + (rows - 1) * 4 + 34 + 10 + 14 + 6
     }

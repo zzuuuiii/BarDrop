@@ -1016,14 +1016,19 @@ struct ShelfContent: View {
         // Platzhalter laufender Plugins zählen mit, landen aber in ihrer eigenen Auswahl
         let jobIDs = Set(runner.jobs.map(\.id))
         let touched = Set(tileFrames.filter { $0.value.intersects(rect) }.map(\.key))
-        ui.jobSelection = jobsBeforeBand.union(touched.intersection(jobIDs))
+        // Nur bei Änderung zuweisen: @Published meldet auch gleiche Werte, und jede Meldung ließ
+        // bei jeder Mausbewegung alle Kacheln neu auswerten
+        let jobs = jobsBeforeBand.union(touched.intersection(jobIDs))
+        if ui.jobSelection != jobs { ui.jobSelection = jobs }
         let hit = touched.subtracting(jobIDs)
         if let stack {
-            ui.memberSelection = selectionBeforeBand.union(hit)
-            if let first = stack.files.first(where: { hit.contains($0.id) }) { ui.memberAnchor = first.id }
+            let members = selectionBeforeBand.union(hit)
+            if ui.memberSelection != members { ui.memberSelection = members }
+            if let first = stack.files.first(where: { hit.contains($0.id) }), ui.memberAnchor != first.id { ui.memberAnchor = first.id }
         } else {
-            ui.selection = selectionBeforeBand.union(hit)
-            if let first = actions.orderedEntries.first(where: { hit.contains($0.id) }) { ui.selectionAnchor = first.id }
+            let selection = selectionBeforeBand.union(hit)
+            if ui.selection != selection { ui.selection = selection }
+            if let first = actions.orderedEntries.first(where: { hit.contains($0.id) }), ui.selectionAnchor != first.id { ui.selectionAnchor = first.id }
         }
     }
 
@@ -1254,7 +1259,7 @@ struct TileView: View {
                 onMouseDown: { mods in actions.select(entry, modifiers: mods) },
                 onClick: { clicks, mods in
                     actions.clickedWithoutDrag(entry, modifiers: mods)
-                    if clicks >= 2 && !entry.isStack { actions.activate(entry) }
+                    if clicks >= 2 { actions.activate(entry) }   // Stapel öffnen sich wie Ordner per Doppelklick
                 },
                 onDragEnded: { operation in
                     actions.dragEnded(actions.targets(for: entry).flatMap(\.files), operation: operation)

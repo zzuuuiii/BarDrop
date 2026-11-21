@@ -160,18 +160,31 @@ enum PluginPackage {
         let fm = FileManager.default
         let base = directory.standardizedFileURL.path
         var files: [(path: String, url: URL)] = []
-        if let walker = fm.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey]) {
+        var links: Set<String> = []
+        if let walker = fm.enumerator(at: directory, includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]) {
             for case let url as URL in walker {
                 guard url.lastPathComponent != ".DS_Store",
-                      (try? url.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true else { continue }
+                      let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else { continue }
+                // Auch symbolische Links zählen: Sonst ließe sich main.js gegen einen Link auf
+                // anderen Code tauschen, ohne dass die Rechte verfallen
+                let isLink = values.isSymbolicLink == true
+                guard isLink || values.isRegularFile == true else { continue }
                 let full = url.standardizedFileURL.path
                 guard full.hasPrefix(base + "/") else { continue }
-                files.append((String(full.dropFirst(base.count + 1)), url))
+                let relative = String(full.dropFirst(base.count + 1))
+                if isLink { links.insert(relative) }
+                files.append((relative, url))
             }
         }
         var hasher = SHA256()
         for file in files.sorted(by: { $0.path < $1.path }) {
-            let data = (try? Data(contentsOf: file.url)) ?? Data()
+            let data: Data
+            if links.contains(file.path) {
+                let target = (try? fm.destinationOfSymbolicLink(atPath: file.url.path)) ?? ""
+                data = Data("symlink\u{0}\(target)".utf8)
+            } else {
+                data = (try? Data(contentsOf: file.url)) ?? Data()
+            }
             // Pfad und Länge vor dem Inhalt: keine zwei verschiedenen Ordner ergeben dieselbe Folge
             hasher.update(data: Data("\(file.path)\u{0}\(data.count)\u{0}".utf8))
             hasher.update(data: data)

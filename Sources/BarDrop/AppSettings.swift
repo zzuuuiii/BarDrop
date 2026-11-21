@@ -387,6 +387,16 @@ final class AppSettings: ObservableObject {
         Self.clampSplit(actionRowSplit, count: quickActions.count)
     }
 
+    /// Teilung für die sichtbaren Aktionen: `actionRowSplit` zählt in der ganzen Liste, die Leiste
+    /// zeigt ausgeschaltete Plugins aber nicht. Ohne Umrechnung rutschten Aktionen dann in die
+    /// andere Reihe als in den Einstellungen. Ist nichts ausgeblendet, bleibt der Wert unverändert.
+    func visibleRowSplit(shown visible: [QuickAction]) -> Int {
+        guard visible.count != quickActions.count else { return actionRowSplit }
+        let split = Self.clampSplit(actionRowSplit, count: quickActions.count)
+        let top = Set(quickActions.prefix(split).map(\.id))
+        return visible.filter { top.contains($0.id) }.count
+    }
+
     static func clampSplit(_ split: Int, count: Int) -> Int {
         let per = QuickAction.perRow
         return min(max(split, max(0, count - per)), min(per, count))

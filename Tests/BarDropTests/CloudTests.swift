@@ -43,4 +43,25 @@ final class CloudTests: XCTestCase {
             XCTAssertFalse(service.title.isEmpty)
         }
     }
+
+    /// Neuer Versuch beim Hochladen: nur bei vorübergehenden Fehlern
+    func testTransientUploadErrors() {
+        XCTAssertTrue(OAuthCloudProvider.isTransient(URLError(.networkConnectionLost)))
+        XCTAssertTrue(OAuthCloudProvider.isTransient(URLError(.timedOut)))
+        XCTAssertFalse(OAuthCloudProvider.isTransient(URLError(.cancelled)))
+        XCTAssertFalse(OAuthCloudProvider.isTransient(CancellationError()))
+        XCTAssertTrue(OAuthCloudProvider.isTransient(status: 429))
+        XCTAssertTrue(OAuthCloudProvider.isTransient(status: 503))
+        XCTAssertFalse(OAuthCloudProvider.isTransient(status: 507))   // voll
+        XCTAssertFalse(OAuthCloudProvider.isTransient(status: 401))
+        XCTAssertFalse(OAuthCloudProvider.isTransient(status: 404))
+    }
+
+    /// Dropbox: Stück war schon angekommen, weiter beim genannten Stand
+    func testDropboxCorrectOffset() {
+        let body = Data(#"{"error_summary":"incorrect_offset/..","error":{".tag":"incorrect_offset","correct_offset":8388608}}"#.utf8)
+        XCTAssertEqual(DropboxProvider.correctOffset(body), 8_388_608)
+        XCTAssertNil(DropboxProvider.correctOffset(Data(#"{"error":{".tag":"not_found"}}"#.utf8)))
+        XCTAssertNil(DropboxProvider.correctOffset(Data("kaputt".utf8)))
+    }
 }

@@ -44,6 +44,9 @@ enum EdgeTear {
     static func lightCover(_ glass: Double) -> Double { max(0, min(1, glass * 2.5)) }
     /// Bis zu diesem Abstand zum Rand zieht er die Ablage wieder an
     static let attachZone: CGFloat = 60
+    /// Auf den letzten Punkten vor dem Rand verbindet sie sich nach und nach ganz mit ihm und
+    /// wird schwarz (an ihn gedrückt ganz)
+    static let contactZone: CGFloat = 40
     /// Dehnen bis zum Lösen: höchstens so weit (pt) folgt die Ablage, und so schnell wird es
     /// zäh (anfangs folgt sie gut, kurz vor dem Reißen kaum noch)
     /// Weniger zäh als vorher (30/40): Beim Lösen liegt der Zeiger nur noch rund 14 statt 29 pt
@@ -118,32 +121,10 @@ struct TearGoo: View, Animatable {
         let black = 1 - glass
         ZStack {
             if glass > 0.001 {
-                // Schatten nur außerhalb der Ablage: Unter dem Glas sähe man ihn sonst durch
-                bodyShape
-                    .fill(Color.black)
-                    .shadow(color: .black.opacity(0.45), radius: 18, x: 0, y: 8)
-                    // Maske reicht über den Rahmen hinaus, sonst war der Schatten unten abgeschnitten
-                    .mask {
-                        OutsideBodyShape(reach: reach, inset: inset, attach: tear.attach, side: tear.side)
-                            .fill(style: FillStyle(eoFill: true))
-                    }
-                    .opacity(1 - black)
-                // Das Glas selbst liegt in einem Begleitfenster darunter (ShelfGlassWindow),
-                // hier nur die eigene dunkle Tönung darüber
-                bodyShape
-                    .fill(light ? Color.white.opacity(EdgeTear.glassLighten) : Color.black.opacity(EdgeTear.glassDarken(light: false)))
-                    .opacity(light ? EdgeTear.lightCover(glass) : glass)
-                // Lichtkante wie bei Liquid Glass: oben links hell, unten rechts schwächer, innen auf
-                // dem Rand. Die Tönung darüber dämpfte die Kante des Glases selbst (Nutzer, 27.10.2026)
-                if !light {
-                    bodyShape
-                        .stroke(LinearGradient(colors: [.white.opacity(0.42), .white.opacity(0.12), .white.opacity(0.06), .white.opacity(0.22)],
-                                               startPoint: .topLeading, endPoint: .bottomTrailing),
-                                lineWidth: 3)
-                        // Nur die innere Hälfte (1,5 pt) auf der Ablage
-                        .mask { bodyShape.fill(Color.black) }
-                        .opacity(glass)
-                }
+                // Schatten außen, Tönung und Lichtkante in einem Bild. Vorher war es je eine
+                // Ebene mit `.mask` (Schatten nur außerhalb, Lichtkante nur innen), die in jedem
+                // Bild des Übergangs eigens gerechnet wurde (gleiches Aussehen, verglichen 21.11.2026)
+                glassLayer
             }
             // Überblendung zur angedockten Form: erst kommt sie dazu, dann geht die
             // verschmelzende Form; so gibt es keinen Moment, in dem es durchscheint
@@ -163,8 +144,10 @@ struct TearGoo: View, Animatable {
                     solid.opacity(1 - gooOut)
                 } else if glass < 0.999 || attach > 0.01 {
                     // Das Schwarz zieht sich zum Rand hin zurück, als bliebe es dort hängen (beim
-                    // Andocken kommt es von dort wieder)
-                    solid.mask { darkness(attach: attach) }
+                    // Andocken kommt es von dort wieder). Fläche und Verlauf in einem Bild statt
+                    // als `.mask`: spart in jedem Bild des Übergangs eine eigene Maskenebene unter
+                    // dem gemeinsamen Schatten (gleiches Aussehen, pixelgenau verglichen 21.11.2026)
+                    maskedSolid(attach: attach)
                         .opacity(1 - gooOut)
                 }
                 if dockIn > 0.001, let docked {
@@ -199,13 +182,87 @@ struct TearGoo: View, Animatable {
 
     /// Wie schwarz die Ablage wo ist: Das Schwarz weicht von der fernen Seite zum Rand hin
     /// zurück; solange sie mit dem Rand verbunden ist, bleibt es dort an der Verbindung
-    private func darkness(attach: Double) -> some View {
+    /// Die schwarze Fläche (`solid`), schon mit dem Verlauf aus `darkness` maskiert, in einem
+    /// einzigen Canvas: gleiche Formen und Maße wie vorher, nur ohne eigene Maskenebene
+    private func maskedSolid(attach: Double) -> some View {
+        let beyond = Self.darknessBeyond
+        return Canvas { context, size in
+            let frame = CGRect(x: beyond, y: beyond, width: size.width - 2 * beyond, height: size.height - 2 * beyond)
+            guard frame.width > 0, frame.height > 0 else { return }
+            // Fläche wie `solid`, auf ihren Rahmen beschnitten (dort endete vorher ihr Canvas)
+            context.drawLayer { surface in
+                surface.clip(to: Path(frame))
+                surface.translateBy(x: beyond, y: beyond)
+                if tear.attach > 0.01 {
+                    surface.addFilter(.alphaThreshold(min: 0.5, color: .black))
+                    surface.addFilter(.blur(radius: 7))
+                    surface.drawLayer { layer in drawGooShapes(layer, size: frame.size, grow: 0) }
+                } else {
+                    let grow: CGFloat = outline ? 1 : 0
+                    let rect = CGRect(origin: .zero, size: frame.size).insetBy(dx: reach - grow, dy: inset - grow)
+                    if rect.width > 0, rect.height > 0 {
+                        surface.fill(RoundedRectangle(cornerRadius: EdgeTear.cornerRadius + grow, style: .continuous).path(in: rect),
+                                     with: .color(.black))
+                    }
+                }
+            }
+            // Verlauf darüber als Maske (wie `.mask`: Deckkraft der Fläche mal Deckkraft des Verlaufs)
+            context.blendMode = .destinationIn
+            context.drawLayer { mask in drawDarkness(mask, size: size, attach: attach) }
+        }
+        .padding(-beyond)
+    }
+
+    /// Was nur auf Glas dazukommt: Schatten außerhalb der Ablage, eigene Tönung darüber und
+    /// (dunkel) die Lichtkante innen auf dem Rand. Gleiche Werte wie vorher als einzelne Ebenen
+    private var glassLayer: some View {
+        let beyond = Self.darknessBeyond
+        let glass = self.glass, light = self.light
+        let tear = self.tear, reach = self.reach, inset = self.inset
+        return Canvas { context, size in
+            let frame = CGRect(x: beyond, y: beyond, width: size.width - 2 * beyond, height: size.height - 2 * beyond)
+            let shape = TearBodyShape(reach: reach, inset: inset, attach: tear.attach, side: tear.side).path(in: frame)
+            guard !shape.isEmpty else { return }
+            // Schatten nur außerhalb: Fläche mit Schatten zeichnen, die Fläche selbst wieder heraus
+            var shadow = context
+            shadow.opacity = glass
+            shadow.drawLayer { outside in
+                outside.drawLayer { shadowed in
+                    shadowed.addFilter(.shadow(color: .black.opacity(0.45), radius: 18, x: 0, y: 8))
+                    shadowed.fill(shape, with: .color(.black))
+                }
+                outside.blendMode = .destinationOut
+                outside.fill(shape, with: .color(.black))
+            }
+            // Eigene Tönung über dem Glas (das Glas selbst liegt im Begleitfenster darunter)
+            var tint = context
+            tint.opacity = light ? EdgeTear.lightCover(glass) : glass
+            tint.fill(shape, with: .color(light ? Color.white.opacity(EdgeTear.glassLighten)
+                                                : Color.black.opacity(EdgeTear.glassDarken(light: false))))
+            // Lichtkante wie bei Liquid Glass: oben links hell, unten rechts schwächer, nur die
+            // innere Hälfte (1,5 pt) auf der Ablage
+            if !light {
+                var rim = context
+                rim.opacity = glass
+                rim.clip(to: shape)
+                rim.stroke(shape, with: .linearGradient(Gradient(colors: [.white.opacity(0.42), .white.opacity(0.12), .white.opacity(0.06), .white.opacity(0.22)]),
+                                                        startPoint: CGPoint(x: frame.minX, y: frame.minY),
+                                                        endPoint: CGPoint(x: frame.maxX, y: frame.maxY)),
+                           lineWidth: 3)
+            }
+        }
+        .padding(-beyond)
+    }
+
+    /// Über den Rahmen hinaus zeichnen (Schatten), dafür die Fläche größer und verschoben
+    private static let darknessBeyond: CGFloat = 120
+
+    private func drawDarkness(_ context: GraphicsContext, size: CGSize, attach: Double) {
         let glass = self.glass
         let fromLeft = tear.side == .left
         let reach = self.reach, inset = self.inset
-        // Über den Rahmen hinaus zeichnen (Schatten), dafür die Fläche größer und verschoben
-        let beyond: CGFloat = 120
-        return Canvas { context, size in
+        let beyond = Self.darknessBeyond
+        do {
             let frame = CGRect(x: beyond, y: beyond, width: size.width - 2 * beyond, height: size.height - 2 * beyond)
             let body = frame.insetBy(dx: reach, dy: inset)
             guard body.width > 0, body.height > 0 else { return }
@@ -261,7 +318,6 @@ struct TearGoo: View, Animatable {
             }
             }
         }
-        .padding(-beyond)
     }
 
     /// Nur die Kontur der angedockten Form, ohne Linie am Bildschirmrand (wie ihr Rahmen)
@@ -432,20 +488,6 @@ struct TearBodyShape: Shape {
 struct BeyondFrameShape: Shape {
     func path(in rect: CGRect) -> Path {
         Path(rect.insetBy(dx: -120, dy: -120))
-    }
-}
-
-/// Alles außer der losgelösten Ablage, über den Rahmen hinaus (mit eoFill)
-struct OutsideBodyShape: Shape {
-    let reach: CGFloat
-    let inset: CGFloat
-    var attach: CGFloat = 0
-    var side: ScreenEdge = .left
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path(rect.insetBy(dx: -120, dy: -120))
-        path.addPath(TearBodyShape(reach: reach, inset: inset, attach: attach, side: side).path(in: rect))
-        return path
     }
 }
 

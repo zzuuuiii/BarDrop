@@ -196,6 +196,39 @@
       "minAppVersion": "1.31.0",
       "toolsSize": 91097024,
       "downloads": 16
+    },
+    {
+      "id": "io.github.zzuuuiii.strip-metadata",
+      "version": "1.0.0",
+      "name": {
+        "en": "Remove Metadata",
+        "de": "Metadaten entfernen"
+      },
+      "url": "https://github.com/zzuuuiii/BarDrop/releases/download/plugin-galerie/io.github.zzuuuiii.strip-metadata-1.0.0.bdrop",
+      "sha256": "59dfeb06dba292669c0322041a388b3e8bf9340050e7e25b37e160f09b2423f6",
+      "size": 13322,
+      "updated": "2026-11-22",
+      "added": "2026-11-22",
+      "permissions": [
+        "run"
+      ],
+      "tools": [
+        "FFmpeg (Apple chip)",
+        "FFmpeg (Intel)"
+      ],
+      "description": {
+        "en": "Strips location, camera, author and other metadata from photos, PDFs, Office files, video and audio.",
+        "de": "Entfernt Ort, Kamera, Autor und weitere Metadaten aus Fotos, PDFs, Office-Dateien, Videos und Ton."
+      },
+      "icon": {
+        "symbol": "eye.slash.fill",
+        "color": "#30B0C7"
+      },
+      "author": "zzuuuiii",
+      "minAppVersion": "1.31.0",
+      "category": "files",
+      "toolsSize": 45568216,
+      "downloads": 0
     }
   ]
 }

@@ -535,8 +535,11 @@ final class OnboardingController: NSObject, NSWindowDelegate {
 
     // MARK: Fenster
 
-    /// Etwas kleiner als die Einstellungen (680 × 700), im selben Aufbau
-    static let size = NSSize(width: 680, height: 620)
+    /// Aufbau wie die Einstellungen (Seitenleiste 244 pt), so breit, dass die Szene (500 pt)
+    /// mit dem Rand der Einstellungsseiten genau hineinpasst. So hoch, dass unter der längsten
+    /// Seite kaum Leerraum bleibt (bei 620 pt stand „Weiter“ weit unter dem Inhalt)
+    static let size = NSSize(width: OnboardingView.sidebarWidth + 1 + DemoLayout.shown.width + 2 * OnboardingView.pagePadding,
+                             height: 500)
 
     /// Fenster wie die Einstellungen: hohe, durchsichtige Titelleiste, leicht durchscheinend,
     /// feste Größe, mittig. Liegt über dem abgedunkelten Hintergrund (siehe `backdropLevel`), damit man beim Üben zum Rand ziehen kann.
@@ -553,7 +556,7 @@ final class OnboardingController: NSObject, NSWindowDelegate {
         window.toolbar = NSToolbar(identifier: "BarDropIntroduction")
         window.toolbarStyle = .unified
         window.titlebarSeparatorStyle = .none
-        window.title = L("Welcome to BarDrop", "Willkommen bei BarDrop")
+        window.title = "BarDrop"
         window.isMovableByWindowBackground = false
         window.isReleasedWhenClosed = false
         window.isOpaque = false
@@ -603,30 +606,30 @@ final class OnboardingController: NSObject, NSWindowDelegate {
         } catch {
             return nil
         }
-        // Eine Landschaft: Himmel, Sonne, Berge und See, im Querformat wie ein Foto
+        // Eine ruhige Landschaft: weicher Himmel, Sonne, zwei sanfte Hügel. Vorher kantige Berge
+        // und ein See in vielen Farben, das wirkte wie Clipart (Nutzer, 22.11.2026)
         let image = NSImage(size: NSSize(width: 640, height: 480), flipped: false) { rect in
-            NSGradient(starting: NSColor(red: 0.36, green: 0.62, blue: 0.98, alpha: 1),
-                       ending: NSColor(red: 0.98, green: 0.78, blue: 0.62, alpha: 1))?.draw(in: rect, angle: -90)
-            NSColor(red: 1, green: 0.93, blue: 0.72, alpha: 1).setFill()
-            NSBezierPath(ovalIn: NSRect(x: 420, y: 250, width: 96, height: 96)).fill()
-            func mountain(_ points: [NSPoint], _ color: NSColor) {
-                color.setFill()
+            NSGradient(colors: [NSColor(red: 0.98, green: 0.84, blue: 0.70, alpha: 1),
+                                NSColor(red: 0.62, green: 0.76, blue: 0.95, alpha: 1),
+                                NSColor(red: 0.38, green: 0.58, blue: 0.92, alpha: 1)])?.draw(in: rect, angle: 90)
+            NSGradient(starting: NSColor(red: 1, green: 0.96, blue: 0.86, alpha: 0.9),
+                       ending: NSColor(red: 1, green: 0.96, blue: 0.86, alpha: 0))?
+                .draw(fromCenter: NSPoint(x: 430, y: 230), radius: 0, toCenter: NSPoint(x: 430, y: 230), radius: 150, options: [])
+            NSColor(red: 1, green: 0.97, blue: 0.9, alpha: 1).setFill()
+            NSBezierPath(ovalIn: NSRect(x: 400, y: 200, width: 60, height: 60)).fill()
+            func hill(from y0: CGFloat, c1: NSPoint, c2: NSPoint, to y1: CGFloat, _ top: NSColor, _ bottom: NSColor) {
                 let path = NSBezierPath()
-                path.move(to: NSPoint(x: 0, y: 150))
-                points.forEach { path.line(to: $0) }
-                path.line(to: NSPoint(x: 640, y: 150))
+                path.move(to: NSPoint(x: 0, y: y0))
+                path.curve(to: NSPoint(x: 640, y: y1), controlPoint1: c1, controlPoint2: c2)
                 path.line(to: NSPoint(x: 640, y: 0))
                 path.line(to: .zero)
                 path.close()
-                path.fill()
+                NSGradient(starting: top, ending: bottom)?.draw(in: path, angle: -90)
             }
-            mountain([NSPoint(x: 120, y: 300), NSPoint(x: 230, y: 220), NSPoint(x: 360, y: 330), NSPoint(x: 520, y: 190)],
-                     NSColor(red: 0.42, green: 0.45, blue: 0.68, alpha: 1))
-            mountain([NSPoint(x: 80, y: 210), NSPoint(x: 200, y: 260), NSPoint(x: 340, y: 190), NSPoint(x: 470, y: 240), NSPoint(x: 640, y: 175)],
-                     NSColor(red: 0.2, green: 0.45, blue: 0.4, alpha: 1))
-            NSGradient(starting: NSColor(red: 0.3, green: 0.58, blue: 0.9, alpha: 1),
-                       ending: NSColor(red: 0.16, green: 0.36, blue: 0.66, alpha: 1))?
-                .draw(in: NSRect(x: 0, y: 0, width: 640, height: 150), angle: -90)
+            hill(from: 230, c1: NSPoint(x: 220, y: 330), c2: NSPoint(x: 420, y: 150), to: 210,
+                 NSColor(red: 0.45, green: 0.62, blue: 0.55, alpha: 1), NSColor(red: 0.30, green: 0.48, blue: 0.42, alpha: 1))
+            hill(from: 120, c1: NSPoint(x: 260, y: 90), c2: NSPoint(x: 420, y: 230), to: 170,
+                 NSColor(red: 0.28, green: 0.47, blue: 0.36, alpha: 1), NSColor(red: 0.18, green: 0.34, blue: 0.27, alpha: 1))
             return true
         }
         guard let tiff = image.tiffRepresentation,
@@ -839,14 +842,42 @@ final class IntroBandShade: NSPanel {
 extension OnboardingModel.Step {
     var title: String {
         switch self {
-        case .welcome: return L("Welcome", "Willkommen")
+        case .welcome: return L("Set Up", "Einrichten")
         case .drop: return L("Drop", "Ablegen")
         case .takeOut: return L("Drag Out", "Herausziehen")
         case .retrieve: return L("Actions", "Aktionen")
         case .shortcut: return L("Keyboard Shortcut", "Tastaturkurzbefehl")
         case .detach: return L("Pull Off the Edge", "Vom Rand abziehen")
         case .hover: return L("Open with the Pointer", "Mit dem Zeiger öffnen")
-        case .features: return L("Discover More", "Mehr entdecken")
+        case .features: return L("More Features", "Weitere Funktionen")
+        }
+    }
+
+    /// Symbol in der Seitenleiste und über der Seite, wie bei den Bereichen der Einstellungen.
+    /// Wo es einen passenden Bereich gibt, dessen Farbe
+    var symbol: String {
+        switch self {
+        case .welcome: return "switch.2"
+        case .drop: return "tray.and.arrow.down.fill"
+        case .hover: return "cursorarrow"
+        case .takeOut: return "tray.and.arrow.up.fill"
+        case .retrieve: return SettingsPane.actions.symbol
+        case .shortcut: return "command"
+        case .detach: return "hand.draw.fill"
+        case .features: return "ellipsis"
+        }
+    }
+
+    var tint: Color {
+        switch self {
+        case .welcome: return Color(red: 0.2, green: 0.47, blue: 1)
+        case .drop: return SettingsPane.items.tint
+        case .hover: return SettingsPane.opening.tint
+        case .takeOut: return Color(red: 0.0, green: 0.68, blue: 0.82)
+        case .retrieve: return SettingsPane.actions.tint
+        case .shortcut: return SettingsPane.general.tint
+        case .detach: return SettingsPane.appearance.tint
+        case .features: return SettingsPane.about.tint
         }
     }
 }
@@ -857,27 +888,74 @@ struct OnboardingView: View {
     @ObservedObject private var settings = AppSettings.shared
     var openSettings: () -> Void
 
+    /// Wie die Einstellungen: Seitenleiste mit den Schritten, rechts Überschrift mit Symbol,
+    /// darunter Szene, ein Satz und die Übung als Karte. Vorher eine eigene, mittige
+    /// Präsentation mit Punkten unten; sie wirkte neben der App fremd und kantig (Nutzer,
+    /// 22.11.2026: „mehr wie das Einstellungsmenü“)
     var body: some View {
-        VStack(spacing: 0) {
-            page
-                .id(model.step)
-                .transition(.opacity)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.top, 52)          // unter der Titelleiste mit den Fensterknöpfen
-
-            footer
-                .padding(.horizontal, 22)
-                .frame(height: 64)
-                // Feine Linie über den Knöpfen wie in den Fenstern von macOS: trennt die
-                // Navigation von der Seite
-                .overlay(alignment: .top) {
-                    Rectangle().fill(SettingsTheme.cardBorder).frame(height: 1)
-                }
+        HStack(spacing: 0) {
+            sidebar
+                .frame(width: OnboardingView.sidebarWidth)
+                .frame(maxHeight: .infinity)
+                .background(SettingsTheme.sidebarBackdrop)
+            Rectangle()
+                .fill(SettingsTheme.divider)
+                .frame(width: 1)
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                page
+                    .id(model.step)
+                    .transition(.opacity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                footer
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 18)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(SettingsTheme.contentBackdrop)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(SettingsTheme.contentBackdrop)
         .background(SettingsBackdrop().ignoresSafeArea())
         .ignoresSafeArea()
+        .environment(\.colorfulIcons, true)
+    }
+
+    /// So breit wie in den Einstellungen
+    static let sidebarWidth: CGFloat = 244
+
+    // MARK: Seitenleiste
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(OnboardingModel.Step.allCases) { step in
+                StepRow(step: step, selected: model.step == step, done: model.completed.contains(step)) {
+                    model.go(to: step)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 13)
+        .padding(.top, SettingsRoot.sidebarTop)
+        .padding(.bottom, 13)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(L("Step \(model.step.rawValue + 1) of \(OnboardingModel.Step.allCases.count)",
+                              "Schritt \(model.step.rawValue + 1) von \(OnboardingModel.Step.allCases.count)"))
+    }
+
+    // MARK: Überschrift
+
+    /// Symbol und Titel wie über den Seiten der Einstellungen, auf Höhe der Fensterknöpfe
+    private var header: some View {
+        HStack(spacing: 10) {
+            SymbolTile(symbol: model.step.symbol, tint: model.step.tint, size: 24)
+            Text(model.step.title)
+                .font(.system(size: 17, weight: .semibold))
+        }
+        .padding(.leading, 20)
+        .frame(height: SettingsRoot.sidebarTop)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .id(model.step)
+        .transition(.opacity)
     }
 
     @ViewBuilder
@@ -894,178 +972,179 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: Unten: Zurück, Fortschritt, Weiter
+    // MARK: Unten: Zurück und Weiter
 
     private var footer: some View {
-        ZStack {
-            StepDots(current: model.step, completed: model.completed) { model.go(to: $0) }
-            HStack(spacing: 8) {
-                switch model.step {
-                case .welcome:
-                    Button(L("Skip", "Überspringen")) { model.onFinish(false) }
+        HStack(spacing: 8) {
+            switch model.step {
+            case .welcome:
+                Button(L("Skip", "Überspringen")) { model.onFinish(false) }
+                    .buttonStyle(KlackButtonStyle())
+                    .keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(L("Let’s Go", "Los geht’s")) { model.advance() }
+                    .buttonStyle(KlackButtonStyle(prominent: true))
+                    .keyboardShortcut(.defaultAction)
+            case .features:
+                Button(L("Back", "Zurück")) { model.back() }
+                    .buttonStyle(KlackButtonStyle())
+                Spacer()
+                Button(L("Done", "Fertig")) { model.advance() }
+                    .buttonStyle(KlackButtonStyle(prominent: true))
+                    .keyboardShortcut(.defaultAction)
+            default:
+                Button(L("Back", "Zurück")) { model.back() }
+                    .buttonStyle(KlackButtonStyle())
+                Spacer()
+                // Schwebt die Ablage, holt esc sie zurück an den Rand, auch wenn das Fenster
+                // der Einführung den Fokus hat (wie esc in der Ablage selbst)
+                if model.step == .detach && model.shelfFloating {
+                    Button("") { model.onReturnShelf() }
+                        .keyboardShortcut(.cancelAction)
+                        .opacity(0)
+                        .frame(width: 0, height: 0)
+                        .accessibilityHidden(true)
+                }
+                // Seiten ohne Übung: gleich „Weiter“
+                if model.stepDone || !OnboardingModel.practice.contains(model.step) {
+                    Button(L("Continue", "Weiter")) { model.advance() }
+                        .buttonStyle(KlackButtonStyle(prominent: true))
+                        .keyboardShortcut(.defaultAction)
+                } else {
+                    Button(L("Skip", "Überspringen")) { model.advance() }
                         .buttonStyle(KlackButtonStyle())
                         .keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button(L("Let’s Go", "Los geht’s")) { model.advance() }
-                        .buttonStyle(KlackButtonStyle(prominent: true))
-                        .keyboardShortcut(.defaultAction)
-                case .features:
-                    Button(L("Back", "Zurück")) { model.back() }
-                        .buttonStyle(KlackButtonStyle())
-                    Spacer()
-                    Button(L("Done", "Fertig")) { model.advance() }
-                        .buttonStyle(KlackButtonStyle(prominent: true))
-                        .keyboardShortcut(.defaultAction)
-                default:
-                    Button(L("Back", "Zurück")) { model.back() }
-                        .buttonStyle(KlackButtonStyle())
-                    Spacer()
-                    // Schwebt die Ablage, holt esc sie zurück an den Rand, auch wenn das Fenster
-                    // der Einführung den Fokus hat (wie esc in der Ablage selbst)
-                    if model.step == .detach && model.shelfFloating {
-                        Button("") { model.onReturnShelf() }
-                            .keyboardShortcut(.cancelAction)
-                            .opacity(0)
-                            .frame(width: 0, height: 0)
-                            .accessibilityHidden(true)
-                    }
-                    // Seiten ohne Übung: gleich „Weiter“
-                    if model.stepDone || !OnboardingModel.practice.contains(model.step) {
-                        Button(L("Continue", "Weiter")) { model.advance() }
-                            .buttonStyle(KlackButtonStyle(prominent: true))
-                            .keyboardShortcut(.defaultAction)
-                    } else {
-                        Button(L("Skip", "Überspringen")) { model.advance() }
-                            .buttonStyle(KlackButtonStyle())
-                            .keyboardShortcut(.cancelAction)
-                    }
                 }
             }
         }
     }
 }
 
-/// Fortschritt als Punkte; geschaffte Übungen grün, ein Klick springt zum Schritt.
-private struct StepDots: View {
-    let current: OnboardingModel.Step
-    let completed: Set<OnboardingModel.Step>
-    let go: (OnboardingModel.Step) -> Void
+/// Ein Schritt in der Seitenleiste, wie ein Bereich der Einstellungen. Geschaffte Schritte
+/// tragen rechts einen grünen Haken.
+private struct StepRow: View {
+    let step: OnboardingModel.Step
+    let selected: Bool
+    let done: Bool
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(OnboardingModel.Step.allCases) { step in
-                Button { go(step) } label: {
-                    Capsule()
-                        .fill(color(step))
-                        .frame(width: step == current ? 18 : 7, height: 7)
-                        .padding(.vertical, 6)
-                        .contentShape(Rectangle())
+        Button(action: action) {
+            HStack(spacing: 9) {
+                SymbolTile(symbol: step.symbol, tint: step.tint)
+                Text(step.title)
+                    .font(.system(size: 14))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                if done {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 15))
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, Color.green)
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        .accessibilityLabel(L("Done", "Geschafft"))
                 }
-                .buttonStyle(.plain)
-                .help(step.title)
             }
+            .padding(.horizontal, 9)
+            .frame(height: 42)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(selected ? SettingsTheme.sidebarSelection : Color.primary.opacity(hovering ? 0.04 : 0))
+            )
+            .contentShape(Rectangle())
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: current)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L("Step \(current.rawValue + 1) of \(OnboardingModel.Step.allCases.count)",
-                              "Schritt \(current.rawValue + 1) von \(OnboardingModel.Step.allCases.count)"))
-    }
-
-    private func color(_ step: OnboardingModel.Step) -> Color {
-        if step == current { return Color.primary.opacity(0.85) }
-        if completed.contains(step) { return Color.green.opacity(0.85) }
-        return Color.primary.opacity(0.2)
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: done)
     }
 }
 
 // MARK: Aufbau einer Seite
 
-/// Eine Seite: Szene oben, Überschrift, ein Satz, darunter die Übung als eigene Karte.
+/// Eine Seite wie in den Einstellungen: Szene, darunter die Übung. Alles an einer linken Kante.
 private struct PresentationPage<Hero: View, Practice: View>: View {
-    let title: String
-    let text: String
     @ViewBuilder let hero: () -> Hero
     @ViewBuilder let practice: () -> Practice
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             hero()
-                .frame(height: DemoLayout.shown.height)
-            Text(title)
-                .font(.system(size: 22, weight: .semibold))
-                .padding(.top, 16)
-            Text(text)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 440)
-                .padding(.top, 5)
+                .frame(width: DemoLayout.shown.width, height: DemoLayout.shown.height)
+            // Kein erklärender Satz mehr unter der Szene: Sie zeigt es, die Karte sagt in einer
+            // Zeile, was zu tun ist (Nutzer, 22.11.2026: „viel zu viel Text“)
             practice()
-                .padding(.top, 20)
+                .padding(.top, 16)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 30)
-        .frame(maxWidth: .infinity)
+        // Feste Breite: Sonst bricht der Satz nicht um und das Fenster würde breiter
+        .frame(width: DemoLayout.shown.width, alignment: .topLeading)
+        .padding(.horizontal, OnboardingView.pagePadding)
+        .padding(.top, 4)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
     }
 }
 
-/// Die Übung einer Seite als Karte, so breit wie die Szene darüber: links das Objekt, mit
-/// dem man übt, rechts „Probier’s aus“ und was zu tun ist. Geschafft weicht das Objekt einem
-/// grünen Haken (wie in den Systemeinstellungen), rechts steht die Bestätigung. Vorher stand
-/// die Übung frei ohne Karte darunter; das wirkte lose, unten blieb eine Lücke (Nutzer,
-/// 30.10.2026)
+extension OnboardingView {
+    /// Rand der Seiten wie in den Einstellungen; die Szene füllt die Breite genau
+    static let pagePadding: CGFloat = 20
+}
+
+/// Die Übung einer Seite als Karte wie in den Einstellungen: links das Objekt, rechts was zu tun ist.
+/// Geschafft weicht das Objekt einem grünen Haken (wie in den Systemeinstellungen).
 private struct TaskCard<Leading: View>: View {
     let done: Bool
     let instruction: String
     let confirmation: String
-    /// Überschrift rechts, solange die Übung offen ist
-    var label = L("Try It", "Probier’s aus")
     /// Platz links für das Objekt. Breiter für Tastenkappen: Bei vier Sondertasten ragten sie
     /// über die Karte hinaus und lagen auf dem Text (Nutzer, 31.10.2026)
-    var leadingWidth: CGFloat = 150
+    var leadingWidth: CGFloat = 120
+    /// Übung am Rand: ein Pfeil rechts in der Karte zeigt, wohin (links: gespiegelt)
+    var pointsTo: ScreenEdge? = nil
     @ViewBuilder let leading: () -> Leading
 
-    static var height: CGFloat { 124 }
+    static var height: CGFloat { 100 }
 
     var body: some View {
-        HStack(spacing: 16) {
-            ZStack {
-                leading()
-                    .opacity(done ? 0 : 1)
-                    .scaleEffect(done ? 0.85 : 1)
-                if done {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 46, weight: .regular))
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, Color.green)
-                        .transition(.scale(scale: 0.6).combined(with: .opacity))
+        // Ohne Überschrift „Probier’s aus“ über jeder Karte: Sie wiederholte sich auf jeder
+        // Seite und sagte nichts, was die Karte nicht schon zeigt (Nutzer, 22.11.2026)
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsCard {
+                HStack(spacing: 14) {
+                    ZStack {
+                        leading()
+                            .opacity(done ? 0 : 1)
+                            .scaleEffect(done ? 0.85 : 1)
+                        if done {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 40, weight: .regular))
+                                .symbolRenderingMode(.palette)
+                                .foregroundStyle(.white, Color.green)
+                                .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        }
+                    }
+                    .frame(width: leadingWidth, height: Self.height - 16)
+                    Text(done && !confirmation.isEmpty ? confirmation : instruction)
+                        .font(.system(size: 15, weight: .medium))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .id(done)
+                        .transition(.opacity)
+                    Spacer(minLength: 0)
+                    if let pointsTo, !done {
+                        Image(systemName: pointsTo == .right ? "arrow.right" : "arrow.left")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .accessibilityHidden(true)
+                    }
                 }
+                .padding(.leading, 12)
+                .padding(.trailing, 16)
+                .frame(height: Self.height)
             }
-            .frame(width: leadingWidth, height: 104)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(done ? L("Done", "Geschafft") : label)
-                    .font(.system(size: 11.5, weight: .semibold))
-                    .foregroundStyle(done ? Color.green : Color(nsColor: .controlAccentColor))
-                Text(done && !confirmation.isEmpty ? confirmation : instruction)
-                    .font(.system(size: 13.5))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .id(done)
-            .transition(.opacity)
-            Spacer(minLength: 0)
         }
-        .padding(.leading, 6)
-        .padding(.trailing, 18)
-        .frame(width: DemoLayout.shown.width, height: Self.height)
-        .background(
-            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                .fill(SettingsTheme.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
-        )
+        .frame(width: DemoLayout.shown.width)
         .animation(.spring(response: 0.4, dampingFraction: 0.75), value: done)
     }
 }
@@ -1082,9 +1161,7 @@ private struct WelcomePage: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        PresentationPage(title: L("Welcome to BarDrop", "Willkommen bei BarDrop"),
-                         text: L("A shelf at the edge of your screen for anything you want to keep at hand.",
-                                 "Eine Ablage am Rand deines Bildschirms für alles, was du gleich wieder brauchst.")) {
+        PresentationPage() {
             ShelfStage(scene: .overview)
         } practice: {
             SettingsCard {
@@ -1109,15 +1186,14 @@ private struct DropPage: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        PresentationPage(title: L("Drop", "Ablegen"),
-                         text: L("Drag files, images or text to the \(edgeWord(settings)) edge of your screen and let go. The shelf keeps them for you.",
-                                 "Zieh Dateien, Bilder oder Text an den \(edgeWord(settings)) Rand deines Bildschirms und lass los. Die Ablage hebt sie für dich auf.")) {
+        PresentationPage() {
             ShelfStage(scene: .drop)
         } practice: {
             TaskCard(done: model.stepDone,
                      instruction: L("Drag the photo to the \(edgeWord(settings)) edge.",
                                     "Zieh das Foto an den \(edgeWord(settings)) Rand."),
-                     confirmation: "") {
+                     confirmation: "",
+                     pointsTo: settings.edge) {
                 SampleTile(url: model.sampleURL, edge: settings.edge, onDragStarted: model.onSampleDragStarted)
             }
         }
@@ -1131,9 +1207,7 @@ private struct TakeOutPage: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        PresentationPage(title: L("Drag Out", "Herausziehen"),
-                         text: L("Whatever is in the shelf, you simply drag back out: into a folder, an email or onto the desktop.",
-                                 "Was in der Ablage liegt, ziehst du einfach wieder heraus: in einen Ordner, eine Mail oder auf den Schreibtisch.")) {
+        PresentationPage() {
             ShelfStage(scene: .takeOut)
         } practice: {
             TaskCard(done: model.stepDone,
@@ -1186,16 +1260,11 @@ private struct RetrievePage: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var settings: AppSettings
 
-    /// Papierkorb des Mac voll oder leer, wie in der Aktionsleiste und im Dock
-    @ObservedObject private var trash = TrashState.shared
-
     /// Der Papierkorb liegt in der Leiste (Standard); sonst irgendeine Aktion
     private var hasTrash: Bool { settings.quickActions.contains { $0.kind == .trash } }
 
     var body: some View {
-        PresentationPage(title: L("Actions", "Aktionen"),
-                         text: L("Drag an item onto an action at the bottom of the shelf: AirDrop, a folder, the Trash and more.",
-                                 "Zieh ein Objekt auf eine Aktion unten in der Ablage: AirDrop, einen Ordner, den Papierkorb und mehr.")) {
+        PresentationPage() {
             ShelfStage(scene: .dragOut)
         } practice: {
             TaskCard(done: model.stepDone,
@@ -1204,8 +1273,8 @@ private struct RetrievePage: View {
                         : L("Drag the photo onto an action.", "Zieh das Foto auf eine Aktion."),
                      confirmation: hasTrash ? L("In the Trash. ⌘Z brings it back.", "Im Papierkorb. ⌘Z holt es zurück.")
                                             : L("Done. Actions work with any item.", "Erledigt. Aktionen funktionieren mit jedem Objekt.")) {
-                Image(nsImage: NSImage(named: hasTrash ? (trash.isFull ? NSImage.trashFullName : NSImage.trashEmptyName)
-                                                       : NSImage.folderName) ?? NSImage())
+                // Immer der leere Papierkorb: Der volle mit bunten Resten wirkte unruhig (Nutzer, 22.11.2026)
+                Image(nsImage: NSImage(named: hasTrash ? NSImage.trashEmptyName : NSImage.folderName) ?? NSImage())
                     .resizable()
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
@@ -1223,18 +1292,17 @@ private struct ShortcutPage: View {
 
     /// Tasten so groß wie bisher, bei vielen Sondertasten kleiner, damit sie in die Karte passen
     private var keys: [(symbol: String, name: String)] { ShortcutKeys.keys(settings) }
-    private var keySize: CGFloat { min(40, 250 / KeyCaps.width(keys, size: 1)) }
+    private var keySize: CGFloat { min(36, 230 / KeyCaps.width(keys, size: 1)) }
 
     var body: some View {
-        PresentationPage(title: L("Open from Anywhere", "Von überall öffnen"),
-                         text: L("The keyboard shortcut opens the shelf wherever you are. Press it again to close it. You can change it in Settings → General.",
-                                 "Der Tastaturkurzbefehl öffnet die Ablage, egal wo du bist. Noch einmal drücken schließt sie wieder. Ändern kannst du ihn unter Einstellungen → Allgemein.")) {
+        PresentationPage() {
             ShelfStage(scene: .shortcut)
         } practice: {
             TaskCard(done: model.stepDone,
                      instruction: L("Press \(settings.hotKeyDescription).", "Drück \(settings.hotKeyDescription)."),
-                     confirmation: L("That’s it.", "Das war’s."),
-                     leadingWidth: max(150, KeyCaps.width(keys, size: keySize) + 12)) {
+                     confirmation: L("Works anywhere. ⌘V then puts in what you copied.",
+                                     "Geht überall. ⌘V legt dann Kopiertes hinein."),
+                     leadingWidth: max(120, KeyCaps.width(keys, size: keySize) + 12)) {
                 KeyCaps(keys: keys, size: keySize, pressed: false)
             }
         }
@@ -1250,14 +1318,12 @@ private struct DetachPage: View {
     @ObservedObject var settings: AppSettings
 
     var body: some View {
-        PresentationPage(title: L("Pull Off the Edge", "Vom Rand abziehen"),
-                         text: L("Grab the open shelf at the top and pull it away from the edge. It then floats above your windows and stays open.",
-                                 "Greif die offene Ablage oben und zieh sie vom Rand weg. Dann schwebt sie über deinen Fenstern und bleibt offen.")) {
+        PresentationPage() {
             ShelfStage(scene: .detach)
         } practice: {
             TaskCard(done: model.stepDone,
-                     instruction: L("Grab the shelf at the \(edgeWord(settings)) edge at the top and pull it away.",
-                                    "Greif die Ablage am \(edgeWord(settings)) Rand oben und zieh sie weg."),
+                     instruction: L("Grab the shelf at the top and pull it away from the edge.",
+                                    "Greif die Ablage oben und zieh sie vom Rand weg."),
                      confirmation: L("To put it back, drag it to an edge or press esc.",
                                      "Zurück an den Rand: hinziehen oder esc drücken.")) {
                 Image(systemName: "hand.draw")
@@ -1275,22 +1341,18 @@ private struct HoverPage: View {
     @ObservedObject var model: OnboardingModel
     @ObservedObject var settings: AppSettings
 
-    private var text: String {
-        settings.openMode == .click
-            ? L("It works without a file, too: move the pointer to the \(edgeWord(settings)) edge. A small strip appears; click it and the shelf opens.",
-                "Auch ohne Datei geht es: Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint; ein Klick darauf öffnet die Ablage.")
-            : L("It works without a file, too: move the pointer to the \(edgeWord(settings)) edge. A small strip appears, and a moment later the shelf opens.",
-                "Auch ohne Datei geht es: Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand. Ein schmaler Streifen erscheint, kurz darauf öffnet sich die Ablage.")
-    }
-
     var body: some View {
-        PresentationPage(title: L("Open with the Pointer", "Mit dem Zeiger öffnen"), text: text) {
+        PresentationPage() {
             ShelfStage(scene: .hover)
         } practice: {
             TaskCard(done: model.stepDone,
-                     instruction: L("Move the pointer to the \(edgeWord(settings)) edge.",
-                                    "Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand."),
-                     confirmation: L("That’s how it opens.", "So öffnet sie sich.")) {
+                     instruction: settings.openMode == .click
+                        ? L("Move the pointer to the \(edgeWord(settings)) edge and click the strip.",
+                            "Fahr an den \(edgeWord(settings)) Rand und klick auf den Streifen.")
+                        : L("Move the pointer to the \(edgeWord(settings)) edge.",
+                            "Fahr mit dem Zeiger an den \(edgeWord(settings)) Rand."),
+                     confirmation: L("That’s how it opens.", "So öffnet sie sich."),
+                     pointsTo: settings.edge) {
                 Image(systemName: "cursorarrow.motionlines")
                     .font(.system(size: 44, weight: .regular))
                     .symbolRenderingMode(.hierarchical)
@@ -1395,64 +1457,44 @@ private struct FeaturesPage: View {
         ]
     }
 
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
-
     var body: some View {
-        VStack(spacing: 0) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 46, weight: .regular))
-                .foregroundStyle(Color(nsColor: .controlAccentColor))
-                .frame(height: 52)
-            Text(L("And There’s More", "Und noch mehr"))
-                .font(.system(size: 24, weight: .semibold))
-                .padding(.top, 12)
-            Text(L("Everything can be adjusted in Settings: right-click an empty spot in the shelf.",
-                   "Alles lässt sich in den Einstellungen anpassen: Rechtsklick auf eine leere Stelle der Ablage."))
-                .font(.system(size: 13.5))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 440)
-                .padding(.top, 6)
-
-            LazyVGrid(columns: columns, spacing: 12) {
+        VStack(alignment: .leading, spacing: 20) {
+            // Zeilen wie in den Einstellungen, ohne Pfeil: Sie führen nirgendwohin. Vorher
+            // Karten in zwei Spalten, die wie Knöpfe aussahen und nichts taten (Nutzertest 22.11.2026)
+            SettingsCard {
                 ForEach(features) { feature in
-                    HStack(spacing: 12) {
-                        PaneIcon(pane: feature.pane, size: 40)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(feature.title)
-                                .font(.system(size: 13.5, weight: .semibold))
-                            Text(feature.text)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
+                    HStack(spacing: 10) {
+                        PaneIcon(pane: feature.pane)
+                        Text(feature.title)
+                            .font(.system(size: 13.5))
+                        Spacer(minLength: 12)
+                        Text(feature.text)
+                            .font(.system(size: 12.5))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                            .fill(SettingsTheme.card)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: SettingsTheme.cardRadius, style: .continuous)
-                            .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
-                    )
+                    .padding(.horizontal, 12)
+                    .frame(height: 40)
                 }
             }
-            .frame(maxWidth: DemoLayout.shown.width)
-            .padding(.top, 26)
+            // An derselben Kante wie die Karten, nicht eingerückt
+            Text(L("To open Settings later, open BarDrop again from Applications or right-click an empty spot in the shelf.",
+                   "Die Einstellungen findest du wieder, wenn du BarDrop noch einmal öffnest (etwa aus „Programme“) oder mit Rechtsklick auf eine leere Stelle der Ablage."))
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, -8)
 
             // Erst am Ende, wenn man die App kennt; beim ersten Start schon eingeschaltet
             SettingsCard {
                 ToggleRow(L("Open at login", "Beim Anmelden öffnen"), isOn: $model.launchAtLogin)
             }
-            .frame(maxWidth: DemoLayout.shown.width)
-            .padding(.top, 16)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 30)
+        .frame(width: DemoLayout.shown.width)
+        .padding(.horizontal, OnboardingView.pagePadding)
+        .padding(.top, 4)
     }
 }
 
@@ -1486,10 +1528,16 @@ private struct SampleTile: View {
     private var tile: some View {
         VStack(spacing: 4) {
             preview
-                .frame(width: 72, height: 72)
-                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
+                .frame(width: 76, height: 57)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
+                .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
             Text(url?.lastPathComponent ?? "")
-                .font(.system(size: 11, weight: .medium))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 110)
@@ -1519,7 +1567,7 @@ private struct SampleTile: View {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
-                .aspectRatio(contentMode: .fit)
+                .aspectRatio(contentMode: .fill)
         } else {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.secondary.opacity(0.15))

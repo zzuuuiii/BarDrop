@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.32.0-beta.1
+
+### New
+* **Remove Metadata plugin.** A new plugin in the gallery strips location, camera, author and other metadata from photos, PDFs, Office files, video and audio.
+* **Send without dragging.** With items selected, a click on AirDrop, Mail or Share in the action bar sends them.
+
+### Changed
+* **Introduction.** It now looks like Settings, with the steps in a sidebar.
+* **App icon.** From macOS 26 the icon sits on a light or dark background like Apple’s own apps instead of a gray tile.
+* **Grab handle.** The handle at the top of the shelf is easier to see, the pointer turns into a hand over it, and the shelf holds on to the edge a little longer before it lets go.
+* **Easier to read.** Names only a letter or two too long stay on one line, notices fit a narrow shelf, and gray text is clearer with Increase Contrast.
+* **Plugins that are off.** Settings → Plugins shows them grayed out, and “Removed” and “Deleted” in the shelf now show `⌘Z`.
+* **JPG.** Converted images are saved as .jpg instead of .jpeg.
+
+### Fixed
+* **AirDrop and Mail.** Items leave the shelf only after they were really sent, and “Sent” confirms it. Canceling keeps them.
+* **Docking and displays.** Pressing the floating shelf against an edge always docks it, dragging it across displays no longer flickers, and a file from a disconnected drive says it’s missing.
+
 ## 1.31.1
 
 ### Changed

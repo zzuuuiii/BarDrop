@@ -390,11 +390,15 @@ private struct InstalledRow: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 10) {
+                // Aus: ausgegraut wie ein nicht verfügbarer Cloud-Dienst, Symbol deckend und nur
+                // grau, Name blasser (Nutzer, 22.11.2026)
                 PluginIconView(icon: plugin.manifest.icon, size: 26)
+                    .saturation(manager.isOn(plugin) ? 1 : 0)
                 Text(plugin.manifest.name.text)
                     .font(.system(size: 13.5))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
+                    .opacity(manager.isOn(plugin) ? 1 : 0.45)
                 Spacer(minLength: 8)
                 if let status {
                     PluginStatusSymbol(status: status, size: 14)

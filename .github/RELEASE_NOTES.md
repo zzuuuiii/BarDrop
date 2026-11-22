@@ -1,5 +1,5 @@
-* **Smooth pulling off and docking.** Pulling the shelf off the edge and docking it no longer stutters when glass is on.
-* **Pressing against an edge.** Push a floating shelf against a screen edge and it joins the edge smoothly while you press, then docks when you let go.
-* **Faster and lighter.** Lasso selection, plugin settings, new downloads and screenshots, and the list of shortcuts do less work and no longer stall BarDrop.
-* **Cloud uploads.** Uploads to Dropbox, Google Drive and OneDrive continue after a short network drop instead of failing.
-* **Many smaller fixes.** Stacks open with a double-click again, folders dragged out keep their contents, and the clipboard history, plugins and onboarding work more reliably.
+* **Remove Metadata plugin.** A new plugin in the gallery strips location, camera, author and other metadata from photos, PDFs, Office files, video and audio.
+* **Send without dragging.** With items selected, a click on AirDrop, Mail or Share in the action bar sends them.
+* **Introduction.** It now looks like Settings, with the steps in a sidebar.
+* **App icon.** From macOS 26 the icon sits on a light or dark background like Apple’s own apps instead of a gray tile.
+* **AirDrop and Mail.** Items leave the shelf only after they were really sent, and “Sent” confirms it. Canceling keeps them.

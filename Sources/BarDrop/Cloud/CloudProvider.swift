@@ -64,11 +64,11 @@ struct CloudError: LocalizedError {
         if status == 401 {
             return CloudError(message: L("\(service.title): Sign-in expired.", "\(service.title): Anmeldung abgelaufen."),
                               hint: L("Connect again in Settings → Cloud.", "In Einstellungen → Cloud neu verbinden."),
-                              short: L("Sign-in expired", "Anmeldung abgelaufen"))
+                              short: L("Sign in again", "Neu anmelden"))
         }
         if status == 507 || text.contains("insufficient_space") || text.contains("storageQuotaExceeded") {
             return CloudError(message: L("\(service.title) is full.", "\(service.title) ist voll."),
-                              short: L("\(service.title) is full", "\(service.title) ist voll"))
+                              short: L("Cloud full", "Cloud voll"))
         }
         return CloudError(message: L("\(service.title) answered with error \(status).", "\(service.title) meldet Fehler \(status)."),
                           hint: text.isEmpty ? nil : text)
@@ -257,7 +257,7 @@ enum CloudOAuth {
         if previous != nil, status == 401 || (status == 400 && String(decoding: data, as: UTF8.self).contains("invalid_grant")) {
             throw CloudError(message: L("Sign-in expired.", "Anmeldung abgelaufen."),
                              hint: L("Connect again in Settings → Cloud.", "In Einstellungen → Cloud neu verbinden."),
-                             short: L("Sign-in expired", "Anmeldung abgelaufen"))
+                             short: L("Sign in again", "Neu anmelden"))
         }
         guard status == 200, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let access = json["access_token"] as? String else {
@@ -492,7 +492,7 @@ class OAuthCloudProvider {
         guard let current = token, let request = oauthRequest else {
             throw CloudError(message: L("\(service.title) isn’t connected.", "\(service.title) ist nicht verbunden."),
                              hint: L("Connect it in Settings → Cloud.", "In Einstellungen → Cloud verbinden."),
-                             short: L("Not connected", "Nicht verbunden"))
+                             short: L("Not linked", "Getrennt"))
         }
         guard current.isExpired else { return current.accessToken }
         return try await refresh(current, request).accessToken

@@ -25,6 +25,11 @@ final class ActionDropNSView: NSView, NSDraggingSource {
     override func isAccessibilityElement() -> Bool { accessibilityTitle != nil }
     override func accessibilityRole() -> NSAccessibility.Role? { .button }
     override func accessibilityLabel() -> String? { accessibilityTitle }
+    /// Was Drücken tut: AirDrop, Mail und Teilen senden die Auswahl (siehe `ShelfActions.click`)
+    override func accessibilityHelp() -> String? {
+        guard let kind, ShelfActions.clickSendsSelection.contains(kind) else { return nil }
+        return L("Sends the selected items", "Sendet die ausgewählten Objekte")
+    }
     override func accessibilityPerformPress() -> Bool {
         onClick(self)
         return true
@@ -558,6 +563,7 @@ struct QuickActionButton: View {
     @ObservedObject var ui: ShelfUIModel
     /// Vorführung in der Einführung: ohne Drop-Fläche
     @Environment(\.shelfDemo) private var shelfDemo
+    @Environment(\.colorSchemeContrast) private var contrast
     let store: ShelfStore
     let actions: ShelfActions
     /// Als Wert übergeben, damit die Leiste beim Verstellen sofort neu zeichnet
@@ -642,7 +648,7 @@ struct QuickActionButton: View {
                 let named = !AppSettings.shared.labelsOnlyFolders || action.kind == .folder
                 Text(action.title)
                     .font(.system(size: 10, weight: highlighted ? .semibold : .medium))
-                    .foregroundStyle(Color.primary.opacity(0.7))
+                    .foregroundStyle(Color.primary.secondaryOpacity(0.7, contrast: contrast))
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .opacity(named ? 1 : 0)
@@ -701,10 +707,10 @@ struct QuickActionButton: View {
                 onOwnDrop: { urls, anchor in
                     actions.perform(action, urls: urls, anchor: anchor)
                 },
-                onClick: { _ in
-                    // Ein Klick führt die Aktion nicht mit der Auswahl aus (dafür Objekte darauf
-                    // ziehen): Ordner zeigen ihren Inhalt in der Ablage, Apps öffnen sich
-                    actions.click(action)
+                onClick: { anchor in
+                    // Ordner zeigen ihren Inhalt in der Ablage, Apps öffnen sich; AirDrop, Mail
+                    // und Teilen senden die Auswahl (siehe `ShelfActions.click`)
+                    actions.click(action, anchor: anchor)
                 },
                 onDoubleClick: { actions.doubleClick(action) },
                 menuProvider: { actions.menu(for: action) },

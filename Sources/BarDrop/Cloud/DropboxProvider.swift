@@ -39,7 +39,7 @@ final class DropboxProvider: OAuthCloudProvider, CloudProvider {
     func upload(_ file: URL, name: String, progress: @escaping (Double?, String?) -> Void) async throws -> URL {
         let path = "/\(CloudService.folderName)/\(name)"
         let size = Self.size(of: file)
-        let label = L("Uploading", "Wird hochgeladen") + " · " + Self.sizeLabel(size)
+        let label = L("Uploading", "Lädt hoch") + " · " + Self.sizeLabel(size)
         progress(0, label)
         let uploaded: String
         if size <= Self.singleLimit {

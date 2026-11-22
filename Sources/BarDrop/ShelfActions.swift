@@ -5,7 +5,7 @@ import Quartz
 import UniformTypeIdentifiers
 
 /// Alle Aktionen auf Einträgen der Ablage (Kontextmenü, Tastatur, Aktionsleiste).
-final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate, NSSharingServicePickerDelegate {
+final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate, NSSharingServicePickerDelegate, NSSharingServiceDelegate {
     let store: ShelfStore
     let ui: ShelfUIModel
     /// Losgelöst schwebend (vom Rand-Controller gesetzt)
@@ -47,7 +47,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         // (07.11.2026, „ich wollte fünf einzelne Fotos“). Kurz sagen, was passiert ist
         // (ohne Knopf „Einzeln“, Nutzer 07.11.2026)
         store.onStackCreated = { [weak self] _ in
-            self?.announce(L("Stack added", "Stapel abgelegt"))
+            self?.announce(L("As stack", "Als Stapel"))
         }
         store.onUserDrop = { [weak self] files in
             guard let self, self.settings.pluginsEnabled else { return }
@@ -259,7 +259,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             let back = store.lastPutBack
             folder.reload(after: 0)
             if isFolderOpen { ui.memberSelection = Set(back.map(FolderBrowser.id(for:))) }
-            announce(L("Restored", "Wiederhergestellt"))
+            announce(L("Restored", "Zurückgeholt"))
             return
         }
         // Nichts mehr da, was sich zurückholen ließe
@@ -269,7 +269,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         } else {
             ui.selection = Set(store.entries.filter { entry in entry.files.contains { restored.contains($0.id) } }.map(\.id))
         }
-        announce(L("Restored", "Wiederhergestellt"))
+        announce(L("Restored", "Zurückgeholt"))
     }
 
     /// ⇧⌘Z: Widerrufenes erneut entfernen.
@@ -294,7 +294,12 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let existing = files.filter { FileManager.default.fileExists(atPath: $0.url.path) }
         if existing.count != files.count {
             DispatchQueue.main.async { [weak self] in self?.store.pruneMissingFiles() }
-            if existing.isEmpty { NSSound.beep() }
+            if existing.isEmpty {
+                NSSound.beep()
+                // Vorher nur ein Piepton; man wusste nicht, warum nichts geschah (z. B. SSD
+                // abgezogen, Nutzertest 22.11.2026)
+                announce(L("Missing", "Datei fehlt"))
+            }
         }
         return existing
     }
@@ -519,9 +524,48 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.sharingOpen = false
         if service != nil {
             AppActivation.activateKeepingWindows()
-            if let urls = shareFinishURLs { finishAction(urls) }
+            // Erst nach erfolgreichem Teilen aus der Ablage nehmen (siehe `sharingService(_:didShareItems:)`).
+            // Vorher geschah das schon beim Öffnen des Fensters, auch wenn man dann abbrach
+            // (Nutzertest 22.11.2026)
+            pendingShare = shareFinishURLs.map { PendingShare(urls: $0) }
         }
         shareFinishURLs = nil
+    }
+
+    func sharingServicePicker(_ picker: NSSharingServicePicker,
+                              delegateFor sharingService: NSSharingService) -> NSSharingServiceDelegate? {
+        self
+    }
+
+    // MARK: Teilen abgeschlossen
+
+    /// Objekte eines laufenden Teilens (AirDrop, Mail, Teilen-Menü). Was erst nach dem Senden
+    /// passiert: Rückmeldung „Gesendet“ und, je nach Einstellung, aus der Ablage nehmen.
+    private struct PendingShare {
+        let urls: [URL]
+    }
+    private var pendingShare: PendingShare?
+
+    func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            // Nach dem Senden sah man vorher nichts; ob es geklappt hatte, blieb offen (Nutzertest 22.11.2026)
+            self.announce(L("Sent", "Gesendet"))
+            if let pending = self.pendingShare { self.finishAction(pending.urls) }
+            self.pendingShare = nil
+        }
+    }
+
+    func sharingService(_ sharingService: NSSharingService, didFailToShareItems items: [Any], error: Error) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.pendingShare = nil
+            // Abbrechen ist kein Fehler
+            if (error as NSError).code != NSUserCancelledError {
+                NSSound.beep()
+                self.announce(L("Not sent", "Nicht gesendet"))
+            }
+        }
     }
 
     // MARK: Aktionsleiste
@@ -532,8 +576,16 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
 
     /// Klick auf eine Aktion: Sie läuft nicht mit der Auswahl (dafür Objekte darauf ziehen).
     /// Ein Ordner zeigt seinen Inhalt in der Ablage, eine App öffnet sich.
-    func click(_ action: QuickAction) {
+    func click(_ action: QuickAction, anchor: NSView? = nil) {
         Diagnostics.shared.record("action", "click \(action.kind.rawValue)")
+        // Teilen ohne Ziehen: Ist etwas ausgewählt, sendet ein Klick auf AirDrop, Mail,
+        // Nachrichten oder Teilen die Auswahl. Ziehen fiel im Nutzertest schwer (Tremor,
+        // VoiceOver, 22.11.2026). Nur diese Aktionen, weil sie erst ein Fenster zeigen und
+        // nichts verändern; Papierkorb und Ordner bleiben beim Ziehen
+        if let anchor, Self.clickSendsSelection.contains(action.kind) {
+            let urls = existingForDrag(selectedEntries.flatMap(\.files)).map(\.url)
+            if !urls.isEmpty { return perform(action, urls: urls, anchor: anchor) }
+        }
         switch action.kind {
         case .folder:
             guard let url = action.url, FolderBrowser.isBrowsable(url) else { return NSSound.beep() }
@@ -563,10 +615,15 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             showPinnedFolder(ClipboardHistory.shared.folder)
         default:
             // AirDrop, Papierkorb, Mail, Kurzbefehle, Plugins: arbeiten mit Objekten, die man
-            // darauf zieht. Vorher geschah beim Klick gar nichts, das wirkte kaputt
-            announce(L("Drag here", "Hierher ziehen"))
+            // darauf zieht (AirDrop und Co. auch mit der Auswahl, siehe oben). Vorher geschah
+            // beim Klick gar nichts, das wirkte kaputt
+            announce(Self.clickSendsSelection.contains(action.kind)
+                     ? L("Select first", "Auswählen")
+                     : L("Drag here", "Hierher ziehen"))
         }
     }
+
+    static let clickSendsSelection: Set<QuickAction.Kind> = [.airdrop, .mail, .messages, .share]
 
     /// Ordner einer Aktion in der Ablage zeigen
     private func showPinnedFolder(_ url: URL) {
@@ -589,11 +646,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard !urls.isEmpty else { return }
         switch action.kind {
         case .airdrop:
-            if performService(.sendViaAirDrop, urls: urls) { finishAction(urls) }
+            performService(.sendViaAirDrop, urls: urls)
         case .mail:
-            if performService(.composeEmail, urls: urls) { finishAction(urls) }
+            performService(.composeEmail, urls: urls)
         case .messages:
-            if performService(.composeMessage, urls: urls) { finishAction(urls) }
+            performService(.composeMessage, urls: urls)
         case .share:
             share(urls, from: anchor, fromAction: true)
         case .app:
@@ -709,7 +766,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     /// Kurzbefehl mit den Dateien ausführen; was er zurückgibt, kommt in die Ablage
     private func runShortcut(_ name: String, on urls: [URL]) {
         // Kurz, der Platz oben rechts ist klein; der Name steht schon an der Aktion
-        announce(L("Running shortcut", "Kurzbefehl läuft"))
+        announce(L("Running", "Läuft"))
         ShortcutRunner.run(name, inputs: urls) { [weak self] outcome in
             guard let self else { return }
             switch outcome {
@@ -717,7 +774,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 self.shortcutOnlyInputs.subtract(urls)
                 NSSound.beep()
                 // Kurz wie bei Plugins: „Kurzbefehl fehlgeschlagen“ wurde oben rechts abgeschnitten
-                self.announce(L("Failed", "Fehlgeschlagen"))
+                self.announce(L("Failed", "Fehler"))
             case .done(let results, let folder):
                 // Wie bei den anderen Aktionen: Verwendetes verlässt die Ablage (außer
                 // „Nach dem Verwenden“ sagt behalten), es bleibt nur, was herauskam
@@ -758,7 +815,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                 self.folder.reload(after: 0)
                 // Kurz wie die anderen Meldungen (der Fehler selbst steht im Protokoll)
                 self.announce(error != nil ? L("Not deleted", "Nicht gelöscht")
-                                           : L("Deleted in \(service.title)", "In \(service.title) gelöscht"))
+                                           : L("Deleted", "Gelöscht"))
             }
             return
         }
@@ -800,12 +857,12 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
     }
 
     private func convert(_ urls: [URL], to target: Converter.Target) {
-        announce(L("Converting", "Wird umgewandelt"))
+        announce(L("Converting", "Umwandlung"))
         Converter.convert(urls, to: target) { [weak self] results in
             guard let self else { return }
             guard !results.isEmpty else {
                 NSSound.beep()
-                self.announce(L("Couldn’t convert", "Nicht umgewandelt"))
+                self.announce(L("Not possible", "Nicht möglich"))
                 return
             }
             // Liegt das Original in der Ablage, kommt das Ergebnis links daneben (Nutzer, 01.11.2026)
@@ -824,7 +881,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
                     }
                 }
                 let n = added.count
-                self?.announce(n > 0 ? L("Converted", "Umgewandelt") : L("Couldn’t convert", "Nicht umgewandelt"))
+                self?.announce(n > 0 ? L("Converted", "Umgewandelt") : L("Not possible", "Nicht möglich"))
             }
         }
     }
@@ -836,7 +893,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         if let dir = results.first?.deletingLastPathComponent() { try? FileManager.default.removeItem(at: dir) }
         guard !files.isEmpty else {
             NSSound.beep()
-            return announce(L("Couldn’t convert", "Nicht umgewandelt"))
+            return announce(L("Not possible", "Nicht möglich"))
         }
         let size = CGFloat(settings.tileIconSize)
         let previews = files.map(\.url).filter(ThumbnailView.expectsPreview)
@@ -877,6 +934,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             return false
         }
         AppActivation.activateKeepingWindows()
+        // Aus der Ablage erst, wenn wirklich gesendet wurde (Delegat oben)
+        pendingShare = PendingShare(urls: urls)
+        service.delegate = self
         service.perform(withItems: urls)
         return true
     }
@@ -1134,6 +1194,14 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.selection = [entry.id]
         ui.selectionAnchor = entry.id
         ui.renaming = entry.id
+        announceOriginalRename(entry.files)
+    }
+
+    /// Liegt das Original in der Ablage, benennt Umbenennen die echte Datei im Finder um.
+    /// Das überraschte im Nutzertest (07. und 22.11.2026): kurz oben sagen, nur ein Wort
+    private func announceOriginalRename(_ files: [ShelfFile]) {
+        guard files.contains(where: { !$0.owned }) else { return }
+        announce(L("Also in Finder", "Auch im Finder"), duration: 4)
     }
 
     /// Datei im Ordner aus der Aktionsleiste umbenennen: die echte Datei, wie im Finder.
@@ -1143,7 +1211,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         guard name != url.lastPathComponent else { return }
         guard !name.isEmpty, !name.contains("/"), !name.hasPrefix(".") else {
             NSSound.beep()
-            return announce(L("Invalid name", "Ungültiger Name"))
+            return announce(L("Invalid", "Ungültig"))
         }
         let target = url.deletingLastPathComponent().appendingPathComponent(name)
         // Nur Groß-/Kleinschreibung geändert: dieselbe Datei, kein Konflikt
@@ -1161,7 +1229,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         } catch {
             NSSound.beep()
             Diagnostics.shared.failure("rename", "Umbenennen im Ordner fehlgeschlagen", error)
-            announce(L("Couldn’t rename", "Nicht umbenannt"))
+            announce(L("Not renamed", "Nicht umbenannt"))
         }
     }
 
@@ -1170,6 +1238,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         ui.memberSelection = [file.id]
         ui.memberAnchor = file.id
         ui.renaming = file.id
+        if !isFolderOpen { announceOriginalRename([file]) }
     }
 
     /// Eingabe übernehmen (Zeilenschalter, Klick daneben); `text` nil: abgebrochen (esc).
@@ -1196,11 +1265,11 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             announce(L("Name taken", "Name vergeben"))
         } catch ShelfStore.RenameError.invalid {
             NSSound.beep()
-            announce(L("Invalid name", "Ungültiger Name"))
+            announce(L("Invalid", "Ungültig"))
         } catch {
             NSSound.beep()
             Diagnostics.shared.failure("rename", "Umbenennen fehlgeschlagen", error)
-            announce(L("Couldn’t rename", "Nicht umbenannt"))
+            announce(L("Not renamed", "Nicht umbenannt"))
         }
     }
 
@@ -1307,6 +1376,9 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         let title = multiple ? L("Remove \(targets.count) Items from Shelf", "\(targets.count) Objekte aus der Ablage entfernen")
                              : L("Remove from Shelf", "Aus der Ablage entfernen")
         menu.addItem(ClosureMenuItem(title, key: "\u{8}", modifiers: []) { [weak self] in self?.remove(targets) })
+        // Eigener Block wie im Finder: Direkt unter „Entfernen“ griff man im Nutzertest leicht
+        // daneben und legte das Original weg (22.11.2026)
+        menu.addItem(.separator())
         menu.addItem(moveToTrashItem(urls))
         addPluginItems(to: menu, files: targets.flatMap(\.files))
         return menu
@@ -1343,6 +1415,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
         menu.addItem(ClosureMenuItem(files.count > 1 ? L("Remove \(files.count) Items from Shelf", "\(files.count) Objekte aus der Ablage entfernen") : L("Remove from Shelf", "Aus der Ablage entfernen"), key: "\u{8}", modifiers: []) { [weak self] in
             self?.removeMembers(files)
         })
+        menu.addItem(.separator())
         menu.addItem(moveToTrashItem(urls))
         addPluginItems(to: menu, files: files)
         return menu
@@ -1526,7 +1599,7 @@ final class ShelfActions: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDele
             self.folder.reload()
         }, failed: { [weak self] _ in
             // Kurz wie die anderen Meldungen; der Fehler steht im Protokoll (CloudMirror)
-            self?.announce(L("Couldn’t sync", "Nicht abgeglichen"))
+            self?.announce(L("Not synced", "Kein Abgleich"))
         })
     }
 

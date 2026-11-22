@@ -15,6 +15,8 @@
     <string>BarDrop</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.zzuuuiii.bardrop</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -77,6 +79,12 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>BarDrop shows files from your desktop that you put in the shelf, and new screenshots if you turn that on.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>BarDrop shows files from your Documents folder that you put in the shelf or pinned to the action bar.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>BarDrop shows files from your Downloads folder that you put in the shelf, and files received with AirDrop if you turn that on.</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSHumanReadableCopyright</key>

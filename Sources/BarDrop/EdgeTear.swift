@@ -13,8 +13,11 @@ enum EdgeTear {
     /// So weit (pt) muss man vom Rand weg ziehen, bis sich die Ablage löst. Bei 85 pt war das
     /// Ablösen zu schwergängig, und der Zeiger lag beim Lösen fast 70 pt vor der Ablage, die
     /// dann ruckartig hinterhersprang (Nutzer, 07.11.2026). Bei 50 pt hing sie noch knapp 30 pt
-    /// hinter dem Zeiger und sprang beim Lösen; das wirkte wie Ruckeln (Nutzer, 17.11.2026)
-    static let tearDistance: CGFloat = 40
+    /// hinter dem Zeiger und sprang beim Lösen; das wirkte wie Ruckeln (Nutzer, 17.11.2026).
+    /// Seit das Lösen weich aufholt, lief es flüssig, hing aber zu wenig am Rand: etwas weiter
+    /// und zäher (Nutzer, 22.11.2026: „mehr Widerstand beim Loslösen“). 55 pt mit stärkerer
+    /// Zähigkeit ruckelte beim Lösen wieder; dazwischen
+    static let tearDistance: CGFloat = 48
     /// Zusätzliche dunkle Tönung über dem Glas der losgelösten Ablage (dunkles Erscheinungsbild;
     /// hell gilt ein eigener Wert in TearGoo): nur so viel, dass weiße Schrift lesbar bleibt.
     /// Wie klar oder getönt das Glas ist, bestimmt der Regler „Liquid Glass“ der
@@ -51,8 +54,10 @@ enum EdgeTear {
     /// zäh (anfangs folgt sie gut, kurz vor dem Reißen kaum noch)
     /// Weniger zäh als vorher (30/40): Beim Lösen liegt der Zeiger nur noch rund 14 statt 29 pt
     /// vor der Ablage, der Sprung zum Zeiger ist halb so groß (Nutzer, 17.11.2026)
-    static let stretchMax: CGFloat = 60
-    static let stretchSoftness: CGFloat = 70
+    /// Etwas zäher (22.11.2026, siehe `tearDistance`): Beim Lösen liegt der Zeiger rund 18 pt
+    /// vor der Ablage (vorher 14). Mit 25 pt wirkte der Sprung wieder ruckelig
+    static let stretchMax: CGFloat = 55
+    static let stretchSoftness: CGFloat = 60
     /// Beim Dehnen folgt die Ablage dem Zeiger senkrecht zu diesem Anteil
     static let stretchVertical: CGFloat = 0.3
     /// Nach dem Lösen holt die Ablage den Zeiger in dieser Zeit (s) ein

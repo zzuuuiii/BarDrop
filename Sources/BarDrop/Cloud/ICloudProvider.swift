@@ -52,7 +52,7 @@ final class ICloudProvider: CloudProvider {
         try fm.moveItem(at: hidden, to: target)
 
         let size = OAuthCloudProvider.size(of: target)
-        let label = L("Uploading", "Wird hochgeladen") + " · " + OAuthCloudProvider.sizeLabel(size)
+        let label = L("Uploading", "Lädt hoch") + " · " + OAuthCloudProvider.sizeLabel(size)
         // Einen Prozentwert gibt macOS fremden Programmen nicht: Der Platzhalter atmet
         progress(nil, label)
         let line = try await Self.runPublish(target.path, timeout: Self.timeout)

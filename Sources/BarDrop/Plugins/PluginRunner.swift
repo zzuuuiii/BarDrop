@@ -181,7 +181,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
         }
         // Gestartet: keine eigene Meldung, oben steht gleich „Plugin läuft“
         if started.isEmpty && blocked {
-            actions?.announce(L("Not started", "Nicht gestartet"), duration: 2)
+            actions?.announce(L("Not started", "Kein Start"), duration: 2)
         }
     }
 
@@ -324,7 +324,7 @@ final class PluginRunner: ObservableObject, PluginPrompter {
             // Kein Fenster zum Wegklicken: Meldung und Tipp stehen in den Details des
             // Plugins (Einstellungen → Plugins) und im Protokoll
             NSSound.beep()
-            actions?.announce(L("Failed", "Fehlgeschlagen"), duration: 2.5)
+            actions?.announce(L("Failed", "Fehler"), duration: 2.5)
         }
     }
 

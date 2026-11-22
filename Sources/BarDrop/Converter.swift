@@ -23,12 +23,12 @@ enum Converter {
 
         var title: String {
             switch self {
-            case .image(let type): return type.preferredFilenameExtension?.uppercased() ?? type.identifier
+            case .image(let type): return Converter.fileExtension(for: type).uppercased()
             case .resize(let size): return L("Resize to \(size) px", "Verkleinern auf \(size) px")
             case .imagesToPDF: return L("Combine into PDF", "Zu einem PDF zusammenfassen")
             case .pdfToImages(let type):
-                return L("Pages as \(type.preferredFilenameExtension?.uppercased() ?? "")",
-                         "Seiten als \(type.preferredFilenameExtension?.uppercased() ?? "")")
+                return L("Pages as \(Converter.fileExtension(for: type).uppercased())",
+                         "Seiten als \(Converter.fileExtension(for: type).uppercased())")
             case .text(let format): return Converter.textFormats.first { $0.format == format }?.title ?? format
             case .audio(let id): return Converter.audioFormats.first { $0.id == id }?.title ?? id
             case .video(let id): return Converter.videoFormats.first { $0.id == id }?.title ?? id
@@ -38,6 +38,14 @@ enum Converter {
     }
 
     enum Kind { case image, pdf, text, audio, video }
+
+    /// Endung einer umgewandelten Datei. JPEG als „.jpg“, wie Kamera, Fotos und die meisten
+    /// Formulare es erwarten; macOS schlägt „.jpeg“ vor, das lehnen manche Upload-Felder ab
+    /// (Nutzertest 22.11.2026)
+    static func fileExtension(for type: UTType) -> String {
+        if type.conforms(to: .jpeg) { return "jpg" }
+        return type.preferredFilenameExtension ?? "png"
+    }
 
     // MARK: Was angeboten wird
 
@@ -177,7 +185,7 @@ enum Converter {
 
     private static func writeImage(_ url: URL, as type: UTType, maxPixels: Int?, in dir: URL) -> URL? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let ext = type.preferredFilenameExtension ?? "png"
+        let ext = Self.fileExtension(for: type)
         let suffix = maxPixels.map { " (\($0) px)" } ?? ""
         let out = output(for: url, ext: ext, in: dir, suffix: suffix)
         // Animierte Bilder bleiben animiert, wenn das Ziel es kann (GIF)
@@ -249,7 +257,7 @@ enum Converter {
             let image = page.thumbnail(of: size, for: .mediaBox)
             guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { continue }
             let suffix = document.pageCount > 1 ? " \(index + 1)" : ""
-            let out = output(for: url, ext: type.preferredFilenameExtension ?? "png", in: dir, suffix: suffix)
+            let out = output(for: url, ext: Self.fileExtension(for: type), in: dir, suffix: suffix)
             guard let dest = CGImageDestinationCreateWithURL(out as CFURL, type.identifier as CFString, 1, nil) else { continue }
             let final = type == .jpeg ? (flatten(cg) ?? cg) : cg
             CGImageDestinationAddImage(dest, final, nil)

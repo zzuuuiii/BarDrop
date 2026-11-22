@@ -280,10 +280,21 @@ struct PaneIcon: View {
     var size: CGFloat = 22
 
     var body: some View {
+        SymbolTile(symbol: pane.symbol, tint: pane.tint, size: size)
+    }
+}
+
+/// Farbiges Quadrat mit weißem Symbol (Einstellungen, Einführung)
+struct SymbolTile: View {
+    let symbol: String
+    let tint: Color
+    var size: CGFloat = 22
+
+    var body: some View {
         RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-            .fill(SettingsTheme.iconGradient(pane.tint))
+            .fill(SettingsTheme.iconGradient(tint))
             .overlay(
-                Image(systemName: pane.symbol)
+                Image(systemName: symbol)
                     .font(.system(size: size * 0.52, weight: .semibold))
                     .foregroundStyle(.white)
                     .iconGlyphShadow(size: size)
@@ -340,7 +351,7 @@ struct SettingsRoot: View {
 
     /// Abstand der Bereiche nach oben: Ab macOS 26 ist die Titelleiste kompakt und die Ampel
     /// 6 pt höher, die Bereiche rücken mit, damit der Abstand zur Ampel gleich bleibt
-    private static var sidebarTop: CGFloat {
+    static var sidebarTop: CGFloat {
         if #available(macOS 26.0, *) { return 50 }
         return 56
     }

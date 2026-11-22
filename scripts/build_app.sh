@@ -35,14 +35,7 @@ if [ -n "${BARDROP_GOOGLE_CLIENT_SECRET:-}" ]; then
 fi
 
 echo "==> Erzeuge App-Icon"
-ICONSET="$OUT/AppIcon.iconset"
-mkdir -p "$ICONSET"
-for size in 16 32 128 256 512; do
-  sips -z $size $size Resources/AppIcon.png --out "$ICONSET/icon_${size}x${size}.png" >/dev/null
-  double=$((size * 2))
-  sips -z $double $double Resources/AppIcon.png --out "$ICONSET/icon_${size}x${size}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP_DIR/Contents/Resources/AppIcon.icns"
+bash scripts/compile_app_icon.sh "$APP_DIR" "$OUT"
 
 # Symbole der .bdrop-Dateien (festes Symbol und Quick-Look-Erweiterung je Plugin)
 scripts/build_plugin_icons.sh "$APP_DIR" arm64 x86_64

@@ -159,8 +159,10 @@ struct OpeningSettings: View {
             SettingsSection(L("When", "Wann")) {
                 // „Wartezeit“ statt „Ablage öffnen“: danach suchten die Testpersonen (07.11.2026)
                 PickerRow(L("Delay", "Wartezeit"),
-                          info: L("From a 1 second delay on, clicking the strip still opens the shelf right away.",
-                                  "Ab 1 Sekunde Wartezeit öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
+                          // Wer das Aufgehen am Rand abstellen wollte, suchte unter „Rand“; hier
+                          // steht nun, welche Wahl das tut (Nutzertest 22.11.2026)
+                          info: L("Opens too easily, for example at scroll bars? Choose a longer delay or “Only on click”. From 1 second on, clicking the strip still opens the shelf right away.",
+                                  "Öffnet sie zu leicht, etwa an Scrollbalken? Wähl eine längere Wartezeit oder „Nur per Klick“. Ab 1 Sekunde öffnet ein Klick auf den Streifen die Ablage trotzdem sofort."),
                           selection: $settings.openChoice,
                           options: OpenChoice.all.map { ($0, $0.title) })
                 ToggleRow(L("Reopen where you left off", "Dort öffnen, wo du warst"),

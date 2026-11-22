@@ -59,7 +59,9 @@ final class ConverterTests: XCTestCase {
     func testImageToJPEGAndResize() throws {
         let png = try makePNG()
         let jpeg = try XCTUnwrap(convert([png], .image(.jpeg)).first)
-        XCTAssertEqual(jpeg.pathExtension, "jpeg")
+        // „.jpg“ statt des von macOS vorgeschlagenen „.jpeg“ (Formulare, Nutzertest 22.11.2026)
+        XCTAssertEqual(jpeg.pathExtension, "jpg")
+        XCTAssertEqual(Converter.Target.image(.jpeg).title, "JPG")
         XCTAssertNotNil(NSImage(contentsOf: jpeg))
 
         let small = try XCTUnwrap(convert([png], .resize(100)).first)

@@ -159,6 +159,8 @@ final class EdgeController: NSObject {
     private var resizeCenterY: CGFloat?
     /// Der Zeiger zeigt gerade den Pfeil zum Ändern der Größe
     private var showsResizeCursor = false
+    /// Gesetzte Hand über dem Griff (offen) bzw. beim Ziehen (geschlossen), sonst nil
+    private var grabCursor: NSCursor?
     /// Der Zeiger war im letzten Takt über der offenen Ablage
     private var pointerInside = false
     /// Die Übersicht war im letzten Takt offen
@@ -1610,8 +1612,10 @@ extension EdgeController {
                 showsResizeCursor = false
                 NSCursor.arrow.set()
             }
+            updateGrabCursor()
             return
         }
+        grabCursor = nil
         showsResizeCursor = true
         if #available(macOS 15.0, *) {
             let position: NSCursor.FrameResizePosition
@@ -1629,6 +1633,17 @@ extension EdgeController {
         } else {
             NSCursor.crosshair.set()
         }
+    }
+
+    /// Über dem Griff oben eine offene Hand: So sieht man, dass sich die Ablage dort greifen und
+    /// vom Rand ziehen lässt (Nutzer, 22.11.2026). Beim Ziehen selbst der normale Zeiger: Eine
+    /// geschlossene Hand dabei wirkte komisch (Nutzer, 22.11.2026). Nur beim Wechsel gesetzt,
+    /// nicht bei jedem Takt
+    private func updateGrabCursor() {
+        let wanted: NSCursor? = !ui.grabbing && ui.grabberHot ? .openHand : nil
+        guard wanted != grabCursor else { return }
+        (wanted ?? .arrow).set()
+        grabCursor = wanted
     }
 
     /// Ecke oder Seite der offenen Ablage unter dem Zeiger (angedockt nicht am Bildschirmrand)
@@ -2074,20 +2089,62 @@ extension EdgeController {
     /// einzelnen Bildschirm bleibt alles wie vorher. Mit getrennten Spaces zeigt `SpanMirror`
     /// den Teil auf dem anderen Bildschirm.
     static func clampFloating(_ target: NSRect, around screen: NSScreen, among screens: [NSScreen]) -> NSRect {
-        var result = target
-        // Senkrecht: alle Bildschirme in derselben Spalte wie die Ablage
-        let column = screens.filter { $0.frame.maxX > target.minX && $0.frame.minX < target.maxX }
-        let vertical = column.isEmpty ? [screen] : column
-        let top = vertical.map(\.visibleFrame.maxY).max() ?? screen.visibleFrame.maxY
-        let bottom = vertical.map(\.visibleFrame.minY).min() ?? screen.visibleFrame.minY
-        result.origin.y = min(max(target.minY, bottom), top - target.height)
-        // Waagerecht: alle Bildschirme in derselben Zeile
-        let row = screens.filter { $0.frame.maxY > result.minY && $0.frame.minY < result.maxY }
-        let horizontal = row.isEmpty ? [screen] : row
-        let left = horizontal.map(\.frame.minX).min() ?? screen.frame.minX
-        let right = horizontal.map(\.frame.maxX).max() ?? screen.frame.maxX
-        result.origin.x = min(max(target.minX, left), right - target.width)
-        return result
+        let list = screens.isEmpty ? [screen] : screens
+        return clampFloating(target, areas: list.map { (frame: $0.frame, visible: $0.visibleFrame) })
+    }
+
+    /// Wie oben, mit den Flächen der Bildschirme (für Tests). Waagerecht bis an den Bildschirmrand
+    /// (zum Andocken), senkrecht ohne Menüleiste und Dock.
+    ///
+    /// Vorher wurde erst senkrecht, dann waagerecht begrenzt, und welche Bildschirme dabei zählten,
+    /// hing vom Ergebnis selbst ab. Bei unterschiedlich hohen Bildschirmen nebeneinander sprang die
+    /// Ablage an der Grenze von Bild zu Bild zwischen zwei Lagen hin und her, und sie ließ sich halb
+    /// über einen Bereich ohne Bildschirm ziehen (Nutzer, 22.11.2026). Jetzt: Liegt sie ganz auf
+    /// Bildschirmen, bleibt sie, wo sie ist; sonst an die nächste Stelle, an der sie ganz auf einem
+    /// Bildschirm oder im gemeinsamen Streifen zweier benachbarter liegt. Das Ergebnis hängt nur
+    /// vom Ziel ab, nichts kann mehr hin- und herspringen.
+    static func clampFloating(_ target: NSRect, areas: [(frame: NSRect, visible: NSRect)]) -> NSRect {
+        let rects = areas.map { NSRect(x: $0.frame.minX, y: $0.visible.minY, width: $0.frame.width, height: $0.visible.height) }
+        guard !rects.isEmpty else { return target }
+        if covered(target, by: rects) { return target }
+        // Streifen, in dem zwei aneinanderstoßende Bildschirme gemeinsam liegen: Dort gleitet sie hinüber
+        var regions = rects
+        for (i, a) in rects.enumerated() {
+            for b in rects[(i + 1)...] {
+                if abs(a.maxX - b.minX) < 1 || abs(b.maxX - a.minX) < 1 {
+                    let lo = max(a.minY, b.minY), hi = min(a.maxY, b.maxY)
+                    if hi > lo { regions.append(NSRect(x: min(a.minX, b.minX), y: lo, width: a.width + b.width, height: hi - lo)) }
+                }
+                if abs(a.maxY - b.minY) < 1 || abs(b.maxY - a.minY) < 1 {
+                    let lo = max(a.minX, b.minX), hi = min(a.maxX, b.maxX)
+                    if hi > lo { regions.append(NSRect(x: lo, y: min(a.minY, b.minY), width: hi - lo, height: a.height + b.height)) }
+                }
+            }
+        }
+        func clamp(_ r: NSRect, into area: NSRect) -> NSRect {
+            var out = r
+            out.origin.x = area.width >= r.width ? min(max(r.minX, area.minX), area.maxX - r.width) : area.minX
+            out.origin.y = area.height >= r.height ? min(max(r.minY, area.minY), area.maxY - r.height) : area.maxY - r.height
+            return out
+        }
+        let candidates = regions.map { clamp(target, into: $0) }
+        return candidates.min {
+            hypot($0.minX - target.minX, $0.minY - target.minY) < hypot($1.minX - target.minX, $1.minY - target.minY)
+        } ?? target
+    }
+
+    /// Liegt das Rechteck ganz auf den Flächen? (Stichproben auf einem Raster genügen: Bildschirme
+    /// sind große Rechtecke, Lücken kleiner als ein Rasterabstand gibt es nicht)
+    private static func covered(_ r: NSRect, by rects: [NSRect]) -> Bool {
+        let steps = 6
+        for i in 0...steps {
+            for j in 0...steps {
+                let p = NSPoint(x: r.minX + 0.5 + (r.width - 1) * CGFloat(i) / CGFloat(steps),
+                                y: r.minY + 0.5 + (r.height - 1) * CGFloat(j) / CGFloat(steps))
+                if !rects.contains(where: { $0.contains(p) }) { return false }
+            }
+        }
+        return true
     }
 
     /// Bildschirm, auf dem ein Punkt liegt (oder der nächste erlaubte)
@@ -2103,7 +2160,15 @@ extension EdgeController {
     /// Nächster Rand (links oder rechts), an den die Ablage andocken darf, und ihr Abstand dazu.
     /// Nur äußere Ränder: Geht der Bildschirm dort in einen anderen über, gehört sie nicht hin.
     private func nearestDock(for body: NSRect) -> (side: ScreenEdge, distance: CGFloat, screen: NSScreen)? {
-        guard let screen = tearScreen(at: NSPoint(x: body.midX, y: body.midY)) else { return nil }
+        // Der Bildschirm mit dem größten Teil der Ablage. Vorher der unter ihrer Mitte: Lag sie
+        // über der Grenze zweier Bildschirme, wechselte er bei jeder kleinen Bewegung, die Wölbung
+        // des Rands flackerte und sie dockte am falschen oder gar keinem Rand an (Nutzer, 22.11.2026)
+        let overlap = { (s: NSScreen) -> CGFloat in
+            let part = s.frame.intersection(body)
+            return part.isNull ? 0 : part.width * part.height
+        }
+        guard let screen = allowedScreens().filter({ overlap($0) > 0 }).max(by: { overlap($0) < overlap($1) })
+                ?? tearScreen(at: NSPoint(x: body.midX, y: body.midY)) else { return nil }
         let frames = allowedScreens().map(\.frame)
         var options: [(ScreenEdge, CGFloat)] = []
         if !EdgeLogic.edgeContinues(screen.frame, edge: .left, at: body.midY, into: frames) {
@@ -2433,9 +2498,15 @@ extension EdgeController {
                 drag.catchUp = nil
                 updateTear(drag)
             }
-            // In Randnähe losgelassen rastet sie immer ein, auch wenn sie gleich nach dem Lösen
-            // schwungvoll zurückgeschoben wurde (sonst bliebe sie halb am Rand schweben)
-            if let near = nearestDock(for: drag.body), near.distance < EdgeTear.attachZone {
+            // An den Rand gedrückt (Zeiger ganz außen): immer dort andocken. Manchmal blieb sie
+            // sonst schweben, obwohl man sie an den Rand drückte (Nutzer, 22.11.2026)
+            let near = nearestDock(for: drag.body)
+            // Liegt sie am Rand an (man hält sie oben in der Mitte, der Zeiger ist dabei weit vom
+            // Rand weg) oder steht der Zeiger selbst am Rand: an den Rand gedrückt
+            let touching = near.map { $0.distance < 3 && drag.leftZone } ?? false
+            if let pressed = pressedEdge(NSEvent.mouseLocation) ?? (touching ? near.map { ($0.side, $0.screen) } : nil) {
+                dock(drag, side: pressed.0, screen: pressed.1)
+            } else if let near, near.distance < EdgeTear.attachZone {
                 dock(drag, side: drag.leftZone ? near.side : drag.origin, screen: drag.leftZone ? near.screen : liveOrigin(drag))
             } else if let (screen, target) = settleTarget(drag.body) {
                 settle(drag, to: target, on: screen)
@@ -2445,6 +2516,20 @@ extension EdgeController {
         default:
             break
         }
+    }
+
+    /// Äußerer Rand (links oder rechts), an dem der Zeiger anliegt, sofern dort kein weiterer
+    /// Bildschirm anschließt
+    private func pressedEdge(_ p: NSPoint) -> (side: ScreenEdge, screen: NSScreen)? {
+        guard let screen = Self.screen(containing: p, in: allowedScreens()) else { return nil }
+        let frames = allowedScreens().map(\.frame)
+        if p.x <= screen.frame.minX + 2, !EdgeLogic.edgeContinues(screen.frame, edge: .left, at: p.y, into: frames) {
+            return (.left, screen)
+        }
+        if p.x >= screen.frame.maxX - 3, !EdgeLogic.edgeContinues(screen.frame, edge: .right, at: p.y, into: frames) {
+            return (.right, screen)
+        }
+        return nil
     }
 
     /// Losgelassen auf der Grenze zweier Bildschirme mit getrennten Spaces: Dort bliebe ein Teil
@@ -2532,7 +2617,8 @@ extension EdgeController {
         let spring = { (x: Double) in 1 - (1 + w * x) * exp(-w * x) }
         let e = CGFloat(t >= 1 ? 1 : spring(t) / spring(1))
         let from = drag.dockFrom, to = drag.dockTo
-        let body = NSRect(x: from.minX + (to.minX - from.minX) * e, y: from.minY + (to.minY - from.minY) * e,
+        let body = NSRect(x: from.minX + (to.minX - from.minX) * e,
+                          y: from.minY + (to.minY - from.minY) * e,
                           width: to.width, height: to.height)
         drag.body = body
         if drag.settling {
@@ -2544,7 +2630,7 @@ extension EdgeController {
             return
         }
         if let screen = drag.dockScreen {
-            let gap = drag.dockSide == .right ? screen.frame.maxX - body.maxX : body.minX - screen.frame.minX
+            let gap = max(0, drag.dockSide == .right ? screen.frame.maxX - body.maxX : body.minX - screen.frame.minX)
             // Der Rand greift etwas früher nach ihr, als sie ankommt
             let reach = min(1, e * 1.35)
             // Noch in der Bewegung in die Form der angedockten Ablage überblenden; das letzte Viertel ist schon sie, am Ende springt nichts mehr

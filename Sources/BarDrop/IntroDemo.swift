@@ -528,6 +528,8 @@ final class DemoShelf: ObservableObject {
 struct DemoLayout {
     /// Größe auf der Seite der Einführung
     static let shown = CGSize(width: 500, height: 220)
+    /// Ecken der Szene
+    static let cornerRadius: CGFloat = 18
 
     let edge: ScreenEdge
     let full: ShelfMetrics
@@ -669,12 +671,13 @@ struct ShelfStage: View {
         .allowsHitTesting(false)
         .scaleEffect(l.scale, anchor: .topLeading)
         .frame(width: DemoLayout.shown.width, height: DemoLayout.shown.height, alignment: .topLeading)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Rundung wie die Fenster ab macOS 26, ohne Schatten wie die Karten der Einstellungen.
+        // Mit 14 pt und Schatten wirkte das Bild kantig und abgehoben (Nutzer, 22.11.2026)
+        .clipShape(RoundedRectangle(cornerRadius: DemoLayout.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DemoLayout.cornerRadius, style: .continuous)
                 .strokeBorder(SettingsTheme.cardBorder, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
         .onAppear { demo.start() }
         .onDisappear { demo.stop() }
         .accessibilityHidden(true)

@@ -52,7 +52,7 @@ final class GoogleDriveProvider: OAuthCloudProvider, CloudProvider {
     func upload(_ file: URL, name: String, progress: @escaping (Double?, String?) -> Void) async throws -> URL {
         let folder = try await shareFolder()
         let size = Self.size(of: file)
-        let label = L("Uploading", "Wird hochgeladen") + " · " + Self.sizeLabel(size)
+        let label = L("Uploading", "Lädt hoch") + " · " + Self.sizeLabel(size)
         progress(0, label)
         // Hochladen mit Wiederaufnahme: erst die Sitzung, dann die Datei in Stücken
         let start = URL(string: "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink")!

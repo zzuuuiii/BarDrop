@@ -217,6 +217,8 @@ struct ShelfContent: View {
     @ObservedObject var ui: ShelfUIModel
     /// Vorführung in der Einführung: ohne Klick-, Zieh- und Drop-Flächen
     @Environment(\.shelfDemo) private var shelfDemo
+    /// „Kontrast erhöhen“: graue Schrift kräftiger (siehe `secondaryOpacity`)
+    @Environment(\.colorSchemeContrast) private var contrast
     @ObservedObject var store: ShelfStore
     @ObservedObject var settings: AppSettings
     let actions: ShelfActions
@@ -461,10 +463,10 @@ struct ShelfContent: View {
         .overlay(alignment: .top) {
             if !shelfDemo {
                 Capsule()
-                    .fill(Color.primary.opacity(ui.grabbing ? 0.85 : ui.grabberHot ? 0.5 : 0.28))
-                    // Gleich lang wie früher, etwas flacher (5 → 4,5 pt); über dem Griff heller
-                    // und etwas breiter (Nutzer 17.11.2026)
-                    .frame(width: ui.grabbing ? 46 : ui.grabberHot ? 40 : 36, height: 4.5)
+                    .fill(Color.primary.opacity(ui.grabbing ? 0.85 : ui.grabberHot ? 0.55 : 0.35))
+                    // Über dem Griff heller und etwas breiter (Nutzer 17.11.2026). Kräftiger als
+                    // vorher (36 × 4,5 pt wirkte zu dünn zum Greifen, Nutzer 22.11.2026)
+                    .frame(width: ui.grabbing ? 54 : ui.grabberHot ? 48 : 44, height: 6)
                     .animation(.easeOut(duration: 0.15), value: ui.grabberHot)
                     .padding(.top, 9)
                     .opacity(ui.grabbing || ui.grabberHover ? 1 : 0)
@@ -568,15 +570,19 @@ struct ShelfContent: View {
                     // Große Dateien, Downloads und iCloud brauchen einen Moment
                     HStack(spacing: 5) {
                         ProgressView().controlSize(.mini)
-                        countLabel(L("Importing", "Wird importiert"))
+                        countLabel(L("Importing", "Import läuft"))
                     }
                 } else if ui.notice == nil && selected == 0 && runner.hasVisibleJobs {
                     // Plugins arbeiten: das statt der Anzahl
                     runningPlugins
                 } else {
+                    // Hat Vorrang vor dem Titel links: Bei schmaler Ablage wurde sonst der Hinweis
+                    // abgeschnitten („Erst ausw…“, Nutzer 22.11.2026)
                     status(count == 0 ? nil
                            : selected > 0 ? L("\(selected) selected", "\(selected) ausgewählt")
                            : (count == 1 ? L("1 item", "1 Objekt") : L("\(count) items", "\(count) Objekte")))
+                        .fixedSize()
+                        .layoutPriority(2)
                 }
             }
             // Rechts derselbe Abstand zur Kante wie „BarDrop“ links (um die Breite des
@@ -598,11 +604,11 @@ struct ShelfContent: View {
         let running = Set(visible.filter { !$0.isNative }.map(\.plugin.id)).count
         if running == 0 && !visible.isEmpty {
             // Nur Uploads in die Cloud
-            countLabel(L("Uploading", "Wird hochgeladen"))
+            countLabel(L("Uploading", "Lädt hoch"))
                 .transition(.opacity)
         } else if running > 0 {
             countLabel(running == 1 ? L("Plugin running", "Plugin läuft")
-                                    : L("\(running) plugins running", "\(running) Plugins laufen"))
+                                    : L("\(running) running", "\(running) laufen"))
                 .transition(.opacity)
         }
     }
@@ -612,8 +618,11 @@ struct ShelfContent: View {
     private func status(_ fallback: String?) -> some View {
         if let notice = ui.notice {
             // Nur ein kurzes Wort, ohne Knopf „Rückgängig“ daneben: Dafür war oben kein Platz
-            // (Nutzer, 17.11.2026). Zurück geht es mit ⌘Z
-            countLabel(notice.text)
+            // (Nutzer, 17.11.2026). Dahinter steht ⌘Z, sonst fand im Nutzertest kaum jemand
+            // den Weg zurück (22.11.2026)
+            // ⌘Z nur, wenn es mit dem Wort zusammen kurz bleibt („Ausgeschnitten“ ohne)
+            let undo = notice.text + " · ⌘Z"
+            countLabel(notice.canUndo && undo.count <= Self.statusLimit - 4 ? undo : notice.text)
             .id(notice.id)
             .transition(.opacity)
         } else if let fallback {
@@ -673,7 +682,9 @@ struct ShelfContent: View {
 
     /// Höchstens so viele Zeichen oben rechts; Längeres wird gekürzt, damit der Titel links
     /// immer genug Platz hat
-    static let statusLimit = 24
+    /// Bei Standardbreite und schmaler Ablage passen rund 18 Zeichen; alle Hinweise sind so kurz
+    /// gehalten (Nutzer, 22.11.2026), länger wird gekürzt
+    static let statusLimit = 15
 
     static func limited(_ text: String) -> String {
         text.count > statusLimit ? String(text.prefix(statusLimit - 1)).trimmingCharacters(in: .whitespaces) + "…" : text
@@ -683,7 +694,7 @@ struct ShelfContent: View {
         Text(Self.limited(text))
             .font(.system(size: 11, weight: .medium))
             .monospacedDigit()
-            .foregroundStyle(Color.primary.opacity(0.5))
+            .foregroundStyle(Color.primary.secondaryOpacity(0.5, contrast: contrast))
             .lineLimit(1)
             .transaction { $0.animation = nil }   // Zahl ändert sich ohne Animation
             .allowsHitTesting(false)
@@ -772,7 +783,7 @@ struct ShelfContent: View {
     @ViewBuilder
     private var pendingTiles: some View {
         ForEach(0..<max(store.pendingImports, 0), id: \.self) { _ in
-            TileLabel(title: L("Importing", "Wird importiert"), isSelected: false, isKey: false) {
+            TileLabel(title: L("Importing", "Import läuft"), isSelected: false, isKey: false) {
                 ProgressView()
                     .controlSize(.small)
             }
@@ -803,10 +814,10 @@ struct ShelfContent: View {
         VStack(spacing: 10) {
             Image(systemName: "lock")
                 .font(.system(size: 28, weight: .light))
-                .foregroundStyle(Color.primary.opacity(0.45))
+                .foregroundStyle(Color.primary.secondaryOpacity(0.45, contrast: contrast))
             Text(L("No access to this folder", "Kein Zugriff auf diesen Ordner"))
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.6))
+                .foregroundStyle(Color.primary.secondaryOpacity(0.6, contrast: contrast))
             Text(L("Allow BarDrop under Files and Folders.", "Erlaub BarDrop den Zugriff unter „Dateien und Ordner“."))
                 .font(.system(size: 12))
                 .foregroundStyle(Color.primary.opacity(0.45))
@@ -825,7 +836,7 @@ struct ShelfContent: View {
             Text(ui.isDropTargeted ? L("Drop here", "Hier ablegen") : L("Folder is empty", "Ordner ist leer"))
                 .font(.system(size: 14, weight: .semibold))
         }
-        .foregroundStyle(Color.primary.opacity(ui.isDropTargeted ? 1 : 0.45))
+        .foregroundStyle(Color.primary.secondaryOpacity(ui.isDropTargeted ? 1 : 0.45, contrast: contrast))
     }
 
     /// Ab so vielen Objekten (große Ordner wie Downloads, sehr volle Ablage) das sparsame
@@ -1044,7 +1055,7 @@ struct ShelfContent: View {
             Text(L("Drop here", "Hier ablegen"))
                 .font(.system(size: 14, weight: .semibold))
         }
-        .foregroundStyle(Color.primary.opacity(ui.isDropTargeted ? 1 : 0.45))
+        .foregroundStyle(Color.primary.secondaryOpacity(ui.isDropTargeted ? 1 : 0.45, contrast: contrast))
     }
 
     private var dropHighlight: some View {
@@ -1157,6 +1168,18 @@ extension TileHitKey {
 }
 
 struct TileLabel<Preview: View>: View {
+    /// Name, der nur um ein, zwei Zeichen zu breit ist: Statt eines Umbruchs mit einem
+    /// einzelnen Rest („Diagramm.pn“ / „g“) bleibt er einzeilig und wird minimal enger gesetzt
+    /// (Nutzer, 22.11.2026)
+    static func squeezesOntoOneLine(_ title: String, width: CGFloat) -> Bool {
+        let font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let full = (title as NSString).size(withAttributes: [.font: font]).width
+        guard full > width else { return false }
+        // Breite der letzten zwei Zeichen: So viel darf überstehen
+        let tail = (String(title.suffix(2)) as NSString).size(withAttributes: [.font: font]).width
+        return full - width <= tail + 1 && width / full >= 0.8
+    }
+
     let title: String
     let isSelected: Bool
     let isKey: Bool
@@ -1166,6 +1189,8 @@ struct TileLabel<Preview: View>: View {
     /// Name wird gerade bearbeitet: Eingabefeld statt Name
     var rename: RenameField? = nil
     @ViewBuilder let preview: () -> Preview
+    /// Breite der Spalte, in der die Kachel steht (für den Umbruch des Namens)
+    @State private var columnWidth: CGFloat?
 
     static var iconSize: CGFloat { CGFloat(AppSettings.shared.tileIconSize) }
 
@@ -1193,10 +1218,15 @@ struct TileLabel<Preview: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(minHeight: 28, alignment: .top)
             } else {
+            // Tatsächlich verfügbare Breite: Die Spalte kann schmaler sein als die Namensbreite
+            let available = min(columnWidth ?? .infinity, TileMetrics.labelWidth(iconSize)) - 2 * TileMetrics.labelPadding
+            let squeeze = Self.squeezesOntoOneLine(title, width: available)
             Text(title)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(isSelected && isKey ? Color.white : Color.primary.opacity(isSelected ? 1 : 0.88))
-                .lineLimit(2)
+                .lineLimit(squeeze ? 1 : 2)
+                .minimumScaleFactor(squeeze ? 0.8 : 1)
+                .allowsTightening(squeeze)
                 .truncationMode(.middle)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, TileMetrics.labelPadding)
@@ -1209,6 +1239,7 @@ struct TileLabel<Preview: View>: View {
         // Etwas dichter als früher (6/30/6 pt), näher am Finder: rund 122 statt 132 pt je Reihe
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { columnWidth = $0 }
     }
 }
 
@@ -1446,7 +1477,7 @@ private struct CloudUploadOverlay: ViewModifier {
                     PluginProgressBar(progress: value)
                         .frame(width: (size * 0.78).rounded(), height: PluginProgressBar.height)
                         .offset(y: PluginProgressBar.offset(size))
-                        .help(L("Uploading", "Wird hochgeladen"))
+                        .help(L("Uploading", "Lädt hoch"))
                         .transition(.opacity)
                 }
             }
@@ -1570,5 +1601,15 @@ struct RenameField: NSViewRepresentable {
         func controlTextDidEndEditing(_ note: Notification) {
             finish((note.object as? NSTextField)?.stringValue)
         }
+    }
+}
+
+// MARK: Kontrast
+
+extension Color {
+    /// Graue Schrift als Deckkraft der Vordergrundfarbe. Mit „Kontrast erhöhen“ (Bedienungshilfen)
+    /// deutlich kräftiger: 45 bis 70 % waren im Nutzertest bei Sehschwäche kaum lesbar (22.11.2026)
+    func secondaryOpacity(_ value: Double, contrast: ColorSchemeContrast) -> Color {
+        opacity(contrast == .increased ? max(value, 0.88) : value)
     }
 }

@@ -45,7 +45,10 @@ private struct CloudServiceRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
+            // Nicht verfügbar: Logo deckend, nur grau. Durchscheinend lag es halb über dem
+            // durchsichtigen Hintergrund und wirkte kaputt (Nutzer, 22.11.2026)
             CloudServiceIcon(service: service, size: 26)
+                .saturation(provider.isConfigured ? 1 : 0)
             VStack(alignment: .leading, spacing: 1) {
                 Text(service.title)
                     .font(.system(size: 13.5))
@@ -56,12 +59,12 @@ private struct CloudServiceRow: View {
                         .lineLimit(2)
                 }
             }
+            // Ohne Kennung (etwa OneDrive, solange Microsoft keine App-Registrierung erlaubt)
+            // ausgegraut und ohne Knopf, damit gleich klar ist, dass es den Dienst noch nicht gibt
+            .opacity(provider.isConfigured ? 1 : 0.45)
             Spacer(minLength: 8)
             control
         }
-        // Ohne Kennung (etwa OneDrive, solange Microsoft keine App-Registrierung erlaubt)
-        // ausgegraut und ohne Knopf, damit gleich klar ist, dass es den Dienst noch nicht gibt
-        .opacity(provider.isConfigured ? 1 : 0.45)
         .padding(.horizontal, SettingsTheme.rowPadding)
         .frame(minHeight: 52)
     }

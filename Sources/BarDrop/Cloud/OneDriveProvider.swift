@@ -33,7 +33,7 @@ final class OneDriveProvider: OAuthCloudProvider, CloudProvider {
 
     func upload(_ file: URL, name: String, progress: @escaping (Double?, String?) -> Void) async throws -> URL {
         let size = Self.size(of: file)
-        let label = L("Uploading", "Wird hochgeladen") + " · " + Self.sizeLabel(size)
+        let label = L("Uploading", "Lädt hoch") + " · " + Self.sizeLabel(size)
         progress(0, label)
         // „:“ trennt bei Microsoft Pfad und Befehl (root:/Pfad:/content): im Namen mitkodieren
         var allowed = CharacterSet.urlPathAllowed

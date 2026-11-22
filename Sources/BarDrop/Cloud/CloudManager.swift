@@ -70,7 +70,7 @@ final class CloudManager: ObservableObject {
         let provider = service.provider
         guard provider.isConnected else {
             NSSound.beep()
-            actions.announce(L("Not connected", "Nicht verbunden"))
+            actions.announce(L("Not linked", "Getrennt"))
             SettingsNavigation.shared.pane = .cloud
             actions.openSettings()
             return
@@ -100,7 +100,7 @@ final class CloudManager: ObservableObject {
                 // Ohne Platzhalter gibt es kein Rütteln: Fehler als Meldung in der Ablage
                 if !(error is CancellationError) {
                     // Oben rechts nur kurz wie die anderen Meldungen; der ganze Text steht im Protokoll
-                    actions.announce((error as? CloudError)?.short ?? L("Couldn’t upload", "Nicht hochgeladen"), duration: 4)
+                    actions.announce((error as? CloudError)?.short ?? L("Not uploaded", "Kein Upload"), duration: 4)
                 }
                 throw error
             }
